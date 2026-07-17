@@ -41,6 +41,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
       };
       projects: {
         Row: {
@@ -62,6 +63,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["projects"]["Insert"]>;
+        Relationships: [];
       };
       project_members: {
         Row: {
@@ -79,6 +81,7 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["project_members"]["Insert"]
         >;
+        Relationships: [];
       };
       pages: {
         Row: {
@@ -102,6 +105,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["pages"]["Insert"]>;
+        Relationships: [];
       };
       snapshots: {
         Row: {
@@ -121,6 +125,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["snapshots"]["Insert"]>;
+        Relationships: [];
       };
       comments: {
         Row: {
@@ -146,7 +151,25 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["comments"]["Insert"]>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: {
+      is_project_member: {
+        Args: { p_project_id: string; p_min_role?: ProjectRole | null };
+        Returns: boolean;
+      };
+      is_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+    };
+    Enums: {
+      project_role: ProjectRole;
+      project_status: ProjectStatus;
+      comment_status: CommentStatus;
+    };
+    CompositeTypes: Record<string, never>;
   };
 }
