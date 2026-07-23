@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { clearMustChangePassword } from "@/lib/actions/invite";
 
 /**
  * Zielseite des Einladungslinks: die eingeladene Person legt hier ihr
@@ -48,6 +49,9 @@ export default function SetPasswordPage() {
       setLoading(false);
       return;
     }
+
+    // Falls die Person direkt angelegt wurde: erzwungenen Wechsel abhaken.
+    await clearMustChangePassword();
 
     router.push("/projects");
     router.refresh();

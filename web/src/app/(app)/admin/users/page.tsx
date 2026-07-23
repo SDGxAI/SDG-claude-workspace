@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InviteForm } from "@/components/admin/InviteForm";
+import { CreateUserForm } from "@/components/admin/CreateUserForm";
 import { RoleSelect } from "@/components/admin/RoleSelect";
 import { DeleteUserButton } from "@/components/admin/DeleteUserButton";
 import { PageContainer } from "@/components/PageContainer";
@@ -49,10 +50,24 @@ export default async function AdminUsersPage() {
       </p>
 
       <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-5">
-        <h2 className="font-medium text-neutral-900">Person einladen</h2>
+        <h2 className="font-medium text-neutral-900">
+          Nutzer direkt anlegen (mit Start-Passwort)
+        </h2>
+        <p className="mb-3 mt-1 text-sm text-neutral-500">
+          Ohne E-Mail-Versand: Du vergibst ein Start-Passwort und gibst
+          E-Mail + Passwort persönlich weiter. Die Person muss beim ersten
+          Login ein eigenes Passwort festlegen.
+        </p>
+        <CreateUserForm />
+      </section>
+
+      <section className="mt-4 rounded-xl border border-neutral-200 bg-white p-5">
+        <h2 className="font-medium text-neutral-900">
+          Alternativ: Person per E-Mail einladen
+        </h2>
         <p className="mb-3 mt-1 text-sm text-neutral-500">
           Die Person erhält eine E-Mail mit einem Link, um ihr Passwort
-          festzulegen.
+          selbst festzulegen.
         </p>
         <InviteForm />
       </section>

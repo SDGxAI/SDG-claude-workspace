@@ -23,9 +23,15 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("email, is_admin")
+    .select("email, is_admin, must_change_password")
     .eq("id", user.id)
     .single();
+
+  // Direkt angelegte Nutzer:innen müssen beim ersten Login ein eigenes
+  // Passwort festlegen (die Zielseite liegt außerhalb dieses Layouts).
+  if (profile?.must_change_password) {
+    redirect("/set-password");
+  }
 
   return (
     <>
