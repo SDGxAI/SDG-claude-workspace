@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { applyColor, applyImage, applyText } from "@/lib/html/liveApply";
+import {
+  applyColor,
+  applyImage,
+  applyText,
+  applyI18nLang,
+  applyI18nValue,
+} from "@/lib/html/liveApply";
 import { savePageContent } from "@/lib/actions/pages";
 import {
   createSnapshot,
@@ -63,6 +69,16 @@ export function Editor({
   const [snapshotLabel, setSnapshotLabel] = useState("");
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
+
+  const langs = useMemo(
+    () => Object.keys(initialContentState.i18n ?? {}),
+    [initialContentState.i18n],
+  );
+  const i18nKeys = useMemo(
+    () => (langs.length > 0 ? Object.keys(initialContentState.i18n![langs[0]]) : []),
+    [initialContentState.i18n, langs],
+  );
+  const [lang, setLang] = useState<string>(langs[0] ?? "");
 
   const isFirstRender = useRef(true);
   const lastKey = useRef<string | null>(null);
@@ -146,9 +162,25 @@ export function Editor({
       for (const [id, v] of Object.entries(state.images)) {
         applyImage(doc, id, resolveImg(v));
       }
+      if (state.i18n && lang && state.i18n[lang]) {
+        applyI18nLang(doc, state.i18n[lang]);
+      }
     },
-    [getDoc, resolveImg],
+    [getDoc, resolveImg, lang],
   );
+
+  // Beim Laden der Vorschau und beim Sprachwechsel die aktuelle Sprache
+  // anwenden (die Vorschau selbst führt keine Skripte aus).
+  const applyCurrentLang = useCallback(() => {
+    const doc = getDoc();
+    if (doc && content.i18n && lang && content.i18n[lang]) {
+      applyI18nLang(doc, content.i18n[lang]);
+    }
+  }, [getDoc, content.i18n, lang]);
+
+  useEffect(() => {
+    applyCurrentLang();
+  }, [lang, applyCurrentLang]);
 
   const undo = useCallback(() => {
     if (past.length === 0) return;
@@ -196,6 +228,22 @@ export function Editor({
     const doc = getDoc();
     if (doc) applyText(doc, id, value);
     commit({ ...content, texts: { ...content.texts, [id]: value } }, `text:${id}`);
+  }
+
+  function handleI18nChange(key: string, value: string) {
+    if (!content.i18n) return;
+    const doc = getDoc();
+    if (doc) applyI18nValue(doc, key, value);
+    commit(
+      {
+        ...content,
+        i18n: {
+          ...content.i18n,
+          [lang]: { ...content.i18n[lang], [key]: value },
+        },
+      },
+      `i18n:${lang}:${key}`,
+    );
   }
 
   async function handleImageChange(id: string, file: File) {
@@ -314,6 +362,56 @@ export function Editor({
 
         {canEdit && (
           <>
+            {langs.length > 0 && (
+              <section className="border-b border-neutral-200 p-4">
+                <h2 className="mb-2 text-sm font-semibold text-neutral-900">
+                  Sprache
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {langs.map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => setLang(l)}
+                      className={`rounded px-3 py-1 text-sm font-medium ${
+                        l === lang
+                          ? "bg-sdg-red text-white"
+                          : "border border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
+                      }`}
+                    >
+                      {l.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-neutral-400">
+                  Die Vorschau und die Textfelder unten zeigen die gewählte
+                  Sprache. Jede Sprache wird separat bearbeitet.
+                </p>
+              </section>
+            )}
+
+            {langs.length > 0 && (
+              <section className="border-b border-neutral-200 p-4">
+                <h2 className="mb-3 text-sm font-semibold text-neutral-900">
+                  Texte {lang.toUpperCase()} ({i18nKeys.length})
+                </h2>
+                <div className="space-y-3">
+                  {i18nKeys.map((key) => (
+                    <div key={key}>
+                      <label className="block truncate text-xs text-neutral-500" title={key}>
+                        {key}
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={content.i18n?.[lang]?.[key] ?? ""}
+                        onChange={(e) => handleI18nChange(key, e.target.value)}
+                        className="mt-1 w-full resize-y rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="border-b border-neutral-200 p-4">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
                 Farben ({colors.length})
@@ -500,6 +598,7 @@ export function Editor({
             ref={iframeRef}
             title="Live-Vorschau"
             srcDoc={initialHtml}
+            onLoad={applyCurrentLang}
             className="h-full w-full"
             sandbox="allow-same-origin"
           />

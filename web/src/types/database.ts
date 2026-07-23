@@ -20,6 +20,8 @@ export interface ContentState {
   colors: Record<string, string>;
   texts: Record<string, string>;
   images: Record<string, string>;
+  /** Übersetzungen (Sprache -> Schlüssel -> Wert), falls mehrsprachig. */
+  i18n?: Record<string, Record<string, string>>;
 }
 
 export interface Database {

@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { ContentState, DetectedElement } from "@/types/database";
+import { detectI18n, serializeI18n } from "@/lib/html/i18n";
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -23,6 +24,22 @@ export function renderHtml(
   detectedElements: DetectedElement[],
 ): string {
   const $ = cheerio.load(templateHtml);
+
+  // Übersetzungen: das I18N-Objekt im Script mit den aktuellen Werten
+  // überschreiben, damit der Sprachumschalter der Seite sie anzeigt.
+  if (contentState.i18n && Object.keys(contentState.i18n).length > 0) {
+    const scripts = $("script").toArray();
+    const scriptTexts = scripts.map((el) => $(el).text());
+    const det = detectI18n(scriptTexts);
+    if (det) {
+      const original = scriptTexts[det.range.scriptIndex];
+      const replaced =
+        original.slice(0, det.range.start) +
+        serializeI18n(contentState.i18n) +
+        original.slice(det.range.end);
+      $(scripts[det.range.scriptIndex]).text(replaced);
+    }
+  }
 
   for (const [id, value] of Object.entries(contentState.texts)) {
     $(`[data-edit-id="${id}"]`).text(value);
