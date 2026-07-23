@@ -49,12 +49,24 @@ export async function createProject(input: {
   // Jede:r angemeldete Nutzer:in darf ein Projekt anlegen und wird per
   // Trigger automatisch Editor des neuen Projekts. Ist die Person auf
   // bestimmte Marken beschränkt, darf sie nur für diese anlegen.
+  // Der brands-Zugriff ist tolerant, falls die Spalte (Migration 0006)
+  // noch nicht existiert.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin, brands")
+    .select("is_admin")
     .eq("id", user.id)
     .single();
-  const brands = profile?.brands ?? [];
+  let brands: string[] = [];
+  try {
+    const { data: brandRow } = await supabase
+      .from("profiles")
+      .select("brands")
+      .eq("id", user.id)
+      .single();
+    brands = brandRow?.brands ?? [];
+  } catch {
+    brands = [];
+  }
   if (!profile?.is_admin && brands.length > 0 && !brands.includes(input.brand)) {
     return {
       ok: false,
@@ -81,7 +93,10 @@ export async function createProject(input: {
     .single();
 
   if (projectError || !project) {
-    return { ok: false, error: "Das Projekt konnte nicht gespeichert werden." };
+    return {
+      ok: false,
+      error: `Das Projekt konnte nicht gespeichert werden${projectError?.message ? ` (${projectError.message})` : ""}.`,
+    };
   }
 
   const { error: pageError } = await supabase.from("pages").insert({
@@ -95,7 +110,10 @@ export async function createProject(input: {
   if (pageError) {
     // Projekt ohne Seite wäre unbrauchbar - wieder entfernen.
     await supabase.from("projects").delete().eq("id", project.id);
-    return { ok: false, error: "Die Seiteninhalte konnten nicht gespeichert werden." };
+    return {
+      ok: false,
+      error: `Die Seiteninhalte konnten nicht gespeichert werden${pageError.message ? ` (${pageError.message})` : ""}.`,
+    };
   }
 
   revalidatePath("/projects");
