@@ -4,7 +4,9 @@ import { InviteForm } from "@/components/admin/InviteForm";
 import { CreateUserForm } from "@/components/admin/CreateUserForm";
 import { RoleSelect } from "@/components/admin/RoleSelect";
 import { DeleteUserButton } from "@/components/admin/DeleteUserButton";
+import { UserBrandsEditor } from "@/components/admin/UserBrandsEditor";
 import { PageContainer } from "@/components/PageContainer";
+import { SDG_BRANDS } from "@/lib/brands";
 import type { ProjectRole } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +60,7 @@ export default async function AdminUsersPage() {
           E-Mail + Passwort persönlich weiter. Die Person muss beim ersten
           Login ein eigenes Passwort festlegen.
         </p>
-        <CreateUserForm />
+        <CreateUserForm brands={[...SDG_BRANDS]} />
       </section>
 
       <section className="mt-4 rounded-xl border border-neutral-200 bg-white p-5">
@@ -114,43 +116,53 @@ export default async function AdminUsersPage() {
                 <p className="mt-3 text-sm text-neutral-500">
                   Admins haben automatisch vollen Zugriff auf alle Projekte.
                 </p>
-              ) : (projects ?? []).length === 0 ? (
-                <p className="mt-3 text-sm text-neutral-500">
-                  Noch keine Projekte vorhanden – Rollen können vergeben
-                  werden, sobald das erste Projekt angelegt ist.
-                </p>
               ) : (
-                <table className="mt-3 w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-neutral-500">
-                      <th className="py-1 pr-4 font-normal">Projekt</th>
-                      <th className="py-1 font-normal">Rolle</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(projects ?? []).map((project) => (
-                      <tr key={project.id} className="border-t border-neutral-100">
-                        <td className="py-2 pr-4 text-neutral-900">
-                          {project.title}
-                          <span className="ml-2 text-xs text-neutral-400">
-                            {project.brand}
-                          </span>
-                        </td>
-                        <td className="py-2">
-                          <RoleSelect
-                            projectId={project.id}
-                            userId={profile.id}
-                            currentRole={
-                              roleByUserAndProject.get(
-                                `${profile.id}:${project.id}`,
-                              ) ?? null
-                            }
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <>
+                  <UserBrandsEditor
+                    userId={profile.id}
+                    brands={[...SDG_BRANDS]}
+                    currentBrands={profile.brands ?? []}
+                  />
+
+                  {(projects ?? []).length === 0 ? (
+                    <p className="mt-3 text-sm text-neutral-500">
+                      Noch keine Projekte vorhanden – Rollen können vergeben
+                      werden, sobald das erste Projekt angelegt ist.
+                    </p>
+                  ) : (
+                    <table className="mt-3 w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-neutral-500">
+                          <th className="py-1 pr-4 font-normal">Projekt</th>
+                          <th className="py-1 font-normal">Rolle</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(projects ?? []).map((project) => (
+                          <tr key={project.id} className="border-t border-neutral-100">
+                            <td className="py-2 pr-4 text-neutral-900">
+                              {project.title}
+                              <span className="ml-2 text-xs text-neutral-400">
+                                {project.brand}
+                              </span>
+                            </td>
+                            <td className="py-2">
+                              <RoleSelect
+                                projectId={project.id}
+                                userId={profile.id}
+                                currentRole={
+                                  roleByUserAndProject.get(
+                                    `${profile.id}:${project.id}`,
+                                  ) ?? null
+                                }
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </>
               )}
             </div>
           ))}

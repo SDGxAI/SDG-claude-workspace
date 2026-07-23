@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SDG_BRANDS } from "@/lib/brands";
 
 export type InviteResult = { ok: true } | { ok: false; error: string };
 
@@ -58,6 +59,7 @@ export async function inviteUser(rawEmail: string): Promise<InviteResult> {
 export async function createUserWithPassword(
   rawEmail: string,
   password: string,
+  brands: string[] = [],
 ): Promise<InviteResult> {
   const email = rawEmail.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -66,6 +68,7 @@ export async function createUserWithPassword(
   if (password.length < 8) {
     return { ok: false, error: "Das Passwort muss mindestens 8 Zeichen lang sein." };
   }
+  const cleanBrands = brands.filter((b) => SDG_BRANDS.includes(b as (typeof SDG_BRANDS)[number]));
 
   const supabase = await createClient();
   const {
@@ -96,12 +99,52 @@ export async function createUserWithPassword(
     return { ok: false, error: `Anlegen fehlgeschlagen: ${error.message}` };
   }
 
-  // Profil auf aktiv setzen und Passwortänderung beim ersten Login erzwingen.
+  // Profil auf aktiv setzen, Passwortänderung erzwingen und Marken setzen.
   if (created?.user) {
     await admin
       .from("profiles")
-      .update({ status: "aktiv", must_change_password: true })
+      .update({
+        status: "aktiv",
+        must_change_password: true,
+        brands: cleanBrands,
+      })
       .eq("id", created.user.id);
+  }
+
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
+/** Setzt die Marken-Berechtigung einer Person (leer = keine Einschränkung). */
+export async function setUserBrands(
+  userId: string,
+  brands: string[],
+): Promise<InviteResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Nicht angemeldet." };
+  }
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.is_admin) {
+    return { ok: false, error: "Nur Admins dürfen Firmen zuweisen." };
+  }
+
+  const cleanBrands = brands.filter((b) =>
+    SDG_BRANDS.includes(b as (typeof SDG_BRANDS)[number]),
+  );
+  const { error } = await supabase
+    .from("profiles")
+    .update({ brands: cleanBrands })
+    .eq("id", userId);
+  if (error) {
+    return { ok: false, error: "Firmen konnten nicht gespeichert werden." };
   }
 
   revalidatePath("/admin/users");

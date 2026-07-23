@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createUserWithPassword } from "@/lib/actions/invite";
+import { BrandCheckboxes } from "@/components/admin/BrandCheckboxes";
 
-export function CreateUserForm() {
+export function CreateUserForm({ brands }: { brands: string[] }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [message, setMessage] = useState<{
     kind: "ok" | "error";
     text: string;
@@ -19,7 +21,7 @@ export function CreateUserForm() {
     setMessage(null);
     setLoading(true);
 
-    const result = await createUserWithPassword(email, password);
+    const result = await createUserWithPassword(email, password, selectedBrands);
     if (result.ok) {
       setMessage({
         kind: "ok",
@@ -27,6 +29,7 @@ export function CreateUserForm() {
       });
       setEmail("");
       setPassword("");
+      setSelectedBrands([]);
       router.refresh();
     } else {
       setMessage({ kind: "error", text: result.error });
@@ -35,7 +38,7 @@ export function CreateUserForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2">
+    <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
           type="email"
@@ -53,6 +56,24 @@ export function CreateUserForm() {
           onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20 sm:max-w-xs"
         />
+      </div>
+
+      <div>
+        <p className="mb-1 text-sm font-medium text-neutral-700">
+          Berechtigt für Firma/Marke{" "}
+          <span className="font-normal text-neutral-400">
+            (nichts auswählen = Zugriff auf alle Marken)
+          </span>
+        </p>
+        <BrandCheckboxes
+          brands={brands}
+          selected={selectedBrands}
+          onChange={setSelectedBrands}
+          disabled={loading}
+        />
+      </div>
+
+      <div>
         <button
           type="submit"
           disabled={loading}
@@ -61,6 +82,7 @@ export function CreateUserForm() {
           {loading ? "Wird angelegt …" : "Nutzer anlegen"}
         </button>
       </div>
+
       {message && (
         <p
           className={`text-sm ${

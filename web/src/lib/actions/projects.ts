@@ -47,7 +47,20 @@ export async function createProject(input: {
   }
 
   // Jede:r angemeldete Nutzer:in darf ein Projekt anlegen und wird per
-  // Trigger automatisch Editor des neuen Projekts.
+  // Trigger automatisch Editor des neuen Projekts. Ist die Person auf
+  // bestimmte Marken beschränkt, darf sie nur für diese anlegen.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin, brands")
+    .eq("id", user.id)
+    .single();
+  const brands = profile?.brands ?? [];
+  if (!profile?.is_admin && brands.length > 0 && !brands.includes(input.brand)) {
+    return {
+      ok: false,
+      error: "Du darfst nur Projekte für deine zugewiesene(n) Marke(n) anlegen.",
+    };
+  }
 
   let parsed;
   try {
