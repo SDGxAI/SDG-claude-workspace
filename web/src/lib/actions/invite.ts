@@ -115,6 +115,60 @@ export async function createUserWithPassword(
   return { ok: true };
 }
 
+/**
+ * Macht eine Person zum Admin (oder entzieht die Admin-Rechte). Erfordert
+ * das Admin-Bestätigungspasswort (Umgebungsvariable ADMIN_CONFIRM_PASSWORD)
+ * und darf nur von Admins ausgeführt werden. Der eigene Status ist
+ * unveränderbar (kein versehentliches Aussperren).
+ */
+export async function setUserAdmin(
+  userId: string,
+  makeAdmin: boolean,
+  confirmPassword: string,
+): Promise<InviteResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Nicht angemeldet." };
+  }
+  if (userId === user.id) {
+    return { ok: false, error: "Du kannst deinen eigenen Admin-Status nicht ändern." };
+  }
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
+  if (!me?.is_admin) {
+    return { ok: false, error: "Nur Admins dürfen Admin-Rechte vergeben." };
+  }
+
+  const expected = process.env.ADMIN_CONFIRM_PASSWORD;
+  if (!expected) {
+    return {
+      ok: false,
+      error:
+        "Bestätigungspasswort ist nicht konfiguriert. Bitte ADMIN_CONFIRM_PASSWORD in den Umgebungsvariablen setzen.",
+    };
+  }
+  if (confirmPassword !== expected) {
+    return { ok: false, error: "Bestätigungspasswort ist falsch." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_admin: makeAdmin })
+    .eq("id", userId);
+  if (error) {
+    return { ok: false, error: "Änderung fehlgeschlagen." };
+  }
+
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
 /** Setzt die Marken-Berechtigung einer Person (leer = keine Einschränkung). */
 export async function setUserBrands(
   userId: string,

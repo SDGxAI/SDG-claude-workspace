@@ -4,6 +4,7 @@ import { InviteForm } from "@/components/admin/InviteForm";
 import { CreateUserForm } from "@/components/admin/CreateUserForm";
 import { RoleSelect } from "@/components/admin/RoleSelect";
 import { DeleteUserButton } from "@/components/admin/DeleteUserButton";
+import { AdminToggle } from "@/components/admin/AdminToggle";
 import { UserBrandsEditor } from "@/components/admin/UserBrandsEditor";
 import { PageContainer } from "@/components/PageContainer";
 import { SDG_BRANDS } from "@/lib/brands";
@@ -106,7 +107,12 @@ export default async function AdminUsersPage() {
                     : "Eingeladen – noch nicht angenommen"}
                 </span>
                 {profile.id !== user.id && (
-                  <div className="ml-auto">
+                  <div className="ml-auto flex items-center gap-4">
+                    <AdminToggle
+                      userId={profile.id}
+                      email={profile.email}
+                      isAdmin={profile.is_admin}
+                    />
                     <DeleteUserButton userId={profile.id} email={profile.email} />
                   </div>
                 )}
