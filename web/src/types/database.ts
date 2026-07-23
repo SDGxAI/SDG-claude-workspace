@@ -32,6 +32,7 @@ export interface Database {
           is_admin: boolean;
           status: ProfileStatus;
           must_change_password: boolean;
+          avatar_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -40,6 +41,7 @@ export interface Database {
           is_admin?: boolean;
           status?: ProfileStatus;
           must_change_password?: boolean;
+          avatar_url?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
