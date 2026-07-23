@@ -75,3 +75,46 @@ function cssEscape(value: string): string {
 export function isColorVar(el: DetectedElement): boolean {
   return el.id.startsWith("var:");
 }
+
+/**
+ * Wendet eine Sprache auf die Vorschau an (die Vorschau führt keine Skripte
+ * aus, deshalb setzen wir die Texte selbst - analog zur applyLang-Logik der
+ * Seite): für jedes [data-i18n]/[data-i18n-*]-Element den passenden Wert.
+ */
+export function applyI18nLang(
+  doc: Document,
+  values: Record<string, string>,
+) {
+  doc.querySelectorAll<HTMLElement>("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n")!;
+    if (values[key] !== undefined) el.innerHTML = values[key];
+  });
+  doc.querySelectorAll<HTMLElement>("[data-i18n-ph]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-ph")!;
+    if (values[key] !== undefined) el.setAttribute("placeholder", values[key]);
+  });
+  doc.querySelectorAll<HTMLElement>("[data-i18n-alt]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-alt")!;
+    if (values[key] !== undefined) el.setAttribute("alt", values[key]);
+  });
+  doc.querySelectorAll<HTMLElement>("[data-i18n-aria]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-aria")!;
+    if (values[key] !== undefined) el.setAttribute("aria-label", values[key]);
+  });
+  doc.querySelectorAll<HTMLElement>("[data-i18n-href]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-href")!;
+    if (values[key] !== undefined) el.setAttribute("href", values[key]);
+  });
+}
+
+/** Setzt einen einzelnen Übersetzungswert live in der Vorschau. */
+export function applyI18nValue(doc: Document, key: string, value: string) {
+  doc.querySelectorAll<HTMLElement>(`[data-i18n="${cssEscape(key)}"]`).forEach(
+    (el) => {
+      el.innerHTML = value;
+    },
+  );
+  doc.querySelectorAll<HTMLElement>(`[data-i18n-ph="${cssEscape(key)}"]`).forEach(
+    (el) => el.setAttribute("placeholder", value),
+  );
+}

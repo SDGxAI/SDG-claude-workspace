@@ -9,11 +9,13 @@
     "lint": "next lint",
     "test:parse": "tsx scripts/test-parse.mts",
     "test:editor": "tsx scripts/test-editor.mts",
-    "test:export": "tsx scripts/test-export.mts"
+    "test:export": "tsx scripts/test-export.mts",
+    "test:i18n": "tsx scripts/test-i18n.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
+    "acorn": "^8.17.0",
     "cheerio": "^1.2.0",
     "jszip": "^3.10.1",
     "next": "14.2.35",
@@ -31,6 +33,7 @@
     "eslint-config-next": "14.2.35",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5"
   }
 }

@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { ContentState, DetectedElement } from "@/types/database";
+import { detectI18n } from "@/lib/html/i18n";
 
 export interface ParseResult {
   /** HTML mit data-edit-id-Attributen an allen erkannten Elementen. */
@@ -7,6 +8,8 @@ export interface ParseResult {
   detectedElements: DetectedElement[];
   contentState: ContentState;
   counts: { colors: number; texts: number; images: number };
+  /** Gefundene Sprachen (falls die Seite ein Übersetzungs-Objekt nutzt). */
+  languages: string[];
   /** Hinweise für den Import-Bericht (z. B. nicht auflösbare Datei-Pfade). */
   warnings: string[];
 }
@@ -53,6 +56,19 @@ export function parseHtmlTemplate(html: string): ParseResult {
   const detectedElements: DetectedElement[] = [];
   const contentState: ContentState = { colors: {}, texts: {}, images: {} };
   const warnings: string[] = [];
+
+  // ---------------------------------------------------------------
+  // Mehrsprachigkeit (Übersetzungs-Objekt im Script)
+  // ---------------------------------------------------------------
+  const scriptTexts: string[] = [];
+  $("script").each((_, el) => {
+    scriptTexts.push($(el).text());
+  });
+  const i18n = detectI18n(scriptTexts);
+  const languages: string[] = i18n ? i18n.langs : [];
+  if (i18n) {
+    contentState.i18n = i18n.data;
+  }
 
   // ---------------------------------------------------------------
   // Farben
@@ -114,6 +130,10 @@ export function parseHtmlTemplate(html: string): ParseResult {
   let skippedMixed = 0;
 
   $(TEXT_TAGS.join(",")).each((_, el) => {
+    // Von der Übersetzung verwaltete Elemente (data-i18n) werden separat
+    // über die Sprach-Umschaltung bearbeitet, nicht als statische Texte.
+    if ($(el).attr("data-i18n") !== undefined) return;
+
     const children = "children" in el ? el.children : [];
     const directText = children
       .filter((node) => node.type === "text")
@@ -181,6 +201,12 @@ export function parseHtmlTemplate(html: string): ParseResult {
     }
   });
 
+  if (languages.length > 0) {
+    warnings.push(
+      `Mehrsprachige Seite erkannt (${languages.map((l) => l.toUpperCase()).join(", ")}). Die Texte lassen sich im Editor pro Sprache umschalten und bearbeiten.`,
+    );
+  }
+
   return {
     templateHtml: $.html(),
     detectedElements,
@@ -190,6 +216,7 @@ export function parseHtmlTemplate(html: string): ParseResult {
       texts: Object.keys(contentState.texts).length,
       images: Object.keys(contentState.images).length,
     },
+    languages,
     warnings,
   };
 }
