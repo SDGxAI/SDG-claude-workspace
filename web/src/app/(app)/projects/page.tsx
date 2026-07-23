@@ -29,6 +29,24 @@ export default async function ProjectsPage() {
     .select("id, title, brand, status, updated_at")
     .order("updated_at", { ascending: false });
 
+  // Anzahl offener Kommentare je Projekt (für die Badge auf den Karten).
+  const { data: openComments } = await supabase
+    .from("comments")
+    .select("id, pages!inner(project_id)")
+    .eq("status", "offen")
+    .is("parent_id", null);
+
+  const openByProject: Record<string, number> = {};
+  for (const c of openComments ?? []) {
+    const pid = (c.pages as unknown as { project_id: string }).project_id;
+    openByProject[pid] = (openByProject[pid] ?? 0) + 1;
+  }
+
+  const cards = (projects ?? []).map((p) => ({
+    ...p,
+    openComments: openByProject[p.id] ?? 0,
+  }));
+
   return (
     <PageContainer>
       <div className="flex items-center justify-between">
@@ -61,7 +79,7 @@ export default async function ProjectsPage() {
             )}
           </div>
         ) : (
-          <ProjectGrid projects={projects ?? []} />
+          <ProjectGrid projects={cards} />
         )}
       </div>
     </PageContainer>

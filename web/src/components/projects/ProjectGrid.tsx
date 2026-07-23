@@ -11,6 +11,7 @@ export interface ProjectCard {
   brand: string;
   status: ProjectStatus;
   updated_at: string;
+  openComments?: number;
 }
 
 type SortKey = "date_desc" | "date_asc" | "brand";
@@ -110,6 +111,12 @@ export function ProjectGrid({ projects }: { projects: ProjectCard[] }) {
               <h3 className="mt-2 font-semibold text-neutral-900 group-hover:text-sdg-red">
                 {project.title}
               </h3>
+              {project.openComments ? (
+                <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                  {project.openComments} offene{project.openComments === 1 ? "r" : ""} Kommentar
+                  {project.openComments === 1 ? "" : "e"}
+                </span>
+              ) : null}
               <p className="mt-auto pt-4 text-xs text-neutral-400">
                 Aktualisiert:{" "}
                 {new Date(project.updated_at).toLocaleDateString("de-DE", {
