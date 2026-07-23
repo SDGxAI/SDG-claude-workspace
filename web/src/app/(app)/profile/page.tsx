@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageContainer } from "@/components/PageContainer";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
+import { AvatarUpload } from "@/components/AvatarUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("email, is_admin")
+    .select("email, is_admin, avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -24,6 +25,14 @@ export default async function ProfilePage() {
     <PageContainer>
       <div className="mx-auto max-w-xl">
         <h1 className="text-2xl font-semibold text-neutral-900">Mein Profil</h1>
+
+        <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-6">
+          <h2 className="font-semibold text-neutral-900">Profilbild</h2>
+          <p className="mb-4 mt-1 text-sm text-neutral-500">
+            Optional – wird oben in der Kopfzeile angezeigt.
+          </p>
+          <AvatarUpload initialUrl={profile?.avatar_url ?? null} />
+        </section>
 
         <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-6">
           <h2 className="font-semibold text-neutral-900">Konto</h2>

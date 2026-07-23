@@ -23,7 +23,7 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("email, is_admin, must_change_password")
+    .select("email, is_admin, must_change_password, avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -38,6 +38,7 @@ export default async function AppLayout({
       <AppHeader
         email={profile?.email ?? user.email ?? ""}
         isAdmin={profile?.is_admin ?? false}
+        avatarUrl={profile?.avatar_url ?? null}
       />
       <main className="flex flex-1 flex-col">{children}</main>
     </>

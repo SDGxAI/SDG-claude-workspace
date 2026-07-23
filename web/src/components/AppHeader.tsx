@@ -7,9 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 export function AppHeader({
   email,
   isAdmin,
+  avatarUrl,
 }: {
   email: string;
   isAdmin: boolean;
+  avatarUrl: string | null;
 }) {
   const router = useRouter();
 
@@ -44,10 +46,22 @@ export function AppHeader({
         <div className="ml-auto flex items-center gap-3 text-sm">
           <Link
             href="/profile"
-            className="text-neutral-600 hover:text-sdg-red"
+            className="flex items-center gap-2 text-neutral-600 hover:text-sdg-red"
             title="Profil & Passwort"
           >
-            {email}
+            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-neutral-200 text-xs font-medium text-neutral-500">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt="Profilbild"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                email.charAt(0).toUpperCase()
+              )}
+            </span>
+            <span className="hidden sm:inline">{email}</span>
           </Link>
           <button
             onClick={handleLogout}
