@@ -21,7 +21,7 @@ export function AppHeader({
   }
 
   return (
-    <header className="border-b border-neutral-200 bg-white">
+    <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
         <Link href="/projects" className="flex items-center gap-2">
           <span className="inline-block h-6 w-6 rounded bg-sdg-red" aria-hidden />
