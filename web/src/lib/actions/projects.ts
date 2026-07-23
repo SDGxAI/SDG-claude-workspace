@@ -117,3 +117,35 @@ export async function setProjectStatus(
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
 }
+
+/**
+ * Löscht ein Projekt samt Seiten, Snapshots und Kommentaren (per Cascade).
+ * Nur Admins (RLS erlaubt DELETE ohnehin nur Admins).
+ */
+export async function deleteProject(
+  projectId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Nicht angemeldet." };
+  }
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.is_admin) {
+    return { ok: false, error: "Nur Admins dürfen Projekte löschen." };
+  }
+
+  const { error } = await supabase.from("projects").delete().eq("id", projectId);
+  if (error) {
+    return { ok: false, error: "Projekt konnte nicht gelöscht werden." };
+  }
+
+  revalidatePath("/projects");
+  return { ok: true };
+}
