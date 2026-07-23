@@ -64,3 +64,42 @@ export async function uploadAvatar(formData: FormData): Promise<AvatarResult> {
   revalidatePath("/profile");
   return { ok: true, url };
 }
+
+/**
+ * Entfernt das eigene Profilbild (löscht die Datei aus dem Storage, soweit
+ * möglich, und setzt avatar_url zurück).
+ */
+export async function removeAvatar(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Nicht angemeldet." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", user.id)
+    .single();
+
+  // Datei aus dem Storage entfernen (Pfad aus der öffentlichen URL ableiten).
+  const currentUrl = profile?.avatar_url;
+  if (currentUrl) {
+    const marker = `/${AVATAR_BUCKET}/`;
+    const idx = currentUrl.indexOf(marker);
+    if (idx !== -1) {
+      const objectPath = currentUrl.slice(idx + marker.length);
+      await supabase.storage.from(AVATAR_BUCKET).remove([objectPath]);
+    }
+  }
+
+  const admin = createAdminClient();
+  await admin.from("profiles").update({ avatar_url: null }).eq("id", user.id);
+
+  revalidatePath("/profile");
+  return { ok: true };
+}
