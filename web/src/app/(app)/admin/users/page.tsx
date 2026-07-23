@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InviteForm } from "@/components/admin/InviteForm";
 import { RoleSelect } from "@/components/admin/RoleSelect";
+import { DeleteUserButton } from "@/components/admin/DeleteUserButton";
 import { PageContainer } from "@/components/PageContainer";
 import type { ProjectRole } from "@/types/database";
 
@@ -87,6 +88,11 @@ export default async function AdminUsersPage() {
                     ? "Aktiv"
                     : "Eingeladen – noch nicht angenommen"}
                 </span>
+                {profile.id !== user.id && (
+                  <div className="ml-auto">
+                    <DeleteUserButton userId={profile.id} email={profile.email} />
+                  </div>
+                )}
               </div>
 
               {profile.is_admin ? (

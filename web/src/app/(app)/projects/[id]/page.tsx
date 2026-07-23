@@ -6,6 +6,7 @@ import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import { StatusSelect } from "@/components/projects/StatusSelect";
 import { ExportMenu } from "@/components/projects/ExportMenu";
+import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
 import { PageContainer } from "@/components/PageContainer";
 import {
   CommentablePreview,
@@ -123,6 +124,9 @@ export default async function ProjectDetailPage({
             <StatusSelect projectId={id} currentStatus={project.status} />
           )}
           {access.canEdit && page && <ExportMenu projectId={id} />}
+          {access.isAdmin && (
+            <DeleteProjectButton projectId={id} title={project.title} />
+          )}
           {access.canEdit && (
             <Link
               href={`/projects/${id}/editor`}
