@@ -33,9 +33,7 @@ export default async function AppLayout({
         email={profile?.email ?? user.email ?? ""}
         isAdmin={profile?.is_admin ?? false}
       />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-        {children}
-      </main>
+      <main className="flex flex-1 flex-col">{children}</main>
     </>
   );
 }

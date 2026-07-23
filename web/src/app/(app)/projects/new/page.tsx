@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { NewProjectForm } from "@/components/projects/NewProjectForm";
+import { PageContainer } from "@/components/PageContainer";
 import { SDG_BRANDS } from "@/lib/brands";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,8 @@ export default async function NewProjectPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <PageContainer>
+      <div className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-semibold text-neutral-900">Neues Projekt</h1>
       <p className="mt-1 text-sm text-neutral-500">
         Lade eine fertige HTML-Landingpage hoch. Die App erkennt automatisch
@@ -33,6 +35,7 @@ export default async function NewProjectPage() {
       <div className="mt-6">
         <NewProjectForm brands={[...SDG_BRANDS]} />
       </div>
-    </div>
+      </div>
+    </PageContainer>
   );
 }

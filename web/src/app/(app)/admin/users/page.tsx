@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InviteForm } from "@/components/admin/InviteForm";
 import { RoleSelect } from "@/components/admin/RoleSelect";
+import { PageContainer } from "@/components/PageContainer";
 import type { ProjectRole } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export default async function AdminUsersPage() {
   }
 
   return (
-    <div>
+    <PageContainer>
       <h1 className="text-2xl font-semibold text-neutral-900">
         Nutzer &amp; Rechte
       </h1>
@@ -134,6 +135,6 @@ export default async function AdminUsersPage() {
           ))}
         </div>
       </section>
-    </div>
+    </PageContainer>
   );
 }

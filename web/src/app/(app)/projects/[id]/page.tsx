@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
 import { StatusSelect } from "@/components/projects/StatusSelect";
+import { PageContainer } from "@/components/PageContainer";
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/status";
 import type { ContentState, DetectedElement } from "@/types/database";
 
@@ -44,7 +45,7 @@ export default async function ProjectDetailPage({
     : "<p style=\"font-family:sans-serif;padding:2rem\">Keine Seite vorhanden.</p>";
 
   return (
-    <div>
+    <PageContainer>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link
@@ -100,6 +101,6 @@ export default async function ProjectDetailPage({
           sandbox="allow-same-origin"
         />
       </div>
-    </div>
+    </PageContainer>
   );
 }

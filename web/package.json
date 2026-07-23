@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:parse": "tsx scripts/test-parse.mts"
+    "test:parse": "tsx scripts/test-parse.mts",
+    "test:editor": "tsx scripts/test-editor.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
@@ -21,11 +22,13 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

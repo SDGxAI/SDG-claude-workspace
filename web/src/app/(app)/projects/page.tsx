@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectGrid } from "@/components/projects/ProjectGrid";
+import { PageContainer } from "@/components/PageContainer";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function ProjectsPage() {
     .order("updated_at", { ascending: false });
 
   return (
-    <div>
+    <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-neutral-900">Projekte</h1>
         {isAdmin && (
@@ -63,6 +64,6 @@ export default async function ProjectsPage() {
           <ProjectGrid projects={projects ?? []} />
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }
