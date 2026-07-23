@@ -42,7 +42,13 @@ export function AppHeader({
         </nav>
 
         <div className="ml-auto flex items-center gap-3 text-sm">
-          <span className="hidden text-neutral-500 sm:inline">{email}</span>
+          <Link
+            href="/profile"
+            className="text-neutral-600 hover:text-sdg-red"
+            title="Profil & Passwort"
+          >
+            {email}
+          </Link>
           <button
             onClick={handleLogout}
             className="rounded-lg border border-neutral-300 px-3 py-1.5 text-neutral-700 transition-colors hover:border-sdg-red hover:text-sdg-red"

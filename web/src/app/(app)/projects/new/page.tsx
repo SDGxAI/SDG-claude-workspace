@@ -15,15 +15,6 @@ export default async function NewProjectPage() {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-  if (!profile?.is_admin) {
-    redirect("/projects");
-  }
-
   return (
     <PageContainer>
       <div className="mx-auto max-w-2xl">

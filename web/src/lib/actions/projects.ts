@@ -46,14 +46,8 @@ export async function createProject(input: {
     return { ok: false, error: "Nicht angemeldet." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-  if (!profile?.is_admin) {
-    return { ok: false, error: "Nur Admins dürfen Projekte anlegen." };
-  }
+  // Jede:r angemeldete Nutzer:in darf ein Projekt anlegen und wird per
+  // Trigger automatisch Editor des neuen Projekts.
 
   let parsed;
   try {
