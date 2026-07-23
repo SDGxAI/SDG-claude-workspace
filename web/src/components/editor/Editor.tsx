@@ -4,10 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { applyColor, applyImage, applyText } from "@/lib/html/liveApply";
 import { savePageContent } from "@/lib/actions/pages";
+import {
+  createSnapshot,
+  restoreSnapshot,
+  type SnapshotEntry,
+} from "@/lib/actions/pages";
 import { uploadProjectImage } from "@/lib/actions/upload";
 import type { ContentState, DetectedElement } from "@/types/database";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+
+const STORAGE_REF_PREFIX = "sb:";
+const HISTORY_LIMIT = 50;
+const COALESCE_MS = 800;
 
 export interface EditorProps {
   projectId: string;
@@ -17,8 +26,8 @@ export interface EditorProps {
   initialHtml: string;
   detectedElements: DetectedElement[];
   initialContentState: ContentState;
-  /** Anzeigbare (aufgelöste/signierte) Bild-URLs je Bild-ID für die Sidebar. */
   resolvedImages: Record<string, string>;
+  initialSnapshots: SnapshotEntry[];
   canEdit: boolean;
 }
 
@@ -40,16 +49,37 @@ export function Editor({
   detectedElements,
   initialContentState,
   resolvedImages,
+  initialSnapshots,
   canEdit,
 }: EditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [content, setContent] = useState<ContentState>(initialContentState);
-  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>(resolvedImages);
+  const [past, setPast] = useState<ContentState[]>([]);
+  const [future, setFuture] = useState<ContentState[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [snapshots, setSnapshots] = useState<SnapshotEntry[]>(initialSnapshots);
+  const [snapshotLabel, setSnapshotLabel] = useState("");
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
+
   const isFirstRender = useRef(true);
-  const docReady = useRef(false);
+  const lastKey = useRef<string | null>(null);
+  const lastTime = useRef(0);
+  // Aktuelle literale Farbwerte im Dokument (für korrektes Ersetzen).
+  const docColorValues = useRef<Record<string, string>>({ ...initialContentState.colors });
+  // Signierte URLs je Storage-Referenz (für Undo/Redo von Bildern).
+  const urlByRef = useRef<Map<string, string>>(new Map());
+
+  // urlByRef aus den initial aufgelösten Bildern befüllen
+  if (urlByRef.current.size === 0) {
+    for (const [id, ref] of Object.entries(initialContentState.images)) {
+      if (ref.startsWith(STORAGE_REF_PREFIX) && resolvedImages[id]) {
+        urlByRef.current.set(ref, resolvedImages[id]);
+      }
+    }
+  }
 
   const colors = useMemo(
     () => detectedElements.filter((el) => el.kind === "color"),
@@ -66,7 +96,14 @@ export function Editor({
 
   const getDoc = useCallback(() => iframeRef.current?.contentDocument ?? null, []);
 
-  // Autosave (debounced) bei Änderungen - nur für Editor/Admin
+  const resolveImg = useCallback((value: string): string => {
+    if (value.startsWith(STORAGE_REF_PREFIX)) {
+      return urlByRef.current.get(value) ?? value;
+    }
+    return value;
+  }, []);
+
+  // Autosave (debounced)
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -77,26 +114,88 @@ export function Editor({
     const timer = setTimeout(async () => {
       const result = await savePageContent(pageId, projectId, content);
       setSaveState(result.ok ? "saved" : "error");
-    }, 800);
+    }, COALESCE_MS);
     return () => clearTimeout(timer);
   }, [content, canEdit, pageId, projectId]);
 
+  const commit = useCallback(
+    (next: ContentState, key: string | null) => {
+      const now = Date.now();
+      const coalesce =
+        key !== null && key === lastKey.current && now - lastTime.current < COALESCE_MS;
+      if (!coalesce) {
+        setPast((p) => [...p.slice(-(HISTORY_LIMIT - 1)), content]);
+        setFuture([]);
+      }
+      lastKey.current = key;
+      lastTime.current = now;
+      setContent(next);
+    },
+    [content],
+  );
+
+  const applyStateToDoc = useCallback(
+    (state: ContentState) => {
+      const doc = getDoc();
+      if (!doc) return;
+      for (const [id, v] of Object.entries(state.texts)) applyText(doc, id, v);
+      for (const [id, v] of Object.entries(state.colors)) {
+        applyColor(doc, id, v, docColorValues.current[id] ?? "");
+        docColorValues.current[id] = v;
+      }
+      for (const [id, v] of Object.entries(state.images)) {
+        applyImage(doc, id, resolveImg(v));
+      }
+    },
+    [getDoc, resolveImg],
+  );
+
+  const undo = useCallback(() => {
+    if (past.length === 0) return;
+    const prev = past[past.length - 1];
+    setPast((p) => p.slice(0, -1));
+    setFuture((f) => [content, ...f]);
+    lastKey.current = null;
+    applyStateToDoc(prev);
+    setContent(prev);
+  }, [past, content, applyStateToDoc]);
+
+  const redo = useCallback(() => {
+    if (future.length === 0) return;
+    const next = future[0];
+    setFuture((f) => f.slice(1));
+    setPast((p) => [...p, content]);
+    lastKey.current = null;
+    applyStateToDoc(next);
+    setContent(next);
+  }, [future, content, applyStateToDoc]);
+
+  // Tastenkürzel Strg/Cmd+Z (Undo), Strg/Cmd+Shift+Z (Redo)
+  useEffect(() => {
+    if (!canEdit) return;
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canEdit, undo, redo]);
+
   function handleColorChange(id: string, value: string) {
     const doc = getDoc();
-    if (doc) applyColor(doc, id, value, content.colors[id] ?? "");
-    setContent((prev) => ({
-      ...prev,
-      colors: { ...prev.colors, [id]: value },
-    }));
+    const prevVal = docColorValues.current[id] ?? content.colors[id] ?? "";
+    if (doc) applyColor(doc, id, value, prevVal);
+    docColorValues.current[id] = value;
+    commit({ ...content, colors: { ...content.colors, [id]: value } }, `color:${id}`);
   }
 
   function handleTextChange(id: string, value: string) {
     const doc = getDoc();
     if (doc) applyText(doc, id, value);
-    setContent((prev) => ({
-      ...prev,
-      texts: { ...prev.texts, [id]: value },
-    }));
+    commit({ ...content, texts: { ...content.texts, [id]: value } }, `text:${id}`);
   }
 
   async function handleImageChange(id: string, file: File) {
@@ -110,13 +209,40 @@ export function Editor({
       setUploadError(result.error);
       return;
     }
+    urlByRef.current.set(result.ref, result.url);
     const doc = getDoc();
     if (doc) applyImage(doc, id, result.url);
-    setPreviewUrls((prev) => ({ ...prev, [id]: result.url }));
-    setContent((prev) => ({
-      ...prev,
-      images: { ...prev.images, [id]: result.ref },
-    }));
+    commit({ ...content, images: { ...content.images, [id]: result.ref } }, null);
+  }
+
+  async function handleCreateSnapshot() {
+    setSnapshotMsg(null);
+    setSnapshotBusy(true);
+    const result = await createSnapshot(pageId, snapshotLabel, content);
+    setSnapshotBusy(false);
+    if (result.ok) {
+      setSnapshots(result.snapshots);
+      setSnapshotLabel("");
+      setSnapshotMsg("Snapshot gespeichert.");
+    } else {
+      setSnapshotMsg(result.error);
+    }
+  }
+
+  async function handleRestore(snapshotId: string) {
+    setSnapshotMsg(null);
+    const result = await restoreSnapshot(snapshotId, pageId, projectId);
+    if (!result.ok) {
+      setSnapshotMsg(result.error);
+      return;
+    }
+    // Wiederherstellen ist rückgängig machbar (als History-Schritt).
+    setPast((p) => [...p.slice(-(HISTORY_LIMIT - 1)), content]);
+    setFuture([]);
+    lastKey.current = null;
+    applyStateToDoc(result.contentState);
+    setContent(result.contentState);
+    setSnapshotMsg("Snapshot wiederhergestellt.");
   }
 
   const saveLabel: Record<SaveState, string> = {
@@ -128,7 +254,6 @@ export function Editor({
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col lg:flex-row">
-      {/* Seitenleiste */}
       <aside className="w-full shrink-0 overflow-y-auto border-b border-neutral-200 bg-white lg:w-80 lg:border-b-0 lg:border-r">
         <div className="border-b border-neutral-200 p-4">
           <Link
@@ -141,10 +266,31 @@ export function Editor({
             {projectTitle}
           </h1>
           <p className="text-xs text-neutral-400">{brand}</p>
+
           {canEdit ? (
-            <p className="mt-2 h-4 text-xs text-neutral-400">
-              {saveLabel[saveState]}
-            </p>
+            <>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={undo}
+                  disabled={past.length === 0}
+                  title="Rückgängig (Strg+Z)"
+                  className="rounded border border-neutral-300 px-2 py-1 text-sm text-neutral-700 enabled:hover:border-sdg-red enabled:hover:text-sdg-red disabled:opacity-40"
+                >
+                  ↶ Zurück
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={future.length === 0}
+                  title="Wiederholen (Strg+Umschalt+Z)"
+                  className="rounded border border-neutral-300 px-2 py-1 text-sm text-neutral-700 enabled:hover:border-sdg-red enabled:hover:text-sdg-red disabled:opacity-40"
+                >
+                  ↷ Vor
+                </button>
+                <span className="ml-auto text-xs text-neutral-400">
+                  {saveLabel[saveState]}
+                </span>
+              </div>
+            </>
           ) : (
             <p className="mt-2 rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-500">
               Nur-Lese-Ansicht – du kannst Inhalte ansehen, aber nicht ändern.
@@ -201,48 +347,52 @@ export function Editor({
                 <p className="text-xs text-neutral-400">Keine Bilder erkannt.</p>
               ) : (
                 <div className="space-y-3">
-                  {images.map((el) => (
-                    <div key={el.id} className="flex items-center gap-3">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-200 bg-neutral-50">
-                        {previewUrls[el.id] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={previewUrls[el.id]}
-                            alt={el.label}
-                            className="h-full w-full object-contain"
-                          />
-                        ) : (
-                          <span className="text-[10px] text-neutral-400">
-                            kein Bild
-                          </span>
-                        )}
+                  {images.map((el) => {
+                    const url = resolveImg(content.images[el.id] ?? el.default);
+                    const showable = url && !url.startsWith(STORAGE_REF_PREFIX);
+                    return (
+                      <div key={el.id} className="flex items-center gap-3">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-200 bg-neutral-50">
+                          {showable ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={url}
+                              alt={el.label}
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-[10px] text-neutral-400">
+                              kein Bild
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs text-neutral-500" title={el.label}>
+                            {el.label}
+                          </p>
+                          <label className="mt-1 inline-block cursor-pointer text-xs font-medium text-sdg-red hover:text-sdg-red-dark">
+                            {uploadingId === el.id ? "Wird hochgeladen …" : "Bild ersetzen"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploadingId !== null}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleImageChange(el.id, file);
+                                e.target.value = "";
+                              }}
+                            />
+                          </label>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs text-neutral-500" title={el.label}>
-                          {el.label}
-                        </p>
-                        <label className="mt-1 inline-block cursor-pointer text-xs font-medium text-sdg-red hover:text-sdg-red-dark">
-                          {uploadingId === el.id ? "Wird hochgeladen …" : "Bild ersetzen"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={uploadingId !== null}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleImageChange(el.id, file);
-                              e.target.value = "";
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
 
-            <section className="p-4">
+            <section className="border-b border-neutral-200 p-4">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
                 Texte ({texts.length})
               </h2>
@@ -266,20 +416,76 @@ export function Editor({
                 </div>
               )}
             </section>
+
+            <section className="p-4">
+              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
+                Snapshots
+              </h2>
+              <p className="mb-2 text-xs text-neutral-500">
+                Speichere einen benannten Stand, um jederzeit dorthin
+                zurückzukehren.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={snapshotLabel}
+                  onChange={(e) => setSnapshotLabel(e.target.value)}
+                  placeholder="z. B. Vor Farbanpassung"
+                  className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-sdg-red"
+                />
+                <button
+                  onClick={handleCreateSnapshot}
+                  disabled={snapshotBusy || !snapshotLabel.trim()}
+                  className="rounded bg-sdg-red px-2 py-1 text-xs font-medium text-white hover:bg-sdg-red-dark disabled:opacity-50"
+                >
+                  Speichern
+                </button>
+              </div>
+              {snapshotMsg && (
+                <p className="mt-2 text-xs text-neutral-500">{snapshotMsg}</p>
+              )}
+
+              {snapshots.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {snapshots.map((snap) => (
+                    <li
+                      key={snap.id}
+                      className="flex items-center gap-2 rounded border border-neutral-200 px-2 py-1.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium text-neutral-800" title={snap.label}>
+                          {snap.label}
+                        </p>
+                        <p className="text-[10px] text-neutral-400">
+                          {new Date(snap.created_at).toLocaleString("de-DE", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleRestore(snap.id)}
+                        className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
+                      >
+                        Wiederherstellen
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </>
         )}
       </aside>
 
-      {/* Live-Vorschau */}
       <div className="flex-1 bg-neutral-100 p-4">
         <div className="h-full overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
           <iframe
             ref={iframeRef}
             title="Live-Vorschau"
             srcDoc={initialHtml}
-            onLoad={() => {
-              docReady.current = true;
-            }}
             className="h-full w-full"
             sandbox="allow-same-origin"
           />

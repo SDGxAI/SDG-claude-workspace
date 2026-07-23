@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
+import { getSnapshots } from "@/lib/actions/pages";
 import { Editor } from "@/components/editor/Editor";
 import type { ContentState, DetectedElement } from "@/types/database";
 
@@ -48,6 +49,8 @@ export default async function EditorPage({
     detectedElements,
   );
 
+  const initialSnapshots = access.canEdit ? await getSnapshots(page.id) : [];
+
   return (
     <Editor
       projectId={id}
@@ -58,6 +61,7 @@ export default async function EditorPage({
       detectedElements={detectedElements}
       initialContentState={contentState}
       resolvedImages={resolvedImages}
+      initialSnapshots={initialSnapshots}
       canEdit={access.canEdit}
     />
   );
