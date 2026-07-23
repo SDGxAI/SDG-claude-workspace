@@ -90,6 +90,30 @@ export async function setCommentStatus(
   return { ok: true };
 }
 
+/**
+ * Löscht einen Kommentar (bzw. einen ganzen Thread, wenn es ein
+ * Top-Level-Kommentar ist – Antworten werden per Cascade mitgelöscht).
+ * RLS erlaubt das dem Autor sowie Editoren/Admins des Projekts.
+ */
+export async function deleteComment(
+  commentId: string,
+  projectId: string,
+): Promise<CommentActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Nicht angemeldet." };
+
+  const { error } = await supabase.from("comments").delete().eq("id", commentId);
+  if (error) {
+    return { ok: false, error: "Kommentar konnte nicht gelöscht werden." };
+  }
+
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
 function clampPct(value: number): number {
   if (Number.isNaN(value)) return 0;
   return Math.min(100, Math.max(0, value));

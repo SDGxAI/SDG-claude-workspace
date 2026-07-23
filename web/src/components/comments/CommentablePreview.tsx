@@ -6,6 +6,7 @@ import {
   addComment,
   addReply,
   setCommentStatus,
+  deleteComment,
 } from "@/lib/actions/comments";
 
 export interface CommentThread {
@@ -119,6 +120,21 @@ export function CommentablePreview({
     );
     setBusy(false);
     router.refresh();
+  }
+
+  async function handleDelete(commentId: string, isThread: boolean) {
+    const msg = isThread
+      ? "Diesen Kommentar samt Antworten löschen?"
+      : "Diese Antwort löschen?";
+    if (!window.confirm(msg)) return;
+    setBusy(true);
+    await deleteComment(commentId, projectId);
+    setBusy(false);
+    router.refresh();
+  }
+
+  function canDelete(authorEmail: string): boolean {
+    return canModerate || authorEmail === currentUserEmail;
   }
 
   return (
@@ -291,9 +307,23 @@ export function CommentablePreview({
                           <p className="whitespace-pre-wrap text-sm text-neutral-800">
                             {reply.body}
                           </p>
-                          <p className="text-[10px] text-neutral-400">
-                            {formatTime(reply.createdAt)}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[10px] text-neutral-400">
+                              {formatTime(reply.createdAt)}
+                            </p>
+                            {canDelete(reply.authorEmail) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(reply.id, false);
+                                }}
+                                disabled={busy}
+                                className="text-[10px] text-neutral-400 hover:text-sdg-red disabled:opacity-50"
+                              >
+                                Löschen
+                              </button>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -323,20 +353,34 @@ export function CommentablePreview({
                     </div>
                   )}
 
-                  {canToggle && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleStatus(thread);
-                      }}
-                      disabled={busy}
-                      className="mt-2 text-xs text-neutral-500 hover:text-sdg-red disabled:opacity-50"
-                    >
-                      {thread.status === "offen"
-                        ? "Als erledigt markieren"
-                        : "Wieder öffnen"}
-                    </button>
-                  )}
+                  <div className="mt-2 flex items-center gap-3">
+                    {canToggle && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStatus(thread);
+                        }}
+                        disabled={busy}
+                        className="text-xs text-neutral-500 hover:text-sdg-red disabled:opacity-50"
+                      >
+                        {thread.status === "offen"
+                          ? "Als erledigt markieren"
+                          : "Wieder öffnen"}
+                      </button>
+                    )}
+                    {canDelete(thread.authorEmail) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(thread.id, true);
+                        }}
+                        disabled={busy}
+                        className="text-xs text-neutral-500 hover:text-sdg-red disabled:opacity-50"
+                      >
+                        Löschen
+                      </button>
+                    )}
+                  </div>
                 </li>
               );
             })}
