@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { applyColor, applyText } from "@/lib/html/liveApply";
+import { applyColor, applyImage, applyText } from "@/lib/html/liveApply";
 import { savePageContent } from "@/lib/actions/pages";
+import { uploadProjectImage } from "@/lib/actions/upload";
 import type { ContentState, DetectedElement } from "@/types/database";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -16,6 +17,8 @@ export interface EditorProps {
   initialHtml: string;
   detectedElements: DetectedElement[];
   initialContentState: ContentState;
+  /** Anzeigbare (aufgelöste/signierte) Bild-URLs je Bild-ID für die Sidebar. */
+  resolvedImages: Record<string, string>;
   canEdit: boolean;
 }
 
@@ -36,10 +39,14 @@ export function Editor({
   initialHtml,
   detectedElements,
   initialContentState,
+  resolvedImages,
   canEdit,
 }: EditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [content, setContent] = useState<ContentState>(initialContentState);
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>(resolvedImages);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const isFirstRender = useRef(true);
   const docReady = useRef(false);
@@ -50,6 +57,10 @@ export function Editor({
   );
   const texts = useMemo(
     () => detectedElements.filter((el) => el.kind === "text"),
+    [detectedElements],
+  );
+  const images = useMemo(
+    () => detectedElements.filter((el) => el.kind === "image"),
     [detectedElements],
   );
 
@@ -85,6 +96,26 @@ export function Editor({
     setContent((prev) => ({
       ...prev,
       texts: { ...prev.texts, [id]: value },
+    }));
+  }
+
+  async function handleImageChange(id: string, file: File) {
+    setUploadError(null);
+    setUploadingId(id);
+    const formData = new FormData();
+    formData.append("file", file);
+    const result = await uploadProjectImage(projectId, formData);
+    setUploadingId(null);
+    if (!result.ok) {
+      setUploadError(result.error);
+      return;
+    }
+    const doc = getDoc();
+    if (doc) applyImage(doc, id, result.url);
+    setPreviewUrls((prev) => ({ ...prev, [id]: result.url }));
+    setContent((prev) => ({
+      ...prev,
+      images: { ...prev.images, [id]: result.ref },
     }));
   }
 
@@ -150,6 +181,60 @@ export function Editor({
                           onChange={(e) => handleColorChange(el.id, e.target.value)}
                           className="w-full rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-sdg-red"
                         />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="border-b border-neutral-200 p-4">
+              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
+                Bilder ({images.length})
+              </h2>
+              {uploadError && (
+                <p className="mb-2 rounded bg-sdg-red-light px-2 py-1 text-xs text-sdg-red-dark">
+                  {uploadError}
+                </p>
+              )}
+              {images.length === 0 ? (
+                <p className="text-xs text-neutral-400">Keine Bilder erkannt.</p>
+              ) : (
+                <div className="space-y-3">
+                  {images.map((el) => (
+                    <div key={el.id} className="flex items-center gap-3">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-200 bg-neutral-50">
+                        {previewUrls[el.id] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={previewUrls[el.id]}
+                            alt={el.label}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-[10px] text-neutral-400">
+                            kein Bild
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs text-neutral-500" title={el.label}>
+                          {el.label}
+                        </p>
+                        <label className="mt-1 inline-block cursor-pointer text-xs font-medium text-sdg-red hover:text-sdg-red-dark">
+                          {uploadingId === el.id ? "Wird hochgeladen …" : "Bild ersetzen"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingId !== null}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleImageChange(el.id, file);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
                       </div>
                     </div>
                   ))}

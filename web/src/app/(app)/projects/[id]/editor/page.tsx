@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
+import { resolveImages } from "@/lib/storage";
 import { Editor } from "@/components/editor/Editor";
 import type { ContentState, DetectedElement } from "@/types/database";
 
@@ -37,7 +38,15 @@ export default async function EditorPage({
 
   const contentState = page.content_state as ContentState;
   const detectedElements = page.detected_elements as DetectedElement[];
-  const initialHtml = renderHtml(page.template_html, contentState, detectedElements);
+
+  // Storage-Referenzen zu signierten URLs auflösen, damit Vorschau und
+  // Sidebar-Thumbnails die Bilder anzeigen können.
+  const resolvedImages = await resolveImages(supabase, contentState.images);
+  const initialHtml = renderHtml(
+    page.template_html,
+    { ...contentState, images: resolvedImages },
+    detectedElements,
+  );
 
   return (
     <Editor
@@ -48,6 +57,7 @@ export default async function EditorPage({
       initialHtml={initialHtml}
       detectedElements={detectedElements}
       initialContentState={contentState}
+      resolvedImages={resolvedImages}
       canEdit={access.canEdit}
     />
   );

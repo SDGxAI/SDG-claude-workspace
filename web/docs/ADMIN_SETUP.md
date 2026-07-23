@@ -58,6 +58,18 @@ führen darf:
    - nach dem Deployment zusätzlich: `https://DEINE-DOMAIN/**`
 4. Speichern
 
+## 5. Storage für Bild-Uploads einrichten
+
+Damit Editoren Bilder austauschen können, braucht es einen Speicher-Bucket:
+
+1. Linke Seitenleiste: **SQL Editor**
+2. Neue Query (Tab leeren mit Strg+A, Entf), Inhalt der Datei
+   `supabase/migrations/0002_storage.sql` einfügen
+3. **Run** klicken
+
+Das legt den privaten Bucket „project-images" an und die Regeln, dass nur
+Editoren/Admins des jeweiligen Projekts Bilder hochladen/sehen dürfen.
+
 ## Fertig!
 
 Ab jetzt gilt:

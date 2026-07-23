@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
+import { resolveImages } from "@/lib/storage";
 import { StatusSelect } from "@/components/projects/StatusSelect";
 import { PageContainer } from "@/components/PageContainer";
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/status";
@@ -36,13 +37,17 @@ export default async function ProjectDetailPage({
     .limit(1)
     .maybeSingle();
 
-  const previewHtml = page
-    ? renderHtml(
-        page.template_html,
-        page.content_state as ContentState,
-        page.detected_elements as DetectedElement[],
-      )
-    : "<p style=\"font-family:sans-serif;padding:2rem\">Keine Seite vorhanden.</p>";
+  let previewHtml =
+    "<p style=\"font-family:sans-serif;padding:2rem\">Keine Seite vorhanden.</p>";
+  if (page) {
+    const contentState = page.content_state as ContentState;
+    const resolvedImages = await resolveImages(supabase, contentState.images);
+    previewHtml = renderHtml(
+      page.template_html,
+      { ...contentState, images: resolvedImages },
+      page.detected_elements as DetectedElement[],
+    );
+  }
 
   return (
     <PageContainer>
