@@ -290,6 +290,20 @@ export function Editor({
                   {saveLabel[saveState]}
                 </span>
               </div>
+              <div className="mt-2 flex gap-3 text-xs">
+                <a
+                  href={`/projects/${projectId}/export?format=html`}
+                  className="text-sdg-red hover:text-sdg-red-dark"
+                >
+                  Export HTML
+                </a>
+                <a
+                  href={`/projects/${projectId}/export?format=zip`}
+                  className="text-sdg-red hover:text-sdg-red-dark"
+                >
+                  Export ZIP
+                </a>
+              </div>
             </>
           ) : (
             <p className="mt-2 rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-500">

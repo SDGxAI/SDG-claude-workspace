@@ -5,6 +5,7 @@ import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import { StatusSelect } from "@/components/projects/StatusSelect";
+import { ExportMenu } from "@/components/projects/ExportMenu";
 import { PageContainer } from "@/components/PageContainer";
 import {
   CommentablePreview,
@@ -121,6 +122,7 @@ export default async function ProjectDetailPage({
           {access.isAdmin && (
             <StatusSelect projectId={id} currentStatus={project.status} />
           )}
+          {access.canEdit && page && <ExportMenu projectId={id} />}
           {access.canEdit && (
             <Link
               href={`/projects/${id}/editor`}

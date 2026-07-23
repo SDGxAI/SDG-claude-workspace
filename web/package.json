@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:parse": "tsx scripts/test-parse.mts",
-    "test:editor": "tsx scripts/test-editor.mts"
+    "test:editor": "tsx scripts/test-editor.mts",
+    "test:export": "tsx scripts/test-export.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
