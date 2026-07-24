@@ -1,4 +1,4 @@
-import type { DetectedElement } from "@/types/database";
+import type { CustomButton, DetectedElement } from "@/types/database";
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -26,6 +26,30 @@ export function applyImage(doc: Document, id: string, value: string) {
 export function applyLink(doc: Document, id: string, value: string) {
   const el = doc.querySelector(`[data-edit-id="${cssEscape(id)}"]`);
   if (el) el.setAttribute("href", value);
+}
+
+/**
+ * Gleicht die selbst hinzugefügten Buttons in der Vorschau mit dem Zustand
+ * ab: entfernt alle vorhandenen und fügt sie gemäß Liste neu ein. Robust
+ * für Hinzufügen/Entfernen/Ändern und Undo/Redo.
+ */
+export function applyCustomButtons(doc: Document, buttons: CustomButton[]) {
+  doc.querySelectorAll("[data-custom-btn]").forEach((el) => el.remove());
+  for (const button of buttons) {
+    const target = doc.querySelector(button.afterSelector);
+    if (!target) continue;
+    const a = doc.createElement("a");
+    a.setAttribute("data-custom-btn", button.id);
+    a.setAttribute("href", button.url);
+    a.textContent = button.label;
+    a.setAttribute(
+      "style",
+      `display:inline-block;margin:12px 0;padding:12px 22px;background:${
+        button.color || "#E30613"
+      };color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600`,
+    );
+    target.insertAdjacentElement("afterend", a);
+  }
 }
 
 /**

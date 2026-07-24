@@ -16,6 +16,15 @@ export interface DetectedElement {
   default: string;
 }
 
+export interface CustomButton {
+  id: string;
+  label: string;
+  url: string;
+  /** CSS-Selektor des Elements, HINTER dem der Button eingefügt wird. */
+  afterSelector: string;
+  color: string;
+}
+
 export interface ContentState {
   colors: Record<string, string>;
   texts: Record<string, string>;
@@ -24,6 +33,8 @@ export interface ContentState {
   links?: Record<string, string>;
   /** Übersetzungen (Sprache -> Schlüssel -> Wert), falls mehrsprachig. */
   i18n?: Record<string, Record<string, string>>;
+  /** Selbst hinzugefügte Buttons/Links. */
+  customButtons?: CustomButton[];
 }
 
 export interface Database {

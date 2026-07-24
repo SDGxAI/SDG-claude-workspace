@@ -7,6 +7,7 @@ import {
   applyImage,
   applyText,
   applyLink,
+  applyCustomButtons,
   applyI18nLang,
   applyI18nValue,
 } from "@/lib/html/liveApply";
@@ -17,7 +18,12 @@ import {
   type SnapshotEntry,
 } from "@/lib/actions/pages";
 import { uploadProjectImage } from "@/lib/actions/upload";
-import type { ContentState, DetectedElement } from "@/types/database";
+import type {
+  ContentState,
+  CustomButton,
+  DetectedElement,
+} from "@/types/database";
+import type { InsertionPoint } from "@/lib/html/structure";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -37,6 +43,8 @@ export interface EditorProps {
   initialSnapshots: SnapshotEntry[];
   /** Übersetzungs-Schlüssel in Seitenreihenfolge (oben nach unten). */
   i18nKeyOrder?: string[];
+  /** Mögliche Einfüge-Positionen für neue Buttons. */
+  insertionPoints: InsertionPoint[];
   canEdit: boolean;
 }
 
@@ -60,6 +68,7 @@ export function Editor({
   resolvedImages,
   initialSnapshots,
   i18nKeyOrder,
+  insertionPoints,
   canEdit,
 }: EditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -73,6 +82,11 @@ export function Editor({
   const [snapshotLabel, setSnapshotLabel] = useState("");
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
+
+  const [newBtnLabel, setNewBtnLabel] = useState("");
+  const [newBtnUrl, setNewBtnUrl] = useState("");
+  const [newBtnPos, setNewBtnPos] = useState(insertionPoints[0]?.selector ?? "");
+  const [newBtnColor, setNewBtnColor] = useState("#E30613");
 
   const langs = useMemo(
     () => Object.keys(initialContentState.i18n ?? {}),
@@ -181,6 +195,7 @@ export function Editor({
       if (state.i18n && lang && state.i18n[lang]) {
         applyI18nLang(doc, state.i18n[lang]);
       }
+      applyCustomButtons(doc, state.customButtons ?? []);
     },
     [getDoc, resolveImg, lang],
   );
@@ -189,10 +204,12 @@ export function Editor({
   // anwenden (die Vorschau selbst führt keine Skripte aus).
   const applyCurrentLang = useCallback(() => {
     const doc = getDoc();
-    if (doc && content.i18n && lang && content.i18n[lang]) {
+    if (!doc) return;
+    if (content.i18n && lang && content.i18n[lang]) {
       applyI18nLang(doc, content.i18n[lang]);
     }
-  }, [getDoc, content.i18n, lang]);
+    applyCustomButtons(doc, content.customButtons ?? []);
+  }, [getDoc, content.i18n, content.customButtons, lang]);
 
   useEffect(() => {
     applyCurrentLang();
@@ -253,6 +270,31 @@ export function Editor({
       { ...content, links: { ...(content.links ?? {}), [id]: value } },
       `link:${id}`,
     );
+  }
+
+  function reconcileButtons(buttons: CustomButton[]) {
+    const doc = getDoc();
+    if (doc) applyCustomButtons(doc, buttons);
+  }
+
+  function addCustomButton(button: CustomButton) {
+    const next = [...(content.customButtons ?? []), button];
+    reconcileButtons(next);
+    commit({ ...content, customButtons: next }, null);
+  }
+
+  function updateCustomButton(id: string, patch: Partial<CustomButton>) {
+    const next = (content.customButtons ?? []).map((b) =>
+      b.id === id ? { ...b, ...patch } : b,
+    );
+    reconcileButtons(next);
+    commit({ ...content, customButtons: next }, `custombtn:${id}`);
+  }
+
+  function removeCustomButton(id: string) {
+    const next = (content.customButtons ?? []).filter((b) => b.id !== id);
+    reconcileButtons(next);
+    commit({ ...content, customButtons: next }, null);
   }
 
   function handleI18nChange(key: string, value: string) {
@@ -552,6 +594,115 @@ export function Editor({
                 </div>
               </section>
             )}
+
+            <section className="border-b border-neutral-200 p-4">
+              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
+                Button hinzufügen
+              </h2>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={newBtnLabel}
+                  onChange={(e) => setNewBtnLabel(e.target.value)}
+                  placeholder="Beschriftung (z. B. Jetzt kaufen)"
+                  className="w-full rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
+                />
+                <input
+                  type="text"
+                  value={newBtnUrl}
+                  onChange={(e) => setNewBtnUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="w-full rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
+                />
+                <label className="block text-xs text-neutral-500">
+                  Position (erscheint nach …)
+                  <select
+                    value={newBtnPos}
+                    onChange={(e) => setNewBtnPos(e.target.value)}
+                    className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-sdg-red"
+                  >
+                    {insertionPoints.map((p) => (
+                      <option key={p.selector} value={p.selector}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-xs text-neutral-500">
+                    Farbe
+                    <input
+                      type="color"
+                      value={newBtnColor}
+                      onChange={(e) => setNewBtnColor(e.target.value)}
+                      className="h-7 w-7 cursor-pointer rounded border border-neutral-300"
+                    />
+                  </label>
+                  <button
+                    onClick={() => {
+                      if (!newBtnLabel.trim() || !newBtnUrl.trim() || !newBtnPos) return;
+                      addCustomButton({
+                        id: `custom-${Date.now()}`,
+                        label: newBtnLabel.trim(),
+                        url: newBtnUrl.trim(),
+                        afterSelector: newBtnPos,
+                        color: newBtnColor,
+                      });
+                      setNewBtnLabel("");
+                      setNewBtnUrl("");
+                    }}
+                    disabled={!newBtnLabel.trim() || !newBtnUrl.trim() || !newBtnPos}
+                    className="ml-auto rounded bg-sdg-red px-3 py-1 text-xs font-medium text-white hover:bg-sdg-red-dark disabled:opacity-50"
+                  >
+                    Button einfügen
+                  </button>
+                </div>
+              </div>
+
+              {(content.customButtons ?? []).length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {(content.customButtons ?? []).map((btn) => (
+                    <li
+                      key={btn.id}
+                      className="rounded border border-neutral-200 p-2"
+                    >
+                      <input
+                        type="text"
+                        value={btn.label}
+                        onChange={(e) =>
+                          updateCustomButton(btn.id, { label: e.target.value })
+                        }
+                        className="w-full rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-sdg-red"
+                      />
+                      <input
+                        type="text"
+                        value={btn.url}
+                        onChange={(e) =>
+                          updateCustomButton(btn.id, { url: e.target.value })
+                        }
+                        className="mt-1 w-full rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-sdg-red"
+                      />
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={btn.color}
+                          onChange={(e) =>
+                            updateCustomButton(btn.id, { color: e.target.value })
+                          }
+                          className="h-6 w-6 cursor-pointer rounded border border-neutral-300"
+                        />
+                        <button
+                          onClick={() => removeCustomButton(btn.id)}
+                          className="ml-auto text-xs text-neutral-500 hover:text-sdg-red"
+                        >
+                          Entfernen
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
             <section className="border-b border-neutral-200 p-4">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
