@@ -1,7 +1,38 @@
 import * as acorn from "acorn";
+import * as cheerio from "cheerio";
 
 /** Übersetzungen: Sprache -> Schlüssel -> Wert. */
 export type I18nData = Record<string, Record<string, string>>;
+
+const I18N_ATTRS = [
+  "data-i18n",
+  "data-i18n-ph",
+  "data-i18n-alt",
+  "data-i18n-aria",
+  "data-i18n-href",
+];
+
+/**
+ * Liefert die Übersetzungs-Schlüssel in der Reihenfolge, in der sie im
+ * Dokument vorkommen (oben nach unten). So lassen sich die Editor-Felder
+ * in der tatsächlichen Seitenreihenfolge anzeigen (JSON-Speicherung erhält
+ * die Schlüsselreihenfolge nicht).
+ */
+export function extractI18nKeyOrder(html: string): string[] {
+  const $ = cheerio.load(html);
+  const seen = new Set<string>();
+  const order: string[] = [];
+  $("*").each((_, el) => {
+    for (const attr of I18N_ATTRS) {
+      const v = $(el).attr(attr);
+      if (v && !seen.has(v)) {
+        seen.add(v);
+        order.push(v);
+      }
+    }
+  });
+  return order;
+}
 
 export interface I18nDetection {
   data: I18nData;
