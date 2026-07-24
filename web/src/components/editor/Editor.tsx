@@ -6,6 +6,7 @@ import {
   applyColor,
   applyImage,
   applyText,
+  applyLink,
   applyI18nLang,
   applyI18nValue,
 } from "@/lib/html/liveApply";
@@ -117,6 +118,10 @@ export function Editor({
     () => detectedElements.filter((el) => el.kind === "image"),
     [detectedElements],
   );
+  const links = useMemo(
+    () => detectedElements.filter((el) => el.kind === "link"),
+    [detectedElements],
+  );
 
   const getDoc = useCallback(() => iframeRef.current?.contentDocument ?? null, []);
 
@@ -169,6 +174,9 @@ export function Editor({
       }
       for (const [id, v] of Object.entries(state.images)) {
         applyImage(doc, id, resolveImg(v));
+      }
+      for (const [id, v] of Object.entries(state.links ?? {})) {
+        applyLink(doc, id, v);
       }
       if (state.i18n && lang && state.i18n[lang]) {
         applyI18nLang(doc, state.i18n[lang]);
@@ -236,6 +244,15 @@ export function Editor({
     const doc = getDoc();
     if (doc) applyText(doc, id, value);
     commit({ ...content, texts: { ...content.texts, [id]: value } }, `text:${id}`);
+  }
+
+  function handleLinkChange(id: string, value: string) {
+    const doc = getDoc();
+    if (doc) applyLink(doc, id, value);
+    commit(
+      { ...content, links: { ...(content.links ?? {}), [id]: value } },
+      `link:${id}`,
+    );
   }
 
   function handleI18nChange(key: string, value: string) {
@@ -511,6 +528,30 @@ export function Editor({
                 </div>
               )}
             </section>
+
+            {links.length > 0 && (
+              <section className="border-b border-neutral-200 p-4">
+                <h2 className="mb-3 text-sm font-semibold text-neutral-900">
+                  Links ({links.length})
+                </h2>
+                <div className="space-y-3">
+                  {links.map((el) => (
+                    <div key={`link-${el.id}`}>
+                      <label className="block truncate text-xs text-neutral-500" title={el.label}>
+                        {el.label}
+                      </label>
+                      <input
+                        type="text"
+                        value={content.links?.[el.id] ?? el.default}
+                        onChange={(e) => handleLinkChange(el.id, e.target.value)}
+                        placeholder="https://…"
+                        className="mt-1 w-full rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="border-b border-neutral-200 p-4">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">

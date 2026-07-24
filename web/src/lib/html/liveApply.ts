@@ -21,6 +21,14 @@ export function applyImage(doc: Document, id: string, value: string) {
 }
 
 /**
+ * Setzt die Ziel-Adresse (href) eines Links live in der Vorschau.
+ */
+export function applyLink(doc: Document, id: string, value: string) {
+  const el = doc.querySelector(`[data-edit-id="${cssEscape(id)}"]`);
+  if (el) el.setAttribute("href", value);
+}
+
+/**
  * Wendet eine Farbänderung live an:
  * - CSS-Variablen (id "var:name") über setProperty am Wurzelelement.
  * - Literale Farben (id "lit:n") über Ersetzen des zuvor angewendeten Werts

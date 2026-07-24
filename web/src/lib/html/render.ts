@@ -49,6 +49,10 @@ export function renderHtml(
     $(`[data-edit-id="${id}"]`).attr("src", value);
   }
 
+  for (const [id, value] of Object.entries(contentState.links ?? {})) {
+    $(`[data-edit-id="${id}"]`).attr("href", value);
+  }
+
   const defaults = new Map(detectedElements.map((el) => [el.id, el.default]));
   const varReplacements: { name: string; value: string }[] = [];
   const literalReplacements: { original: string; value: string }[] = [];

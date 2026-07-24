@@ -7,7 +7,7 @@ export interface ParseResult {
   templateHtml: string;
   detectedElements: DetectedElement[];
   contentState: ContentState;
-  counts: { colors: number; texts: number; images: number };
+  counts: { colors: number; texts: number; images: number; links: number };
   /** Gefundene Sprachen (falls die Seite ein Übersetzungs-Objekt nutzt). */
   languages: string[];
   /** Hinweise für den Import-Bericht (z. B. nicht auflösbare Datei-Pfade). */
@@ -190,6 +190,41 @@ export function parseHtmlTemplate(html: string): ParseResult {
     }
   });
 
+  // ---------------------------------------------------------------
+  // Links (href von <a>) - Ziel-Adressen editierbar machen
+  // ---------------------------------------------------------------
+  let linkCounter = 0;
+  $("a[href]").each((_, el) => {
+    const $el = $(el);
+    // Von der Übersetzung verwaltete Links (data-i18n-href) werden über die
+    // Sprach-Umschaltung bearbeitet, nicht hier. Sprach-Umschalter (data-lang)
+    // sind ebenfalls keine Content-Links.
+    if ($el.attr("data-i18n-href") !== undefined) return;
+    if ($el.attr("data-lang") !== undefined) return;
+
+    const href = ($el.attr("href") ?? "").trim();
+    // javascript:-Handler und leere Anker überspringen (keine echten Ziele).
+    if (!href || /^javascript:/i.test(href)) return;
+
+    // Vorhandene data-edit-id (aus der Text-Erkennung) wiederverwenden,
+    // damit dasselbe Element für Beschriftung UND Ziel-Adresse zählt.
+    let id = $el.attr("data-edit-id");
+    if (!id) {
+      elementCounter += 1;
+      id = `el-${elementCounter}`;
+      $el.attr("data-edit-id", id);
+    }
+
+    linkCounter += 1;
+    const linkText = $el.text().replace(/\s+/g, " ").trim();
+    const label = linkText
+      ? `Link: ${firstWords(linkText, 5)}`
+      : `Link ${linkCounter}`;
+    detectedElements.push({ id, kind: "link", label, default: href });
+    if (!contentState.links) contentState.links = {};
+    contentState.links[id] = href;
+  });
+
   // Nicht auflösbare externe Stylesheets (typisch bei "Webseite speichern
   // unter"-Exporten) im Bericht erwähnen - betrifft meist Schriftarten.
   $("link[rel='stylesheet']").each((_, el) => {
@@ -215,6 +250,7 @@ export function parseHtmlTemplate(html: string): ParseResult {
       colors: Object.keys(contentState.colors).length,
       texts: Object.keys(contentState.texts).length,
       images: Object.keys(contentState.images).length,
+      links: Object.keys(contentState.links ?? {}).length,
     },
     languages,
     warnings,
