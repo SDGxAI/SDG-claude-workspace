@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import type { ContentState, DetectedElement } from "@/types/database";
 import { detectI18n, serializeI18n } from "@/lib/html/i18n";
+import { customButtonHtml } from "@/lib/html/structure";
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -51,6 +52,14 @@ export function renderHtml(
 
   for (const [id, value] of Object.entries(contentState.links ?? {})) {
     $(`[data-edit-id="${id}"]`).attr("href", value);
+  }
+
+  // Selbst hinzugefügte Buttons hinter ihrer Ziel-Position einfügen.
+  for (const button of contentState.customButtons ?? []) {
+    const target = $(button.afterSelector).first();
+    if (target.length) {
+      target.after(customButtonHtml(button));
+    }
   }
 
   const defaults = new Map(detectedElements.map((el) => [el.id, el.default]));

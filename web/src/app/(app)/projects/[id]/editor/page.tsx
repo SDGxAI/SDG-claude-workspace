@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
 import { extractI18nKeyOrder } from "@/lib/html/i18n";
+import { computeInsertionPoints } from "@/lib/html/structure";
 import { resolveImages } from "@/lib/storage";
 import { getSnapshots } from "@/lib/actions/pages";
 import { Editor } from "@/components/editor/Editor";
@@ -57,6 +58,8 @@ export default async function EditorPage({
     ? extractI18nKeyOrder(page.template_html)
     : undefined;
 
+  const insertionPoints = computeInsertionPoints(page.template_html);
+
   return (
     <Editor
       projectId={id}
@@ -69,6 +72,7 @@ export default async function EditorPage({
       resolvedImages={resolvedImages}
       initialSnapshots={initialSnapshots}
       i18nKeyOrder={i18nKeyOrder}
+      insertionPoints={insertionPoints}
       canEdit={access.canEdit}
     />
   );
