@@ -225,6 +225,19 @@ export function parseHtmlTemplate(html: string): ParseResult {
     contentState.links[id] = href;
   });
 
+  // Häufiger Fehlerfall: Die hochgeladene Datei ist nur eine über den
+  // Browser gespeicherte Vorschau-Hülle; der eigentliche Seiteninhalt steckt
+  // in einem <iframe>, das auf eine separate lokale Datei verweist (nicht
+  // mitimportiert). Klar darauf hinweisen.
+  $("iframe[src]").each((_, el) => {
+    const src = $(el).attr("src") ?? "";
+    if (src && !/^https?:\/\//i.test(src) && !src.startsWith("data:")) {
+      warnings.push(
+        "Achtung: Die eigentlichen Seiteninhalte liegen in einer separaten, eingebetteten Datei (iframe) und wurden NICHT mit importiert. Diese Datei ist vermutlich eine über den Browser gespeicherte Vorschau. Bitte lade die eigenständige HTML-Datei der Seite hoch (mit eingebetteten Bildern), nicht die gespeicherte Vorschau.",
+      );
+    }
+  });
+
   // Nicht auflösbare externe Stylesheets (typisch bei "Webseite speichern
   // unter"-Exporten) im Bericht erwähnen - betrifft meist Schriftarten.
   $("link[rel='stylesheet']").each((_, el) => {
