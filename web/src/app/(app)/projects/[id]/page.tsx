@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
+import { getCurrentProfile } from "@/lib/auth";
 import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import { StatusSelect } from "@/components/projects/StatusSelect";
@@ -28,20 +29,18 @@ export default async function ProjectDetailPage({
   if (!access) redirect("/login");
 
   const supabase = await createClient();
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", id)
-    .single();
+  // Projekt und (erste) Seite sind unabhängig und laufen parallel.
+  const [{ data: project }, { data: page }] = await Promise.all([
+    supabase.from("projects").select("*").eq("id", id).single(),
+    supabase
+      .from("pages")
+      .select("id, template_html, content_state, detected_elements")
+      .eq("project_id", id)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (!project) notFound();
-
-  const { data: page } = await supabase
-    .from("pages")
-    .select("id, template_html, content_state, detected_elements")
-    .eq("project_id", id)
-    .order("created_at")
-    .limit(1)
-    .maybeSingle();
 
   let previewHtml =
     "<p style=\"font-family:sans-serif;padding:2rem\">Keine Seite vorhanden.</p>";
@@ -57,7 +56,7 @@ export default async function ProjectDetailPage({
       page.detected_elements as DetectedElement[],
     );
 
-    const [{ data: comments }, { data: profiles }, { data: userData }] =
+    const [{ data: comments }, { data: profiles }, currentProfile] =
       await Promise.all([
         supabase
           .from("comments")
@@ -65,10 +64,10 @@ export default async function ProjectDetailPage({
           .eq("page_id", page.id)
           .order("created_at", { ascending: true }),
         supabase.from("profiles").select("id, email"),
-        supabase.auth.getUser(),
+        getCurrentProfile(),
       ]);
 
-    currentUserEmail = userData.user?.email ?? "";
+    currentUserEmail = currentProfile?.email ?? "";
     const emailById = new Map((profiles ?? []).map((p) => [p.id, p.email]));
 
     const topLevel = (comments ?? []).filter((c) => !c.parent_id);

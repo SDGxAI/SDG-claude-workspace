@@ -1,33 +1,35 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { ProjectGrid } from "@/components/projects/ProjectGrid";
 import { PageContainer } from "@/components/PageContainer";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
   }
 
-  // RLS liefert automatisch nur Projekte, die die Person sehen darf
-  // (Admins alle, andere nur zugewiesene).
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, title, brand, status, updated_at")
-    .order("updated_at", { ascending: false });
+  const supabase = await createClient();
 
-  // Anzahl offener Kommentare je Projekt (für die Badge auf den Karten).
-  const { data: openComments } = await supabase
-    .from("comments")
-    .select("id, pages!inner(project_id)")
-    .eq("status", "offen")
-    .is("parent_id", null);
+  // Beide Abfragen sind unabhängig und laufen parallel (ein statt zwei
+  // aufeinanderfolgende Roundtrips). RLS liefert automatisch nur Projekte,
+  // die die Person sehen darf (Admins alle, andere nur zugewiesene).
+  const [{ data: projects }, { data: openComments }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, title, brand, status, updated_at")
+      .order("updated_at", { ascending: false }),
+    // Anzahl offener Kommentare je Projekt (für die Badge auf den Karten).
+    supabase
+      .from("comments")
+      .select("id, pages!inner(project_id)")
+      .eq("status", "offen")
+      .is("parent_id", null),
+  ]);
 
   const openByProject: Record<string, number> = {};
   for (const c of openComments ?? []) {

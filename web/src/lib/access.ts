@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import type { ProjectRole } from "@/types/database";
 
 export interface ProjectAccess {
@@ -19,19 +20,13 @@ export interface ProjectAccess {
 export async function getProjectAccess(
   projectId: string,
 ): Promise<ProjectAccess | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // Nutzer + Admin-Flag stammen aus dem pro Request memoisierten Profil
+  // (bereits im Layout geladen) – kein zusätzlicher Roundtrip.
+  const profile = await getCurrentProfile();
+  if (!profile) return null;
+  const user = { id: profile.id };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.is_admin) {
+  if (profile.is_admin) {
     return {
       userId: user.id,
       isAdmin: true,
@@ -40,6 +35,8 @@ export async function getProjectAccess(
       canComment: true,
     };
   }
+
+  const supabase = await createClient();
 
   const { data: member } = await supabase
     .from("project_members")
