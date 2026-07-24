@@ -34,6 +34,8 @@ export interface EditorProps {
   initialContentState: ContentState;
   resolvedImages: Record<string, string>;
   initialSnapshots: SnapshotEntry[];
+  /** Übersetzungs-Schlüssel in Seitenreihenfolge (oben nach unten). */
+  i18nKeyOrder?: string[];
   canEdit: boolean;
 }
 
@@ -56,6 +58,7 @@ export function Editor({
   initialContentState,
   resolvedImages,
   initialSnapshots,
+  i18nKeyOrder,
   canEdit,
 }: EditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -74,10 +77,15 @@ export function Editor({
     () => Object.keys(initialContentState.i18n ?? {}),
     [initialContentState.i18n],
   );
-  const i18nKeys = useMemo(
-    () => (langs.length > 0 ? Object.keys(initialContentState.i18n![langs[0]]) : []),
-    [initialContentState.i18n, langs],
-  );
+  const i18nKeys = useMemo(() => {
+    if (langs.length === 0) return [];
+    const allKeys = Object.keys(initialContentState.i18n![langs[0]]);
+    if (!i18nKeyOrder || i18nKeyOrder.length === 0) return allKeys;
+    // Erst die Schlüssel in Seitenreihenfolge, dann übrige (z. B. meta.*).
+    const ordered = i18nKeyOrder.filter((k) => allKeys.includes(k));
+    const rest = allKeys.filter((k) => !ordered.includes(k));
+    return [...ordered, ...rest];
+  }, [initialContentState.i18n, langs, i18nKeyOrder]);
   const [lang, setLang] = useState<string>(langs[0] ?? "");
 
   const isFirstRender = useRef(true);

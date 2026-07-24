@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
+import { extractI18nKeyOrder } from "@/lib/html/i18n";
 import { resolveImages } from "@/lib/storage";
 import { getSnapshots } from "@/lib/actions/pages";
 import { Editor } from "@/components/editor/Editor";
@@ -51,6 +52,11 @@ export default async function EditorPage({
 
   const initialSnapshots = access.canEdit ? await getSnapshots(page.id) : [];
 
+  // Reihenfolge der Übersetzungs-Felder wie auf der Seite (oben nach unten).
+  const i18nKeyOrder = contentState.i18n
+    ? extractI18nKeyOrder(page.template_html)
+    : undefined;
+
   return (
     <Editor
       projectId={id}
@@ -62,6 +68,7 @@ export default async function EditorPage({
       initialContentState={contentState}
       resolvedImages={resolvedImages}
       initialSnapshots={initialSnapshots}
+      i18nKeyOrder={i18nKeyOrder}
       canEdit={access.canEdit}
     />
   );
