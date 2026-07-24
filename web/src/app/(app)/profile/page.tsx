@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { PageContainer } from "@/components/PageContainer";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { AvatarUpload } from "@/components/AvatarUpload";
@@ -7,19 +7,11 @@ import { AvatarUpload } from "@/components/AvatarUpload";
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  // Profil aus dem pro Request memoisierten Cache (bereits im Layout geladen).
+  const profile = await getCurrentProfile();
+  if (!profile) {
     redirect("/login");
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("email, is_admin, avatar_url")
-    .eq("id", user.id)
-    .single();
 
   return (
     <PageContainer>
@@ -31,7 +23,7 @@ export default async function ProfilePage() {
           <p className="mb-4 mt-1 text-sm text-neutral-500">
             Optional – wird oben in der Kopfzeile angezeigt.
           </p>
-          <AvatarUpload initialUrl={profile?.avatar_url ?? null} />
+          <AvatarUpload initialUrl={profile.avatar_url} />
         </section>
 
         <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-6">
@@ -39,12 +31,12 @@ export default async function ProfilePage() {
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between">
               <dt className="text-neutral-500">E-Mail-Adresse</dt>
-              <dd className="text-neutral-900">{profile?.email ?? user.email}</dd>
+              <dd className="text-neutral-900">{profile.email}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-neutral-500">Rolle</dt>
               <dd className="text-neutral-900">
-                {profile?.is_admin ? "Admin" : "Nutzer:in"}
+                {profile.is_admin ? "Admin" : "Nutzer:in"}
               </dd>
             </div>
           </dl>

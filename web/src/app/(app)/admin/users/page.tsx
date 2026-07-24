@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { InviteForm } from "@/components/admin/InviteForm";
 import { CreateUserForm } from "@/components/admin/CreateUserForm";
 import { RoleSelect } from "@/components/admin/RoleSelect";
@@ -13,23 +14,16 @@ import type { ProjectRole } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  // Nutzer + Admin-Flag aus dem pro Request memoisierten Profil (Layout).
+  const me = await getCurrentProfile();
+  if (!me) {
     redirect("/login");
   }
-
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-  if (!me?.is_admin) {
+  if (!me.is_admin) {
     redirect("/projects");
   }
 
+  const supabase = await createClient();
   const [{ data: profiles }, { data: projects }, { data: members }] =
     await Promise.all([
       supabase.from("profiles").select("*").order("created_at"),
@@ -106,7 +100,7 @@ export default async function AdminUsersPage() {
                     ? "Aktiv"
                     : "Eingeladen – noch nicht angenommen"}
                 </span>
-                {profile.id !== user.id && (
+                {profile.id !== me.id && (
                   <div className="ml-auto flex items-center gap-4">
                     <AdminToggle
                       userId={profile.id}

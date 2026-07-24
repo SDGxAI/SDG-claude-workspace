@@ -23,35 +23,34 @@ export default async function EditorPage({
   if (!access.role) redirect("/projects");
 
   const supabase = await createClient();
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, title, brand")
-    .eq("id", id)
-    .single();
+  // Projekt und (erste) Seite sind unabhängig und laufen parallel.
+  const [{ data: project }, { data: page }] = await Promise.all([
+    supabase.from("projects").select("id, title, brand").eq("id", id).single(),
+    supabase
+      .from("pages")
+      .select("id, template_html, content_state, detected_elements")
+      .eq("project_id", id)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (!project) notFound();
-
-  const { data: page } = await supabase
-    .from("pages")
-    .select("id, template_html, content_state, detected_elements")
-    .eq("project_id", id)
-    .order("created_at")
-    .limit(1)
-    .maybeSingle();
   if (!page) notFound();
 
   const contentState = page.content_state as ContentState;
   const detectedElements = page.detected_elements as DetectedElement[];
 
-  // Storage-Referenzen zu signierten URLs auflösen, damit Vorschau und
-  // Sidebar-Thumbnails die Bilder anzeigen können.
-  const resolvedImages = await resolveImages(supabase, contentState.images);
+  // Bild-URLs signieren und (falls berechtigt) Snapshots laden – beides
+  // hängt von der Seite ab, ist aber untereinander unabhängig → parallel.
+  const [resolvedImages, initialSnapshots] = await Promise.all([
+    resolveImages(supabase, contentState.images),
+    access.canEdit ? getSnapshots(page.id) : Promise.resolve([]),
+  ]);
   const initialHtml = renderHtml(
     page.template_html,
     { ...contentState, images: resolvedImages },
     detectedElements,
   );
-
-  const initialSnapshots = access.canEdit ? await getSnapshots(page.id) : [];
 
   // Reihenfolge der Übersetzungs-Felder wie auf der Seite (oben nach unten).
   const i18nKeyOrder = contentState.i18n
