@@ -31,6 +31,8 @@ export interface ContentState {
   images: Record<string, string>;
   /** Ziel-Adressen (href) von Links/Buttons je data-edit-id. */
   links?: Record<string, string>;
+  /** Bestehende Textelemente, die zu einem Link gemacht wurden (id -> url). */
+  wrapLinks?: Record<string, string>;
   /** Übersetzungen (Sprache -> Schlüssel -> Wert), falls mehrsprachig. */
   i18n?: Record<string, Record<string, string>>;
   /** Selbst hinzugefügte Buttons/Links. */
