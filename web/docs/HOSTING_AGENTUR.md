@@ -67,6 +67,26 @@ Empfohlenes Setup:
 - EU-Rechenzentren vorhanden, aber für „alles in Deutschland" ist Hetzner
   die naheliegendere Wahl.
 
+## Automatische Updates (CI/CD) – wichtig
+
+Damit Code-Änderungen nicht bei jeder Anpassung von Hand eingespielt werden
+müssen, soll die Aktualisierung **automatisch aus GitHub** erfolgen (wie bei
+Vercel):
+
+- **Empfohlen:** Eine self-hostbare Deploy-Plattform auf dem Hetzner-Server
+  installieren – z. B. **Coolify** oder **Dokploy** (Open Source). Diese
+  verbinden sich mit dem GitHub-Repo und deployen automatisch bei jedem
+  Push auf `main` (Dashboard, Logs, SSL, Rollbacks inklusive – „Vercel-
+  Gefühl" auf eigenem deutschem Server).
+- **Alternativ:** Eine **GitHub-Actions**-Pipeline oder ein Deploy-Webhook,
+  der auf dem Server `git pull && npm ci && npm run build` ausführt und den
+  Prozess (PM2/systemd/Docker) neu startet.
+
+Wichtig zur Einordnung: **Inhaltliche Änderungen** (Landingpages im Editor)
+laufen über die Datenbank und brauchen **nie** ein Deployment. Nur
+**App-Code-Änderungen** (neue Funktionen) lösen ein Deployment aus – und das
+soll automatisch passieren.
+
 ## Deploy-Grundlagen (für jeden Node-Host)
 ```bash
 # im Ordner web/
