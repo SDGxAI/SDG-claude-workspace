@@ -29,6 +29,30 @@ export function applyLink(doc: Document, id: string, value: string) {
 }
 
 /**
+ * Macht ein bestehendes Textelement zu einem Link (oder entfernt den Link,
+ * wenn url leer ist). Idempotent - packt den Inhalt in ein <a>-Element bzw.
+ * packt es wieder aus.
+ */
+export function applyWrapLink(doc: Document, id: string, url: string) {
+  const el = doc.querySelector(`[data-edit-id="${cssEscape(id)}"]`);
+  if (!el) return;
+  let a = el.querySelector<HTMLAnchorElement>(":scope > a[data-wrap-link]");
+  if (url) {
+    if (!a) {
+      a = doc.createElement("a");
+      a.setAttribute("data-wrap-link", "");
+      a.setAttribute("style", "color:inherit;text-decoration:underline");
+      while (el.firstChild) a.appendChild(el.firstChild);
+      el.appendChild(a);
+    }
+    a.setAttribute("href", url);
+  } else if (a) {
+    while (a.firstChild) el.insertBefore(a.firstChild, a);
+    a.remove();
+  }
+}
+
+/**
  * Gleicht die selbst hinzugefügten Buttons in der Vorschau mit dem Zustand
  * ab: entfernt alle vorhandenen und fügt sie gemäß Liste neu ein. Robust
  * für Hinzufügen/Entfernen/Ändern und Undo/Redo.

@@ -54,6 +54,19 @@ export function renderHtml(
     $(`[data-edit-id="${id}"]`).attr("href", value);
   }
 
+  // Bestehende Textelemente zu einem Link machen (Inhalt in <a> einpacken).
+  for (const [id, url] of Object.entries(contentState.wrapLinks ?? {})) {
+    if (!url) continue;
+    const el = $(`[data-edit-id="${id}"]`);
+    if (el.length) {
+      const inner = el.html() ?? "";
+      const safeUrl = url.replace(/"/g, "&quot;");
+      el.html(
+        `<a data-wrap-link href="${safeUrl}" style="color:inherit;text-decoration:underline">${inner}</a>`,
+      );
+    }
+  }
+
   // Selbst hinzugefügte Buttons hinter ihrer Ziel-Position einfügen.
   for (const button of contentState.customButtons ?? []) {
     const target = $(button.afterSelector).first();

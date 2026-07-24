@@ -7,6 +7,7 @@ import {
   applyImage,
   applyText,
   applyLink,
+  applyWrapLink,
   applyCustomButtons,
   applyI18nLang,
   applyI18nValue,
@@ -86,7 +87,21 @@ export function Editor({
   const [newBtnLabel, setNewBtnLabel] = useState("");
   const [newBtnUrl, setNewBtnUrl] = useState("");
   const [newBtnPos, setNewBtnPos] = useState(insertionPoints[0]?.selector ?? "");
+  const [newBtnPosLabel, setNewBtnPosLabel] = useState<string>(
+    insertionPoints[0]?.label ?? "",
+  );
   const [newBtnColor, setNewBtnColor] = useState("#E30613");
+
+  // Anklicken in der Vorschau: "position" (Button-Position) oder "link".
+  const [pickMode, setPickMode] = useState<null | "position" | "link">(null);
+  const [linkTarget, setLinkTarget] = useState<{
+    editId: string;
+    isAnchor: boolean;
+    label: string;
+  } | null>(null);
+  const [linkUrlInput, setLinkUrlInput] = useState("");
+  const [pickHint, setPickHint] = useState<string | null>(null);
+  const highlightedRef = useRef<HTMLElement | null>(null);
 
   const langs = useMemo(
     () => Object.keys(initialContentState.i18n ?? {}),
@@ -182,6 +197,10 @@ export function Editor({
       const doc = getDoc();
       if (!doc) return;
       for (const [id, v] of Object.entries(state.texts)) applyText(doc, id, v);
+      // Verlinkte Textelemente wieder ein-/auspacken (Text setzen entfernt sie).
+      for (const el of texts) {
+        applyWrapLink(doc, el.id, state.wrapLinks?.[el.id] ?? "");
+      }
       for (const [id, v] of Object.entries(state.colors)) {
         applyColor(doc, id, v, docColorValues.current[id] ?? "");
         docColorValues.current[id] = v;
@@ -197,7 +216,7 @@ export function Editor({
       }
       applyCustomButtons(doc, state.customButtons ?? []);
     },
-    [getDoc, resolveImg, lang],
+    [getDoc, resolveImg, lang, texts],
   );
 
   // Beim Laden der Vorschau und beim Sprachwechsel die aktuelle Sprache
@@ -214,6 +233,107 @@ export function Editor({
   useEffect(() => {
     applyCurrentLang();
   }, [lang, applyCurrentLang]);
+
+  function highlight(el: HTMLElement | null) {
+    if (highlightedRef.current) {
+      highlightedRef.current.style.outline = "";
+      highlightedRef.current.style.outlineOffset = "";
+    }
+    highlightedRef.current = el;
+    if (el) {
+      el.style.outline = "2px solid #E30613";
+      el.style.outlineOffset = "2px";
+    }
+  }
+
+  // Klick in der Vorschau: Element auswählen (Position für neuen Button oder
+  // bestehendes Element verlinken). Die Vorschau führt keine Skripte aus,
+  // daher fangen wir Klicks vom Elternfenster ab.
+  useEffect(() => {
+    if (!pickMode || !canEdit) return;
+    const doc = getDoc();
+    if (!doc) return;
+
+    function identifiable(start: HTMLElement | null): HTMLElement | null {
+      let cur: HTMLElement | null = start;
+      while (cur && cur !== doc!.body) {
+        if (cur.getAttribute("data-edit-id") || cur.getAttribute("data-i18n")) {
+          return cur;
+        }
+        cur = cur.parentElement;
+      }
+      return null;
+    }
+
+    function onClick(e: MouseEvent) {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = identifiable(e.target as HTMLElement);
+      if (!el) {
+        setPickHint("Bitte auf einen Text, ein Bild oder einen Button klicken.");
+        return;
+      }
+      const editId = el.getAttribute("data-edit-id");
+      const i18nKey = el.getAttribute("data-i18n");
+      const selector = editId
+        ? `[data-edit-id="${editId}"]`
+        : `[data-i18n="${i18nKey}"]`;
+      const labelText =
+        `${el.tagName}: ${(el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40)}`;
+      highlight(el);
+
+      if (pickMode === "position") {
+        setNewBtnPos(selector);
+        setNewBtnPosLabel(labelText);
+        setPickMode(null);
+        setPickHint(null);
+      } else {
+        // Link-Modus
+        if (!editId) {
+          setPickHint(
+            "Übersetzte Texte hier bitte über die Sprach-Bearbeitung verlinken.",
+          );
+          setPickMode(null);
+          return;
+        }
+        const isAnchor = el.tagName === "A";
+        setLinkTarget({ editId, isAnchor, label: labelText });
+        setLinkUrlInput(
+          content.links?.[editId] ?? content.wrapLinks?.[editId] ?? "",
+        );
+        setPickMode(null);
+        setPickHint(null);
+      }
+    }
+
+    doc.addEventListener("click", onClick, true);
+    if (doc.body) doc.body.style.cursor = "crosshair";
+    return () => {
+      doc.removeEventListener("click", onClick, true);
+      if (doc.body) doc.body.style.cursor = "";
+    };
+  }, [pickMode, canEdit, getDoc, content.links, content.wrapLinks]);
+
+  function applyLinkToTarget() {
+    if (!linkTarget) return;
+    const url = linkUrlInput.trim();
+    if (linkTarget.isAnchor) {
+      handleLinkChange(linkTarget.editId, url);
+    } else {
+      const doc = getDoc();
+      if (doc) applyWrapLink(doc, linkTarget.editId, url);
+      commit(
+        {
+          ...content,
+          wrapLinks: { ...(content.wrapLinks ?? {}), [linkTarget.editId]: url },
+        },
+        `wrap:${linkTarget.editId}`,
+      );
+    }
+    highlight(null);
+    setLinkTarget(null);
+    setLinkUrlInput("");
+  }
 
   const undo = useCallback(() => {
     if (past.length === 0) return;
@@ -259,7 +379,11 @@ export function Editor({
 
   function handleTextChange(id: string, value: string) {
     const doc = getDoc();
-    if (doc) applyText(doc, id, value);
+    if (doc) {
+      applyText(doc, id, value);
+      // Falls dieses Element verlinkt ist: nach dem Textsetzen neu einpacken.
+      if (content.wrapLinks?.[id]) applyWrapLink(doc, id, content.wrapLinks[id]);
+    }
     commit({ ...content, texts: { ...content.texts, [id]: value } }, `text:${id}`);
   }
 
@@ -596,6 +720,94 @@ export function Editor({
             )}
 
             <section className="border-b border-neutral-200 p-4">
+              <h2 className="mb-2 text-sm font-semibold text-neutral-900">
+                Bestehendes Element verlinken
+              </h2>
+              <p className="mb-2 text-xs text-neutral-500">
+                Klicke in der Vorschau auf einen Text oder Button und hinterlege
+                eine Ziel-Adresse.
+              </p>
+              <button
+                onClick={() => {
+                  setLinkTarget(null);
+                  setPickMode(pickMode === "link" ? null : "link");
+                  setPickHint(
+                    pickMode === "link"
+                      ? null
+                      : "Klicke in der Vorschau auf das Element, das verlinkt werden soll.",
+                  );
+                }}
+                className={`w-full rounded border px-2 py-1.5 text-sm ${
+                  pickMode === "link"
+                    ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
+                    : "border-neutral-300 text-neutral-700 hover:border-sdg-red"
+                }`}
+              >
+                {pickMode === "link"
+                  ? "In der Vorschau anklicken … (zum Abbrechen erneut klicken)"
+                  : "Element in Vorschau anklicken"}
+              </button>
+
+              {linkTarget && (
+                <div className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
+                  <p className="truncate text-xs text-neutral-600" title={linkTarget.label}>
+                    Gewählt: {linkTarget.label}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={linkUrlInput}
+                      onChange={(e) => setLinkUrlInput(e.target.value)}
+                      placeholder="https://…"
+                      className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-sdg-red"
+                    />
+                    <button
+                      onClick={applyLinkToTarget}
+                      className="rounded bg-sdg-red px-2 py-1 text-xs font-medium text-white hover:bg-sdg-red-dark"
+                    >
+                      Verlinken
+                    </button>
+                  </div>
+                  {(content.links?.[linkTarget.editId] ||
+                    content.wrapLinks?.[linkTarget.editId]) && (
+                    <button
+                      onClick={() => {
+                        setLinkUrlInput("");
+                        if (linkTarget.isAnchor) {
+                          handleLinkChange(linkTarget.editId, "");
+                        } else {
+                          const doc = getDoc();
+                          if (doc) applyWrapLink(doc, linkTarget.editId, "");
+                          commit(
+                            {
+                              ...content,
+                              wrapLinks: {
+                                ...(content.wrapLinks ?? {}),
+                                [linkTarget.editId]: "",
+                              },
+                            },
+                            null,
+                          );
+                        }
+                        highlight(null);
+                        setLinkTarget(null);
+                      }}
+                      className="mt-1 text-xs text-neutral-500 hover:text-sdg-red"
+                    >
+                      Link entfernen
+                    </button>
+                  )}
+                </div>
+              )}
+              {pickHint && (
+                <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+                  {pickHint}
+                </p>
+              )}
+            </section>
+
+            <section className="border-b border-neutral-200 p-4">
               <h2 className="mb-3 text-sm font-semibold text-neutral-900">
                 Button hinzufügen
               </h2>
@@ -614,20 +826,50 @@ export function Editor({
                   placeholder="https://…"
                   className="w-full rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
                 />
-                <label className="block text-xs text-neutral-500">
-                  Position (erscheint nach …)
-                  <select
-                    value={newBtnPos}
-                    onChange={(e) => setNewBtnPos(e.target.value)}
-                    className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-sdg-red"
+                <div>
+                  <p className="text-xs text-neutral-500">Position</p>
+                  <button
+                    onClick={() => {
+                      setPickMode(pickMode === "position" ? null : "position");
+                      setPickHint(
+                        pickMode === "position"
+                          ? null
+                          : "Klicke in der Vorschau auf die Stelle, hinter der der Button erscheinen soll.",
+                      );
+                    }}
+                    className={`mt-1 w-full rounded border px-2 py-1.5 text-left text-sm ${
+                      pickMode === "position"
+                        ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
+                        : "border-neutral-300 text-neutral-700 hover:border-sdg-red"
+                    }`}
                   >
-                    {insertionPoints.map((p) => (
-                      <option key={p.selector} value={p.selector}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    {pickMode === "position"
+                      ? "In der Vorschau anklicken … (zum Abbrechen erneut klicken)"
+                      : newBtnPosLabel
+                        ? `Nach: ${newBtnPosLabel}`
+                        : "Position in Vorschau wählen"}
+                  </button>
+                  <label className="mt-1 block text-[11px] text-neutral-400">
+                    oder aus Liste:
+                    <select
+                      value={newBtnPos}
+                      onChange={(e) => {
+                        setNewBtnPos(e.target.value);
+                        const p = insertionPoints.find(
+                          (x) => x.selector === e.target.value,
+                        );
+                        setNewBtnPosLabel(p?.label ?? "");
+                      }}
+                      className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-700 outline-none focus:border-sdg-red"
+                    >
+                      {insertionPoints.map((p) => (
+                        <option key={p.selector} value={p.selector}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="flex items-center gap-2">
                   <label className="flex items-center gap-2 text-xs text-neutral-500">
                     Farbe
