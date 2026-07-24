@@ -11,7 +11,7 @@ export type ProfileStatus = "eingeladen" | "aktiv";
 
 export interface DetectedElement {
   id: string;
-  kind: "color" | "text" | "image";
+  kind: "color" | "text" | "image" | "link";
   label: string;
   default: string;
 }
@@ -20,6 +20,8 @@ export interface ContentState {
   colors: Record<string, string>;
   texts: Record<string, string>;
   images: Record<string, string>;
+  /** Ziel-Adressen (href) von Links/Buttons je data-edit-id. */
+  links?: Record<string, string>;
   /** Übersetzungen (Sprache -> Schlüssel -> Wert), falls mehrsprachig. */
   i18n?: Record<string, Record<string, string>>;
 }

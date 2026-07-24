@@ -64,7 +64,7 @@ export function NewProjectForm({ brands }: { brands: string[] }) {
         <p className="mt-1 text-sm text-neutral-500">
           Gefunden in „{title}“:
         </p>
-        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+        <div className="mt-4 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
           <div className="rounded-lg bg-neutral-50 p-4">
             <div className="text-2xl font-semibold text-sdg-red">
               {report.counts.colors}
@@ -82,6 +82,12 @@ export function NewProjectForm({ brands }: { brands: string[] }) {
               {report.counts.images}
             </div>
             <div className="text-xs text-neutral-500">Bilder</div>
+          </div>
+          <div className="rounded-lg bg-neutral-50 p-4">
+            <div className="text-2xl font-semibold text-sdg-red">
+              {report.counts.links}
+            </div>
+            <div className="text-xs text-neutral-500">Links</div>
           </div>
         </div>
 

@@ -10,7 +10,7 @@ export type CreateProjectResult =
   | {
       ok: true;
       projectId: string;
-      counts: { colors: number; texts: number; images: number };
+      counts: { colors: number; texts: number; images: number; links: number };
       warnings: string[];
     }
   | { ok: false; error: string };
