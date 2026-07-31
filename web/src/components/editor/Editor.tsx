@@ -687,9 +687,9 @@ export function Editor({
                     </button>
                     <p className="mt-1 text-[11px] text-neutral-400">
                       Füllt {targetLangs.map((t) => t.toUpperCase()).join(" & ")}{" "}
-                      automatisch aus dem {sourceLang.toUpperCase()}-Text (DeepL).
-                      Links bleiben erhalten. Bestehende Übersetzungen werden
-                      überschrieben – „Rückgängig“ macht es rückgängig.
+                      automatisch aus dem {sourceLang.toUpperCase()}-Text (KI-Übersetzung
+                      durch Claude). Links bleiben erhalten. Bestehende Übersetzungen
+                      werden überschrieben – „Rückgängig“ macht es rückgängig.
                     </p>
                     {translateMsg && (
                       <p className="mt-2 rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-600">

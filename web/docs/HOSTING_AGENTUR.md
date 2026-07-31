@@ -24,7 +24,7 @@ Es beschreibt, was die App braucht und welche Hosting-Wege es gibt – von
 | `SUPABASE_SERVICE_ROLE_KEY` | geheimer service-role/secret Key |
 | `NEXT_PUBLIC_SITE_URL` | öffentliche App-Adresse (für E-Mail-Links) |
 | `ADMIN_CONFIRM_PASSWORD` | Bestätigungspasswort für Admin-Vergabe |
-| `DEEPL_API_KEY` | DeepL-Schlüssel für automatische Übersetzung (optional) |
+| `ANTHROPIC_API_KEY` | Claude/Anthropic-Schlüssel für automatische KI-Übersetzung (optional) |
 
 ### Datenbank-Einrichtung
 Einmalig `web/supabase/setup_all.sql` im SQL-Editor der Supabase-Instanz
