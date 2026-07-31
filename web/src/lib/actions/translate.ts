@@ -10,76 +10,106 @@ export type TranslateResult =
   | { ok: true; contentState: ContentState; translated: number; targets: string[] }
   | { ok: false; error: string };
 
-/** DeepL-Zielsprachcode zu unserem Kürzel (z. B. "en" -> "EN-GB"). */
-function deeplTarget(lang: string): string {
-  const l = lang.toLowerCase();
-  if (l === "en") return "EN-GB";
-  if (l === "pt") return "PT-PT";
-  return l.slice(0, 2).toUpperCase();
+// Übersetzung erfolgt durch Claude (Anthropic). Modell per Env-Variable
+// überschreibbar; Standard ist ein schnelles, günstiges Modell, das für
+// Übersetzungen bestens geeignet ist.
+const MODEL = process.env.ANTHROPIC_TRANSLATE_MODEL || "claude-haiku-4-5";
+
+/** Voller Sprachname für die Claude-Anweisung (bessere Ergebnisse als Kürzel). */
+function languageName(code: string): string {
+  const map: Record<string, string> = {
+    de: "German (Deutsch)",
+    en: "English",
+    fr: "French (Français)",
+    it: "Italian",
+    es: "Spanish",
+    nl: "Dutch",
+    pl: "Polish",
+    pt: "Portuguese",
+  };
+  return map[code.toLowerCase().slice(0, 2)] ?? code;
 }
 
-/** DeepL-Quellsprachcode (immer 2-stellig, z. B. "de" -> "DE"). */
-function deeplSource(lang: string): string {
-  return lang.slice(0, 2).toUpperCase();
+/** JSON-Objekt robust aus der Modell-Antwort lösen (Code-Fences etc. tolerant). */
+function extractJsonObject(text: string): Record<string, string> {
+  let t = text.trim();
+  const fence = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(t);
+  if (fence) t = fence[1].trim();
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+  if (start >= 0 && end > start) t = t.slice(start, end + 1);
+  return JSON.parse(t) as Record<string, string>;
 }
 
 /**
- * Ruft die DeepL-API für eine Liste von Texten auf (max. 50 pro Aufruf).
- * `tag_handling=html` sorgt dafür, dass Formatierung und Links (<b>, <a href>)
- * erhalten bleiben und nur der sichtbare Text übersetzt wird.
+ * Übersetzt ein Objekt {Schlüssel: deutscher Text} in die Zielsprache – per
+ * Claude. Formatierung und Links im Text (<b>, <a href>) bleiben erhalten,
+ * URLs/E-Mails werden nicht verändert.
  */
-async function deeplTranslate(
-  texts: string[],
+async function claudeTranslate(
+  entries: Record<string, string>,
   sourceLang: string,
   targetLang: string,
   apiKey: string,
-): Promise<string[]> {
-  // Free-Keys enden auf ":fx" und nutzen einen anderen Endpunkt.
-  const endpoint = apiKey.trim().endsWith(":fx")
-    ? "https://api-free.deepl.com/v2/translate"
-    : "https://api.deepl.com/v2/translate";
+): Promise<Record<string, string>> {
+  const system =
+    `You are a professional marketing translator for SIMBA-DICKIE-GROUP, a German toy company. ` +
+    `Translate the values of the given JSON object from ${languageName(sourceLang)} to ${languageName(targetLang)}. ` +
+    `Rules: keep the tone natural and appropriate for a product landing page; ` +
+    `preserve every HTML tag and its attributes exactly (e.g. <b>, <br>, <a href="...">) and translate only the visible text; ` +
+    `do NOT translate or modify URLs, email addresses, or placeholder tokens; ` +
+    `keep the JSON keys unchanged. ` +
+    `Respond with ONLY the translated JSON object – no explanations, no code fences.`;
 
-  const out: string[] = [];
-  for (let i = 0; i < texts.length; i += 50) {
-    const batch = texts.slice(i, i + 50);
-    const params = new URLSearchParams();
-    params.set("source_lang", deeplSource(sourceLang));
-    params.set("target_lang", deeplTarget(targetLang));
-    params.set("tag_handling", "html");
-    for (const t of batch) params.append("text", t);
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 8000,
+      system,
+      messages: [{ role: "user", content: JSON.stringify(entries) }],
+    }),
+  });
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `DeepL-Auth-Key ${apiKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
-
-    if (!res.ok) {
-      if (res.status === 403)
-        throw new Error("DeepL lehnt den Schlüssel ab (403). Bitte den API-Schlüssel prüfen.");
-      if (res.status === 456)
-        throw new Error("DeepL-Kontingent aufgebraucht (456). Bitte Nutzung/Tarif prüfen.");
-      if (res.status === 429)
-        throw new Error("DeepL ist gerade überlastet (429). Bitte in einem Moment erneut versuchen.");
-      throw new Error(`DeepL-Fehler (${res.status}).`);
-    }
-
-    const json = (await res.json()) as { translations?: { text: string }[] };
-    for (const tr of json.translations ?? []) out.push(tr.text);
+  if (!res.ok) {
+    if (res.status === 401)
+      throw new Error("Der KI-Schlüssel wird abgelehnt (401). Bitte den ANTHROPIC_API_KEY prüfen.");
+    if (res.status === 429)
+      throw new Error("Zu viele Anfragen an die KI (429). Bitte einen Moment warten und erneut versuchen.");
+    if (res.status === 529 || res.status === 500)
+      throw new Error("Die KI ist gerade ausgelastet. Bitte in einem Moment erneut versuchen.");
+    throw new Error(`Übersetzungs-Dienst-Fehler (${res.status}).`);
   }
-  return out;
+
+  const json = (await res.json()) as {
+    content?: { type: string; text?: string }[];
+    stop_reason?: string;
+  };
+  const text = (json.content ?? [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
+    .join("");
+  if (!text) throw new Error("Die KI hat keine Übersetzung zurückgegeben.");
+
+  try {
+    return extractJsonObject(text);
+  } catch {
+    throw new Error("Die Übersetzungs-Antwort konnte nicht gelesen werden. Bitte erneut versuchen.");
+  }
 }
 
 /**
  * Übersetzt die Texte der Quellsprache (Standard: Deutsch) automatisch in alle
- * anderen vorhandenen Sprachen der Seite – per DeepL.
+ * anderen vorhandenen Sprachen der Seite – per Claude.
  *
  * - Nur echte Texte werden übersetzt. Werte, die als Link-Ziel dienen
  *   (`data-i18n-href`), bleiben unangetastet, damit Verlinkungen korrekt bleiben.
- * - Bestehende Übersetzungen der Zielsprachen werden dabei überschrieben
+ * - Bestehende Übersetzungen der Zielsprachen werden überschrieben
  *   (im Editor per „Rückgängig" umkehrbar).
  */
 export async function translatePageContent(
@@ -87,12 +117,12 @@ export async function translatePageContent(
   projectId: string,
   sourceLang = "de",
 ): Promise<TranslateResult> {
-  const apiKey = process.env.DEEPL_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
       ok: false,
       error:
-        "Automatische Übersetzung ist noch nicht eingerichtet (DeepL-Schlüssel fehlt). Bitte im Hosting einen DEEPL_API_KEY hinterlegen.",
+        "Automatische Übersetzung ist noch nicht eingerichtet (KI-Schlüssel fehlt). Bitte im Hosting einen ANTHROPIC_API_KEY hinterlegen.",
     };
   }
 
@@ -132,25 +162,25 @@ export async function translatePageContent(
     return { ok: false, error: "Keine weiteren Sprachen zum Übersetzen vorhanden." };
   }
 
-  // Zu übersetzende Schlüssel: echte Texte mit Inhalt (keine Link-Ziele).
-  const keysToTranslate = Object.keys(source).filter(
-    (k) => !hrefKeys.has(k) && source[k].trim() !== "",
-  );
+  // Zu übersetzende Einträge: echte Texte mit Inhalt (keine Link-Ziele).
+  const toTranslate: Record<string, string> = {};
+  for (const [k, v] of Object.entries(source)) {
+    if (!hrefKeys.has(k) && v.trim() !== "") toTranslate[k] = v;
+  }
 
   const nextI18n: Record<string, Record<string, string>> = {};
   for (const lang of Object.keys(i18n)) nextI18n[lang] = { ...i18n[lang] };
 
   let translatedCount = 0;
   try {
-    const values = keysToTranslate.map((k) => source[k]);
     for (const target of targets) {
-      const translated = await deeplTranslate(values, sourceLang, target, apiKey);
-      keysToTranslate.forEach((k, idx) => {
-        if (translated[idx] !== undefined) {
-          nextI18n[target][k] = translated[idx];
+      const result = await claudeTranslate(toTranslate, sourceLang, target, apiKey);
+      for (const k of Object.keys(toTranslate)) {
+        if (typeof result[k] === "string") {
+          nextI18n[target][k] = result[k];
           translatedCount += 1;
         }
-      });
+      }
       // Link-Ziele ohne eigenen Zielsprachen-Wert von der Quelle übernehmen.
       for (const k of hrefKeys) {
         if (nextI18n[target][k] === undefined && source[k] !== undefined) {
