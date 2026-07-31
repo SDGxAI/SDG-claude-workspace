@@ -8,6 +8,7 @@
  * löschen+neu anlegen, sonst "verwaisen" alte Projekte mit dem alten Namen.
  */
 export const SDG_BRANDS = [
+  "SIMBA-DICKIE-GROUP",
   "AquaPlay",
   "BIG",
   "Carson",
