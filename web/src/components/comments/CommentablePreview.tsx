@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addComment,
@@ -55,6 +55,7 @@ export function CommentablePreview({
 }: Props) {
   const router = useRouter();
   const overlayRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [commentMode, setCommentMode] = useState(false);
   const [pending, setPending] = useState<{ x: number; y: number } | null>(null);
   const [pendingText, setPendingText] = useState("");
@@ -62,13 +63,108 @@ export function CommentablePreview({
   const [busy, setBusy] = useState(false);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
 
+  // Scroll-Position und Gesamthöhe der Vorschau-Seite. Pins werden relativ
+  // zur GESAMTEN Seite (nicht zum sichtbaren Ausschnitt) gespeichert, damit
+  // sie mit dem Inhalt mitscrollen und nur dort sichtbar sind, wo sie sitzen.
+  const [scrollY, setScrollY] = useState(0);
+  const [metrics, setMetrics] = useState({ height: 0, viewport: 0 });
+  const scrollRef = useRef(0);
+  const metricsRef = useRef({ height: 0, viewport: 0 });
+
   const openCount = threads.filter((t) => t.status === "offen").length;
+
+  // Scroll-/Größenmessung der eingebetteten Vorschau (same-origin iframe).
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    let observer: ResizeObserver | null = null;
+
+    const measure = () => {
+      try {
+        const doc = iframe.contentDocument;
+        const win = iframe.contentWindow;
+        if (!doc || !win) return;
+        const height =
+          doc.documentElement.scrollHeight || doc.body?.scrollHeight || 0;
+        const viewport = iframe.clientHeight;
+        setMetrics({ height, viewport });
+        metricsRef.current = { height, viewport };
+        const top = win.scrollY || doc.documentElement.scrollTop || 0;
+        setScrollY(top);
+        scrollRef.current = top;
+      } catch {
+        /* iframe noch nicht bereit */
+      }
+    };
+
+    const onScroll = () => {
+      try {
+        const doc = iframe.contentDocument;
+        const win = iframe.contentWindow;
+        const top = (win?.scrollY ?? doc?.documentElement.scrollTop) || 0;
+        setScrollY(top);
+        scrollRef.current = top;
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const attach = () => {
+      try {
+        iframe.contentWindow?.addEventListener("scroll", onScroll, {
+          passive: true,
+        });
+        const body = iframe.contentDocument?.body;
+        if (body) {
+          observer = new ResizeObserver(measure);
+          observer.observe(body);
+        }
+        measure();
+      } catch {
+        /* ignore */
+      }
+    };
+
+    iframe.addEventListener("load", attach);
+    attach(); // falls die Vorschau schon geladen ist
+    window.addEventListener("resize", measure);
+
+    return () => {
+      iframe.removeEventListener("load", attach);
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+      try {
+        iframe.contentWindow?.removeEventListener("scroll", onScroll);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [previewHtml]);
+
+  /** Bildschirm-Y eines Pins (relativ zum sichtbaren Ausschnitt). */
+  const screenTop = useCallback(
+    (yPct: number) => (yPct / 100) * metrics.height - scrollY,
+    [metrics.height, scrollY],
+  );
+
+  /** Springt in der Vorschau zu der Stelle, an der ein Kommentar sitzt. */
+  const scrollToThread = useCallback((thread: CommentThread) => {
+    setSelectedId(thread.id);
+    const win = iframeRef.current?.contentWindow;
+    const { height, viewport } = metricsRef.current;
+    if (!win || !height) return;
+    const target = (thread.yPct / 100) * height - viewport / 2;
+    win.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+  }, []);
 
   function handleOverlayClick(e: React.MouseEvent) {
     if (!commentMode || !overlayRef.current) return;
     const rect = overlayRef.current.getBoundingClientRect();
+    const { height } = metricsRef.current;
     const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    // Y relativ zur GESAMTEN Seitenhöhe (inkl. aktuellem Scroll-Versatz).
+    const contentY = e.clientY - rect.top + scrollRef.current;
+    const y = height > 0 ? (contentY / height) * 100 : 0;
     setPending({ x, y });
     setPendingText("");
   }
@@ -165,52 +261,59 @@ export function CommentablePreview({
 
         <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white">
           <iframe
+            ref={iframeRef}
             title="Vorschau"
             srcDoc={previewHtml}
             className="h-[60vh] w-full lg:h-[75vh]"
             sandbox="allow-same-origin"
           />
 
-          {/* Overlay: fängt Klicks nur im Kommentarmodus, Pins immer klickbar */}
+          {/* Overlay: fängt Klicks nur im Kommentarmodus, Pins immer klickbar.
+              overflow-hidden blendet Pins aus, die gerade außerhalb des
+              sichtbaren Ausschnitts liegen. */}
           <div
             ref={overlayRef}
             onClick={handleOverlayClick}
-            className="absolute inset-0"
+            className="absolute inset-0 overflow-hidden"
             style={{
               pointerEvents: commentMode ? "auto" : "none",
               cursor: commentMode ? "crosshair" : "default",
             }}
           >
-            {threads.map((thread, i) => (
-              <button
-                key={thread.id}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedId(thread.id);
-                }}
-                className={`absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow ${
-                  thread.status === "erledigt"
-                    ? "bg-green-600"
-                    : "bg-sdg-red"
-                } ${selectedId === thread.id ? "ring-2 ring-sdg-red ring-offset-1" : ""}`}
-                style={{
-                  left: `${thread.xPct}%`,
-                  top: `${thread.yPct}%`,
-                  pointerEvents: "auto",
-                }}
-                title={thread.body}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {metrics.height > 0 &&
+              threads.map((thread, i) => {
+                const top = screenTop(thread.yPct);
+                // Nur anzeigen, wenn der Pin im sichtbaren Ausschnitt liegt.
+                if (top < -4 || top > metrics.viewport + 4) return null;
+                return (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedId(thread.id);
+                    }}
+                    className={`absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow ${
+                      thread.status === "erledigt" ? "bg-green-600" : "bg-sdg-red"
+                    } ${selectedId === thread.id ? "ring-2 ring-sdg-red ring-offset-1" : ""}`}
+                    style={{
+                      left: `${thread.xPct}%`,
+                      top: `${top}px`,
+                      pointerEvents: "auto",
+                    }}
+                    title={thread.body}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
 
             {pending && (
               <div
                 className="absolute z-10 w-64 -translate-x-1/2 rounded-lg border border-neutral-300 bg-white p-3 shadow-lg"
                 style={{
                   left: `${pending.x}%`,
-                  top: `${pending.y}%`,
+                  top: `${screenTop(pending.y)}px`,
                   pointerEvents: "auto",
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -262,12 +365,13 @@ export function CommentablePreview({
               return (
                 <li
                   key={thread.id}
-                  onClick={() => setSelectedId(thread.id)}
-                  className={`rounded-lg border p-3 ${
+                  onClick={() => scrollToThread(thread)}
+                  className={`cursor-pointer rounded-lg border p-3 transition-colors ${
                     selectedId === thread.id
-                      ? "border-sdg-red"
-                      : "border-neutral-200"
+                      ? "border-sdg-red ring-1 ring-sdg-red"
+                      : "border-neutral-200 hover:border-neutral-300"
                   }`}
+                  title="Zur Stelle in der Vorschau springen"
                 >
                   <div className="flex items-center gap-2">
                     <span
