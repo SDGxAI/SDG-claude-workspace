@@ -26,6 +26,7 @@ import {
   type SnapshotEntry,
 } from "@/lib/actions/pages";
 import { uploadProjectImage } from "@/lib/actions/upload";
+import { translatePageContent } from "@/lib/actions/translate";
 import type {
   ContentState,
   CustomButton,
@@ -170,6 +171,15 @@ export function Editor({
     return [...ordered, ...rest];
   }, [initialContentState.i18n, langs, i18nKeyOrder]);
   const [lang, setLang] = useState<string>(langs[0] ?? "");
+
+  // Automatische Übersetzung (DeepL): Quellsprache bevorzugt Deutsch.
+  const sourceLang = langs.includes("de") ? "de" : (langs[0] ?? "de");
+  const targetLangs = useMemo(
+    () => langs.filter((l) => l !== sourceLang),
+    [langs, sourceLang],
+  );
+  const [translating, setTranslating] = useState(false);
+  const [translateMsg, setTranslateMsg] = useState<string | null>(null);
 
   // Akkordeon: nur ein Bereich gleichzeitig offen (Fokus-Modus).
   const [openSection, setOpenSection] = useState<string | null>(
@@ -546,6 +556,28 @@ export function Editor({
     setSnapshotMsg("Snapshot wiederhergestellt.");
   }
 
+  async function handleTranslate() {
+    setTranslateMsg(null);
+    setTranslating(true);
+    const result = await translatePageContent(pageId, projectId, sourceLang);
+    setTranslating(false);
+    if (!result.ok) {
+      setTranslateMsg(result.error);
+      return;
+    }
+    // Als Rückgängig-Schritt übernehmen (Überschreiben ist umkehrbar).
+    setPast((p) => [...p.slice(-(HISTORY_LIMIT - 1)), content]);
+    setFuture([]);
+    lastKey.current = null;
+    applyStateToDoc(result.contentState);
+    setContent(result.contentState);
+    setTranslateMsg(
+      `Übersetzt auf ${result.targets
+        .map((t) => t.toUpperCase())
+        .join(", ")} (${result.translated} Felder). Zum Prüfen oben die Sprache umschalten.`,
+    );
+  }
+
   const saveLabel: Record<SaveState, string> = {
     idle: "",
     saving: "Wird gespeichert …",
@@ -639,6 +671,33 @@ export function Editor({
                   Vorschau und Textfelder zeigen die gewählte Sprache. Jede
                   Sprache wird separat bearbeitet.
                 </p>
+
+                {targetLangs.length > 0 && (
+                  <div className="mt-3 border-t border-neutral-200 pt-3">
+                    <button
+                      onClick={handleTranslate}
+                      disabled={translating}
+                      className="w-full rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-50"
+                    >
+                      {translating
+                        ? "Übersetze … (kann kurz dauern)"
+                        : `Aus ${sourceLang.toUpperCase()} übersetzen → ${targetLangs
+                            .map((t) => t.toUpperCase())
+                            .join(" & ")}`}
+                    </button>
+                    <p className="mt-1 text-[11px] text-neutral-400">
+                      Füllt {targetLangs.map((t) => t.toUpperCase()).join(" & ")}{" "}
+                      automatisch aus dem {sourceLang.toUpperCase()}-Text (DeepL).
+                      Links bleiben erhalten. Bestehende Übersetzungen werden
+                      überschrieben – „Rückgängig“ macht es rückgängig.
+                    </p>
+                    {translateMsg && (
+                      <p className="mt-2 rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-600">
+                        {translateMsg}
+                      </p>
+                    )}
+                  </div>
+                )}
               </section>
             )}
 
