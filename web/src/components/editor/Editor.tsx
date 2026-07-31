@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import {
   applyColor,
@@ -56,6 +63,52 @@ function toHex6(value: string): string {
   const full = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/.exec(v);
   if (full) return `#${full[1]}`;
   return "#000000";
+}
+
+/**
+ * Einklappbarer Bereich (Akkordeon). Immer nur ein Bereich ist offen
+ * ("Fokus-Modus"): ein Klick auf die Überschrift öffnet diesen Bereich und
+ * schließt die anderen, damit die Seitenleiste übersichtlich bleibt.
+ */
+function Panel({
+  id,
+  title,
+  badge,
+  open,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  badge?: number;
+  open: boolean;
+  onToggle: (id: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="border-b border-neutral-200">
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-neutral-50"
+      >
+        <span
+          className={`text-neutral-400 transition-transform ${open ? "rotate-90" : ""}`}
+          aria-hidden
+        >
+          ▸
+        </span>
+        <span className="text-sm font-semibold text-neutral-900">{title}</span>
+        {badge !== undefined && (
+          <span className="ml-auto rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500">
+            {badge}
+          </span>
+        )}
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </section>
+  );
 }
 
 export function Editor({
@@ -117,6 +170,15 @@ export function Editor({
     return [...ordered, ...rest];
   }, [initialContentState.i18n, langs, i18nKeyOrder]);
   const [lang, setLang] = useState<string>(langs[0] ?? "");
+
+  // Akkordeon: nur ein Bereich gleichzeitig offen (Fokus-Modus).
+  const [openSection, setOpenSection] = useState<string | null>(
+    langs.length > 0 ? "i18n" : "farben",
+  );
+  const toggleSection = useCallback(
+    (id: string) => setOpenSection((cur) => (cur === id ? null : id)),
+    [],
+  );
 
   const isFirstRender = useRef(true);
   const lastKey = useRef<string | null>(null);
@@ -554,7 +616,7 @@ export function Editor({
         {canEdit && (
           <>
             {langs.length > 0 && (
-              <section className="border-b border-neutral-200 p-4">
+              <section className="border-b border-neutral-200 bg-neutral-50/60 p-4">
                 <h2 className="mb-2 text-sm font-semibold text-neutral-900">
                   Sprache
                 </h2>
@@ -574,17 +636,20 @@ export function Editor({
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-neutral-400">
-                  Die Vorschau und die Textfelder unten zeigen die gewählte
-                  Sprache. Jede Sprache wird separat bearbeitet.
+                  Vorschau und Textfelder zeigen die gewählte Sprache. Jede
+                  Sprache wird separat bearbeitet.
                 </p>
               </section>
             )}
 
             {langs.length > 0 && (
-              <section className="border-b border-neutral-200 p-4">
-                <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                  Texte {lang.toUpperCase()} ({i18nKeys.length})
-                </h2>
+              <Panel
+                id="i18n"
+                title={`Texte ${lang.toUpperCase()}`}
+                badge={i18nKeys.length}
+                open={openSection === "i18n"}
+                onToggle={toggleSection}
+              >
                 <div className="space-y-3">
                   {i18nKeys.map((key) => (
                     <div key={key}>
@@ -600,13 +665,16 @@ export function Editor({
                     </div>
                   ))}
                 </div>
-              </section>
+              </Panel>
             )}
 
-            <section className="border-b border-neutral-200 p-4">
-              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                Farben ({colors.length})
-              </h2>
+            <Panel
+              id="farben"
+              title="Farben"
+              badge={colors.length}
+              open={openSection === "farben"}
+              onToggle={toggleSection}
+            >
               {colors.length === 0 ? (
                 <p className="text-xs text-neutral-400">Keine Farben erkannt.</p>
               ) : (
@@ -635,12 +703,15 @@ export function Editor({
                   ))}
                 </div>
               )}
-            </section>
+            </Panel>
 
-            <section className="border-b border-neutral-200 p-4">
-              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                Bilder ({images.length})
-              </h2>
+            <Panel
+              id="bilder"
+              title="Bilder"
+              badge={images.length}
+              open={openSection === "bilder"}
+              onToggle={toggleSection}
+            >
               {uploadError && (
                 <p className="mb-2 rounded bg-sdg-red-light px-2 py-1 text-xs text-sdg-red-dark">
                   {uploadError}
@@ -693,13 +764,21 @@ export function Editor({
                   })}
                 </div>
               )}
-            </section>
+            </Panel>
 
-            {links.length > 0 && (
-              <section className="border-b border-neutral-200 p-4">
-                <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                  Links ({links.length})
-                </h2>
+            <Panel
+              id="links"
+              title="Links"
+              badge={links.length}
+              open={openSection === "links"}
+              onToggle={toggleSection}
+            >
+              {links.length === 0 ? (
+                <p className="text-xs text-neutral-400">
+                  Keine Links erkannt. Über „Bestehendes Element verlinken“ kannst
+                  du jederzeit neue Links auf Texte oder Buttons legen.
+                </p>
+              ) : (
                 <div className="space-y-3">
                   {links.map((el) => (
                     <div key={`link-${el.id}`}>
@@ -716,13 +795,15 @@ export function Editor({
                     </div>
                   ))}
                 </div>
-              </section>
-            )}
+              )}
+            </Panel>
 
-            <section className="border-b border-neutral-200 p-4">
-              <h2 className="mb-2 text-sm font-semibold text-neutral-900">
-                Bestehendes Element verlinken
-              </h2>
+            <Panel
+              id="verlinken"
+              title="Bestehendes Element verlinken"
+              open={openSection === "verlinken"}
+              onToggle={toggleSection}
+            >
               <p className="mb-2 text-xs text-neutral-500">
                 Klicke in der Vorschau auf einen Text oder Button und hinterlege
                 eine Ziel-Adresse.
@@ -805,12 +886,14 @@ export function Editor({
                   {pickHint}
                 </p>
               )}
-            </section>
+            </Panel>
 
-            <section className="border-b border-neutral-200 p-4">
-              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                Button hinzufügen
-              </h2>
+            <Panel
+              id="button"
+              title="Button hinzufügen"
+              open={openSection === "button"}
+              onToggle={toggleSection}
+            >
               <div className="space-y-2">
                 <input
                   type="text"
@@ -944,12 +1027,15 @@ export function Editor({
                   ))}
                 </ul>
               )}
-            </section>
+            </Panel>
 
-            <section className="border-b border-neutral-200 p-4">
-              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                Texte ({texts.length})
-              </h2>
+            <Panel
+              id="texte"
+              title="Texte (fest)"
+              badge={texts.length}
+              open={openSection === "texte"}
+              onToggle={toggleSection}
+            >
               {texts.length === 0 ? (
                 <p className="text-xs text-neutral-400">Keine Texte erkannt.</p>
               ) : (
@@ -969,12 +1055,14 @@ export function Editor({
                   ))}
                 </div>
               )}
-            </section>
+            </Panel>
 
-            <section className="p-4">
-              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
-                Snapshots
-              </h2>
+            <Panel
+              id="snapshots"
+              title="Snapshots"
+              open={openSection === "snapshots"}
+              onToggle={toggleSection}
+            >
               <p className="mb-2 text-xs text-neutral-500">
                 Speichere einen benannten Stand, um jederzeit dorthin
                 zurückzukehren.
@@ -1029,7 +1117,7 @@ export function Editor({
                   ))}
                 </ul>
               )}
-            </section>
+            </Panel>
           </>
         )}
       </aside>
