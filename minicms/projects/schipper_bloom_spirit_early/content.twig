@@ -1,0 +1,207 @@
+{#
+  Schipper – Bloom Spirit / Early Access
+  --------------------------------------
+  ENTWURF. Vor dem Übertrag in das MiniCMS-Repo gegen AGENTS.md prüfen.
+  Offene Annahmen sind in NOTES.md dieses Ordners aufgelistet – insbesondere:
+  * Übersetzungsaufruf `|trans` (Symfony-Konvention angenommen)
+  * Einstiegspunkt von content.js
+  * Feldnamen in meta.json.twig
+
+  Kampagnendaten – pro Kampagne anpassen:
+#}
+{% set early_access_start = '2026-08-13T00:00:00+02:00' %}
+{% set launch_date       = '2026-08-14T00:00:00+02:00' %}
+{% set shop_url          = 'https://www.malennachzahlen-schipper.com/schipper_de/home/' %}
+{% set instagram_url     = 'https://www.instagram.com/schipper_malennachzahlen/' %}
+{% set date_format       = 'common.date_format'|trans %}
+{% set timezone          = 'Europe/Berlin' %}
+
+<div class="bse" data-bse-root data-bse-target="{{ early_access_start }}">
+
+  <header class="bse-header">
+    <div class="bse-head-inner">
+      <img class="bse-logo" src="{{ media.get_asset_link('public/schipper_logo.png') }}" alt="{{ 'brand.logo_alt'|trans }}" width="440" height="311">
+    </div>
+    {#
+      Sprachumschalter bewusst nicht enthalten: Wie die Locale im MiniCMS
+      gewechselt wird (Shop-Kontext vs. eigener Parameter), ist offen – siehe NOTES.md.
+    #}
+  </header>
+
+  {# ============ HERO ============ #}
+  <section class="bse-hero">
+    <div class="bse-hero-bg" style="background-image:url('{{ media.get_asset_link('public/hero_bloom_spirit.jpg') }}')"></div>
+    <div class="bse-wrap bse-hero-inner">
+      <p class="bse-eyebrow">{{ 'hero.eyebrow'|trans }}</p>
+      <h1 class="bse-hero-title">{{ 'hero.title'|trans }}</h1>
+      <p class="bse-hero-sub">{{ 'hero.subtitle'|trans }}</p>
+      <p class="bse-hero-limit">{{ 'hero.limited'|trans }}</p>
+      <a class="bse-btn bse-hero-cta" href="#" data-bse-scroll-to="signup">{{ 'hero.cta'|trans }}</a>
+
+      <div class="bse-countdown" data-bse-countdown role="timer" aria-label="{{ 'countdown.aria'|trans }}">
+        <div class="bse-cd-unit">
+          <div class="bse-cd-num" data-bse-cd="days">--</div>
+          <div class="bse-cd-label">{{ 'countdown.days'|trans }}</div>
+        </div>
+        <div class="bse-cd-sep" aria-hidden="true">:</div>
+        <div class="bse-cd-unit">
+          <div class="bse-cd-num" data-bse-cd="hours">--</div>
+          <div class="bse-cd-label">{{ 'countdown.hours'|trans }}</div>
+        </div>
+        <div class="bse-cd-sep" aria-hidden="true">:</div>
+        <div class="bse-cd-unit">
+          <div class="bse-cd-num" data-bse-cd="minutes">--</div>
+          <div class="bse-cd-label">{{ 'countdown.minutes'|trans }}</div>
+        </div>
+        <div class="bse-cd-sep" aria-hidden="true">:</div>
+        <div class="bse-cd-unit">
+          <div class="bse-cd-num" data-bse-cd="seconds">--</div>
+          <div class="bse-cd-label">{{ 'countdown.seconds'|trans }}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# ============ ANMELDUNG ============ #}
+  <section class="bse-signup" data-bse-section="signup">
+    <div class="bse-wrap">
+      <div data-bse-form-view>
+        <h2 class="bse-signup-title">{{ 'signup.heading'|trans }}</h2>
+        <p class="bse-claim">{{ 'signup.claim'|trans }}</p>
+        <p class="bse-body">{{ 'signup.body'|trans }}</p>
+
+        {#
+          TODO D2S: Formular ist aktuell reine Frontend-Demo – es werden KEINE
+          Daten übertragen. Vor Live-Schaltung muss die Anbindung an den ESP
+          (Salesforce Marketing Cloud) über den vorgesehenen Interposer
+          erfolgen und der Request Klaro-Consent-gewrappt sein.
+        #}
+        <form class="bse-form-row" data-bse-form novalidate
+              data-bse-msg-firstname="{{ 'signup.error_firstname'|trans }}"
+              data-bse-msg-email="{{ 'signup.error_email'|trans }}">
+          <input class="bse-pill-input" data-bse-field="firstname" type="text" autocomplete="given-name"
+                 placeholder="{{ 'signup.firstname_placeholder'|trans }}" aria-label="{{ 'signup.firstname_label'|trans }}">
+          <input class="bse-pill-input" data-bse-field="email" type="email" autocomplete="email"
+                 placeholder="{{ 'signup.email_placeholder'|trans }}" aria-label="{{ 'signup.email_label'|trans }}">
+          <button class="bse-btn" type="submit">{{ 'signup.submit'|trans }}</button>
+        </form>
+
+        <p class="bse-error" data-bse-error role="alert" aria-live="polite"></p>
+        <p class="bse-consent">
+          {{ 'signup.consent_newsletter'|trans }}<br>
+          {{ 'signup.consent_privacy'|trans }}
+        </p>
+      </div>
+
+      <div class="bse-success" data-bse-success-view hidden>
+        <h2 class="bse-signup-title">{{ 'success.heading'|trans }}</h2>
+        <p>{{ 'success.body'|trans|replace({'%date_access%': early_access_start|date(date_format, timezone)}) }}</p>
+        <a class="bse-btn" href="{{ shop_url }}">{{ 'success.cta'|trans }}</a>
+      </div>
+    </div>
+  </section>
+
+  {# ============ EARLY-ACCESS-VORTEIL ============ #}
+  <section class="bse-benefit">
+    <div class="bse-benefit-inner">
+      <h2>{{ 'benefit.heading'|trans }}</h2>
+      <p class="bse-benefit-lead">
+        {{ 'benefit.lead'|trans|replace({
+          '%date_access%': early_access_start|date(date_format, timezone),
+          '%date_launch%': launch_date|date(date_format, timezone)
+        })|raw }}
+      </p>
+      <a class="bse-btn bse-btn-light" href="#" data-bse-scroll-to="signup">{{ 'benefit.cta'|trans }}</a>
+
+      <h3>{{ 'benefit.list_heading'|trans }}</h3>
+      <ul class="bse-benefit-list">
+        <li>{{ 'benefit.item_1'|trans }}</li>
+        <li>{{ 'benefit.item_2'|trans|replace({'%date_access%': early_access_start|date(date_format, timezone)}) }}</li>
+        <li>{{ 'benefit.item_3'|trans }}</li>
+        <li>{{ 'benefit.item_4'|trans }}</li>
+        <li>{{ 'benefit.item_5'|trans }}</li>
+      </ul>
+    </div>
+  </section>
+
+  {# ============ STORY ============ #}
+  <section class="bse-story">
+    <div class="bse-story-inner">
+      <div class="bse-story-grid">
+        <figure class="bse-story-fig">
+          <img src="{{ media.get_asset_link('public/motiv_teaser.jpg') }}" alt="{{ 'story.image_alt'|trans }}" loading="lazy">
+        </figure>
+        <div class="bse-story-text">
+          <h2>{{ 'story.heading'|trans }}</h2>
+          <p>{{ 'story.p1'|trans }}</p>
+          <p>{{ 'story.p2'|trans }}</p>
+          <p>{{ 'story.p3'|trans }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# ============ LIMITIERTE AUFLAGE ============ #}
+  <section class="bse-limited">
+    <div class="bse-limited-inner">
+      <h2>{{ 'limited.heading'|trans }}</h2>
+      <p>{{ 'limited.body'|trans }}</p>
+      <a class="bse-btn bse-btn-light" href="#" data-bse-scroll-to="signup">{{ 'limited.cta'|trans }}</a>
+    </div>
+  </section>
+
+  {# ============ HINTER DEN KULISSEN ============ #}
+  {#
+    TODO Content: finales Video (Variante ohne Motiv) liegt noch nicht vor.
+    Einbindung muss lokal aus public/ erfolgen – kein YouTube/Vimeo-Embed
+    (kein Third-Party, kein Tracking).
+  #}
+  <section class="bse-behind">
+    <div class="bse-wrap">
+      <h2>{{ 'behind.heading'|trans }}</h2>
+      <div class="bse-video-ph">
+        <div class="bse-video-play" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+        </div>
+        <span>{{ 'behind.placeholder'|trans }}</span>
+      </div>
+    </div>
+  </section>
+
+  {# ============ ENTDECKE MEHR ============ #}
+  <section class="bse-more">
+    <div class="bse-more-inner">
+      <div class="bse-more-copy">
+        <h2>{{ 'more.heading'|trans }}</h2>
+        <p>{{ 'more.body'|trans|raw }}</p>
+        <a class="bse-btn" href="{{ shop_url }}">{{ 'more.cta'|trans }}</a>
+      </div>
+      <div class="bse-polaroids" aria-hidden="true">
+        <figure class="bse-pola bse-pola-1">
+          <img src="{{ media.get_asset_link('public/polaroid_outdoor.jpg') }}" alt="{{ 'more.image_1_alt'|trans }}" loading="lazy">
+        </figure>
+        <figure class="bse-pola bse-pola-2">
+          <img src="{{ media.get_asset_link('public/polaroid_wall.jpg') }}" alt="{{ 'more.image_2_alt'|trans }}" loading="lazy">
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <footer class="bse-footer">
+    <div class="bse-foot-social">
+      <a class="bse-foot-ig" href="{{ instagram_url }}" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="2" width="20" height="20" rx="5"></rect>
+          <circle cx="12" cy="12" r="4"></circle>
+          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"></circle>
+        </svg>{{ 'footer.instagram'|trans }}
+      </a>
+    </div>
+    {#
+      TODO D2S: Kontakt/Impressum/Datenschutz kommen im eingebetteten Zustand
+      aus dem Shop-Footer. Für die Standalone-Auslieferung müssen die
+      Ziel-URLs von D2S/Legal bestätigt werden – hier bewusst noch nicht gesetzt.
+    #}
+  </footer>
+
+</div>

@@ -1,0 +1,10 @@
+{
+  "title": {{ 'meta.title'|trans|json_encode|raw }},
+  "description": {{ 'meta.description'|trans|json_encode|raw }},
+  "banner": {
+    "image": {{ media.get_asset_link('public/hero_bloom_spirit.jpg')|json_encode|raw }},
+    "alt": {{ 'meta.banner_alt'|trans|json_encode|raw }},
+    "headline": {{ 'hero.title'|trans|json_encode|raw }},
+    "subline": {{ 'hero.subtitle'|trans|json_encode|raw }}
+  }
+}
