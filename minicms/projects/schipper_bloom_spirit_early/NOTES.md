@@ -1,73 +1,67 @@
-# schipper_bloom_spirit_early – Annahmen und offene Punkte
+# schipper_bloom_spirit_early – Stand und offene Punkte
 
-Übertragung der bestehenden Self-contained-HTML-Landingpage („Bloom Spirit
-Early Access", Datei `Bloom Spirit.html` im Repo-Root) in die MiniCMS-Struktur.
-Inhalt und Design sind übernommen, die technische Struktur ist neu gebaut.
+Übertragung der bestehenden Self-contained-Landingpage („Bloom Spirit Early
+Access", `Bloom Spirit.html` im Repo-Root) in die MiniCMS-Struktur. Inhalt und
+Design sind übernommen, die technische Struktur ist nach `AGENTS.md` neu gebaut.
 
-Stand: Entwurf. **Die `AGENTS.md` des MiniCMS-Repos konnte nicht gelesen werden**
-(GitLab aus dieser Umgebung nicht erreichbar). Die folgenden Punkte sind daher
-Annahmen und vor dem ersten Merge Request abzugleichen.
+## Gegen AGENTS.md umgesetzt
 
-## Zu prüfen gegen AGENTS.md
+* Ordnername `<brand>_<purpose>`, `config.json` `store: schipper`,
+  `matomo_id: -1`, `facebook_id: 0`
+* `meta.json.twig` mit `title`/`seo_keywords`/`description`/`banner_*`/`logo_img_alt`,
+  rendert valides JSON (geprüft)
+* `content.js` ist ein ES-Modul, liest `top_el_ref` / `top_el_ref_shadow_inner_dst` /
+  `data_src_ref`, pollt auf den ShadowRoot, greift ausschließlich über `root` auf
+  das DOM zu, registriert nichts global; Strings kommen aus `data.translations`
+* Klassen mit Projekt-Präfix `schipper_bloom_spirit__`, Custom Properties auf
+  `:root, :host`, `--scheme-primary` unangetastet, `container-type` kommt vom
+  `.minicms_container`
+* Layout nur über `@container`; `@media` nur für `prefers-reduced-motion`
+* `de`/`en`/`fr` mit identischem Key-Set inkl. SEO-Keys
+* Medien über `media.get_asset_link('public/…')`, keine `/publish/…`-Pfade
+* Keine Fonts, kein `@font-face`, kein Third-Party-JS/CSS, kein Tracking
+* Header und Footer nur unter `{% if standalone.is_standalone() %}`
+* `favicon.png` und `uclogo.png` liegen im Projektroot
+* Mehrfach-Einbettung geprüft (zwei Instanzen, unabhängige Countdowns/Formulare)
 
-| # | Annahme | Wo | Aufwand bei Abweichung |
-|---|---------|----|------------------------|
-| 1 | Übersetzungen werden als `{{ 'key'\|trans }}` aufgelöst, Schlüssel flach mit Punkt-Notation in `translations/<locale>.json` | `content.twig`, `meta.json.twig` | Filtername global ersetzen; ggf. Schlüssel verschachteln |
-| 2 | MiniCMS ruft den Default-Export von `content.js` mit dem ShadowRoot (oder dem Host-Element) auf | `content.js` (unterste Zeilen) | nur der Export ist anzupassen, die Logik nicht |
-| 3 | Feldnamen in `meta.json.twig` (`title`, `description`, `banner.image/alt/headline/subline`) | `meta.json.twig` | Feldnamen austauschen |
-| 4 | `media.get_asset_link('public/…')` liefert den Asset-Pfad (aus dem Briefing übernommen) | `content.twig` | – |
-| 5 | Feature-Flags in `config.json`: keine gesetzt, da die möglichen Flags unbekannt sind | `config.json` | Flags ergänzen |
-| 6 | Begrenztes Inline-Markup (`<b>`, `<br>`) in Übersetzungswerten, ausgegeben mit `\|raw` | `benefit.lead`, `more.body` | Keys in Teilstrings zerlegen |
-| 7 | Es werden keine `shared/`-Komponenten genutzt, weil deren Inventar unbekannt ist | `content.twig` | Eigenbau durch `@shared/<komponente>.twig` ersetzen – bevorzugt laut Briefing |
+## Offen – bevor das live geht
 
-## Bewusste Abweichungen vom Referenz-HTML
+1. **Newsletter über `@shared/newsletter.twig`.** Das aktuelle Formular ist ein
+   Platzhalter mit reiner Frontend-Validierung, es überträgt **keine Daten** und
+   bindet kein Captcha ein. Laut AGENTS.md ist für Newsletter-Anmeldungen die
+   Shared-Komponente zu verwenden. Dafür brauche ich `shared/components/newsletter.twig`
+   (oder `projects/example/`), um die Parameter korrekt zu setzen.
+2. **Kampagnendaten.** `early_access_start` / `launch_date` oben in `content.twig`
+   stehen auf 13./14.08. und liegen in der Vergangenheit – der Countdown steht
+   auf null. Zeitzone ist explizit `Europe/Berlin`.
+3. **Video** für „Ein Blick hinter die Kulissen" fehlt (Platzhalter im Markup),
+   später lokal über `media.get_asset_link('public/…mp4')`.
+4. **Datenschutz-Link** im Consent-Text setzen, sobald das Ziel feststeht.
+5. **`favicon.png` / `uclogo.png`** sind aus dem Logo generierte Platzhalter –
+   finale Dateien sollten von Marketing kommen.
+6. **Bilder** stammen aus dem Referenz-HTML (Base64-Extrakt). Für live besser die
+   Originale in voller Qualität.
 
-* **Keine Google Fonts.** Das Referenz-HTML lud `Rubik` per CDN. Die Schrift
-  wird jetzt vom Marken-Stylesheet geerbt (`font-family: inherit`).
-  *TODO D2S:* Ist `Rubik` in `/d2s_managed/store/schipper.css` enthalten? Wenn
-  nicht, muss D2S sie einpflegen – eigene `@font-face`-Regeln sind untersagt.
-* **Kein Sprachumschalter.** Im Referenz-HTML war er ohne Funktion. Wie die
-  Locale im MiniCMS gewechselt wird (Shop-Kontext oder eigener Parameter), ist
-  offen. Die Stelle ist in `content.twig` kommentiert.
-* **Keine IDs mehr.** Alle JS- und Sprungziele laufen über `data-bse-*`
-  Attribute, damit mehrere Instanzen derselben Seite kollisionsfrei sind.
-  Das Ankersprung-Verhalten (`#anmeldung`) ist durch `scrollIntoView` innerhalb
-  des ShadowRoots ersetzt.
-* **Media Queries → Container Queries.** Alle Breakpoints laufen über
-  `@container bse (…)`, fluide Größen über `cqi` statt `vw`.
-* **Limited-Edition-Badge** aus dem Referenz-CSS ist nicht übernommen – im
-  Referenz-HTML war es nicht im Markup.
-* **Footer-Links** (Kontakt/Impressum/Datenschutz) sind nicht gesetzt: im
-  eingebetteten Zustand kommen sie aus dem Shop-Footer. Für die Standalone-
-  Auslieferung müssen die Ziel-URLs von D2S/Legal bestätigt werden.
+## Mit D2S zu klären
 
-## Vor Live-Schaltung zwingend erledigen
-
-1. **Newsletter-Formular anbinden.** Aktuell reine Frontend-Demo: Validierung
-   und Erfolgsansicht laufen lokal, es wird **kein Datensatz übertragen**. Die
-   Übergabe an den ESP (Salesforce Marketing Cloud) muss über den vorgesehenen
-   Interposer laufen und Klaro-Consent-gewrappt sein. In diesem Zustand darf die
-   Seite nicht live gehen.
-2. **Kampagnendaten setzen.** `early_access_start` und `launch_date` stehen oben
-   in `content.twig` auf den Daten der ursprünglichen Kampagne (13./14.08.) und
-   liegen damit in der Vergangenheit – der Countdown steht auf null. Zeitzone ist
-   explizit `Europe/Berlin`.
-3. **Tracking-IDs eintragen.** `matomo_id` und `facebook_id` in `config.json`
-   sind leer und werden von D2S geliefert – nicht selbst erfinden.
-4. **Video ergänzen.** Der Abschnitt „Ein Blick hinter die Kulissen" enthält
-   einen Platzhalter. Das finale Video muss lokal aus `public/` eingebunden
-   werden – kein YouTube-/Vimeo-Embed.
-5. **Datenschutz-Link** im Consent-Text setzen, sobald das Ziel feststeht.
-6. **Bilder prüfen.** Die Assets in `public/` sind aus dem Referenz-HTML
-   extrahiert (Base64). Für die Live-Seite sollten die Originaldateien in voller
-   Qualität und passenden Größen von der Agentur/Marketing kommen.
+* Ist die Schrift des Entwurfs (`Rubik`) in `/d2s_managed/store/schipper.css`
+  enthalten? Aktuell wird die Schrift geerbt (`font-family: inherit`). Wenn
+  Schipper eine andere Marken-Schrift hat, sieht die Seite anders aus als der
+  Entwurf – dann entweder Design anpassen oder Font von D2S einpflegen lassen.
+* Breakpoints: AGENTS.md verweist auf die Skala in `src/shared/_vars.scss`.
+  Verwendet sind aktuell 820px und 560px – gegen die Skala abgleichen.
+* `config.schema.json` gegen `config.json` prüfen (`matomo_id: -1`,
+  `facebook_id: 0`).
+* Cookie-Management-Link ist nicht gesetzt, weil kein Third-Party-Dienst
+  eingebunden ist.
 
 ## Assets
 
 | Datei | Herkunft | Verwendung |
 |-------|----------|------------|
-| `public/schipper_logo.png` | Referenz-HTML | Header |
-| `public/hero_bloom_spirit.jpg` | Referenz-HTML | Hero-Hintergrund, Banner |
+| `public/schipper_logo.png` | Referenz-HTML | Header (standalone) |
+| `public/hero_bloom_spirit.jpg` | Referenz-HTML | Hero-Hintergrund |
 | `public/motiv_teaser.jpg` | Referenz-HTML | Story-Abschnitt (bewusst unscharf) |
 | `public/polaroid_outdoor.jpg` | Referenz-HTML | „Entdecke mehr" |
 | `public/polaroid_wall.jpg` | Referenz-HTML | „Entdecke mehr" |
+| `favicon.png`, `uclogo.png` | aus Logo generiert | Tab-Icon, Klaro-Dialog |

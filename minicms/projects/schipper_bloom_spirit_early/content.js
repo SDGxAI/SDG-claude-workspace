@@ -1,27 +1,15 @@
 /*
   Schipper – Bloom Spirit / Early Access
-  --------------------------------------
-  ES-Modul. Hängt nichts an `window`, greift nicht auf `document.body` zu und
-  registriert keine Custom Elements. Sämtliche DOM-Zugriffe laufen über den
-  übergebenen Wurzelknoten (ShadowRoot), damit mehrere Instanzen derselben
-  Seite unabhängig voneinander laufen.
 
-  TODO AGENTS.md: Einstiegskonvention prüfen. Angenommen wird, dass MiniCMS
-  den Default-Export mit dem ShadowRoot (oder dem Host-Element) aufruft.
-  Falls das Modul stattdessen z. B. ein benanntes `init` erwartet, ist nur
-  der Export unten anzupassen – die Logik bleibt unverändert.
+  ES-Modul nach MiniCMS-Konvention: liest die drei URL-Parameter, wartet auf
+  den ShadowRoot und initialisiert jede Instanz einzeln. Kein Zugriff auf
+  window/document ausser dem erlaubten getElementById(data_src_ref).
 */
 
-const SELECTORS = {
-  root: '[data-bse-root]',
-  countdown: '[data-bse-countdown]',
-  countdownField: '[data-bse-cd]',
-  scrollTrigger: '[data-bse-scroll-to]',
-  form: '[data-bse-form]',
-  formView: '[data-bse-form-view]',
-  successView: '[data-bse-success-view]',
-  error: '[data-bse-error]',
-};
+const import_params = new URL(import.meta.url).searchParams;
+const top_el_ref = import_params.get("top_el_ref");
+const top_el_ref_shadow_inner_dst = import_params.get("top_el_ref_shadow_inner_dst");
+const data_src_ref = import_params.get("data_src_ref");
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -29,33 +17,41 @@ function pad(value) {
   return value < 10 ? `0${value}` : String(value);
 }
 
-function initCountdown(root) {
-  const container = root.querySelector(SELECTORS.countdown);
-  const host = root.querySelector(SELECTORS.root);
-  if (!container || !host) return () => {};
+function read_data() {
+  const node = document.getElementById(data_src_ref);
+  if (!node) return {};
+  try {
+    return JSON.parse(decodeURIComponent(node.innerHTML));
+  } catch (error) {
+    return {};
+  }
+}
 
-  const target = Date.parse(host.dataset.bseTarget || '');
-  if (Number.isNaN(target)) return () => {};
+function init_countdown(root) {
+  const container = root.querySelector("[data-sbs-countdown]");
+  if (!container) return;
+
+  const target = Date.parse(container.dataset.sbsCountdown || "");
+  if (Number.isNaN(target)) return;
 
   const fields = {};
-  container.querySelectorAll(SELECTORS.countdownField).forEach((el) => {
-    fields[el.dataset.bseCd] = el;
+  container.querySelectorAll("[data-sbs-cd]").forEach((el) => {
+    fields[el.dataset.sbsCd] = el;
   });
 
   let timer = null;
 
   const tick = () => {
     const diff = Math.max(0, target - Date.now());
-    const days = Math.floor(diff / 86400000);
-    const hours = Math.floor((diff % 86400000) / 3600000);
-    const minutes = Math.floor((diff % 3600000) / 60000);
-    const seconds = Math.floor((diff % 60000) / 1000);
-
-    if (fields.days) fields.days.textContent = pad(days);
-    if (fields.hours) fields.hours.textContent = pad(hours);
-    if (fields.minutes) fields.minutes.textContent = pad(minutes);
-    if (fields.seconds) fields.seconds.textContent = pad(seconds);
-
+    const values = {
+      days: Math.floor(diff / 86400000),
+      hours: Math.floor((diff % 86400000) / 3600000),
+      minutes: Math.floor((diff % 3600000) / 60000),
+      seconds: Math.floor((diff % 60000) / 1000),
+    };
+    for (const [name, el] of Object.entries(fields)) {
+      el.textContent = pad(values[name]);
+    }
     if (diff === 0 && timer !== null) {
       clearInterval(timer);
       timer = null;
@@ -64,90 +60,80 @@ function initCountdown(root) {
 
   tick();
   timer = setInterval(tick, 1000);
-
-  return () => {
-    if (timer !== null) clearInterval(timer);
-    timer = null;
-  };
 }
 
-function initScrollLinks(root) {
-  const triggers = Array.from(root.querySelectorAll(SELECTORS.scrollTrigger));
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function init_scroll_links(root) {
+  const reduce_motion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const onClick = (event) => {
-    const name = event.currentTarget.dataset.bseScrollTo;
-    const target = root.querySelector(`[data-bse-section="${name}"]`);
-    if (!target) return;
-    event.preventDefault();
-    target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-  };
-
-  triggers.forEach((el) => el.addEventListener('click', onClick));
-  return () => triggers.forEach((el) => el.removeEventListener('click', onClick));
+  root.querySelectorAll("[data-sbs-scroll-to]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      const target = root.querySelector(`[data-sbs-section="${el.dataset.sbsScrollTo}"]`);
+      if (!target) return;
+      event.preventDefault();
+      target.scrollIntoView({ behavior: reduce_motion ? "auto" : "smooth", block: "start" });
+    });
+  });
 }
 
-function initSignupForm(root) {
-  const form = root.querySelector(SELECTORS.form);
-  const formView = root.querySelector(SELECTORS.formView);
-  const successView = root.querySelector(SELECTORS.successView);
-  const errorBox = root.querySelector(SELECTORS.error);
-  if (!form || !formView || !successView || !errorBox) return () => {};
+function init_signup(root, translations) {
+  const form = root.querySelector("[data-sbs-form]");
+  const form_view = root.querySelector("[data-sbs-form-view]");
+  const success_view = root.querySelector("[data-sbs-success-view]");
+  const error_box = root.querySelector("[data-sbs-error]");
+  if (!form || !form_view || !success_view || !error_box) return;
 
-  const firstnameField = form.querySelector('[data-bse-field="firstname"]');
-  const emailField = form.querySelector('[data-bse-field="email"]');
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const firstname_field = form.querySelector('[data-sbs-field="firstname"]');
+  const email_field = form.querySelector('[data-sbs-field="email"]');
+  const reduce_motion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const t = (key) => translations?.[key] ?? "";
 
-  const onSubmit = (event) => {
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const firstname = (firstnameField?.value || '').trim();
-    const email = (emailField?.value || '').trim();
+    const firstname = (firstname_field?.value || "").trim();
+    const email = (email_field?.value || "").trim();
 
     if (!firstname) {
-      errorBox.textContent = form.dataset.bseMsgFirstname || '';
-      firstnameField?.focus();
+      error_box.textContent = t("signup.error_firstname");
+      firstname_field?.focus();
       return;
     }
     if (!EMAIL_PATTERN.test(email)) {
-      errorBox.textContent = form.dataset.bseMsgEmail || '';
-      emailField?.focus();
+      error_box.textContent = t("signup.error_email");
+      email_field?.focus();
       return;
     }
 
-    errorBox.textContent = '';
+    error_box.textContent = "";
 
     /*
-      TODO D2S: Hier gehört die Übergabe an den ESP (Salesforce Marketing
-      Cloud) über den vorgesehenen Interposer hin – Consent-gewrappt via
-      Klaro. Aktuell verlässt bewusst KEIN Datensatz den Browser; die Seite
-      darf in diesem Zustand nicht live gehen.
+      TODO D2S: Anmeldung laeuft noch nicht an den ESP. Vorgesehen ist
+      @shared/newsletter.twig – bis dahin verlaesst bewusst kein Datensatz
+      den Browser und die Seite darf nicht live gehen.
     */
 
-    formView.hidden = true;
-    successView.hidden = false;
-    successView.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
-  };
-
-  form.addEventListener('submit', onSubmit);
-  return () => form.removeEventListener('submit', onSubmit);
+    form_view.hidden = true;
+    success_view.hidden = false;
+    success_view.scrollIntoView({ behavior: reduce_motion ? "auto" : "smooth", block: "center" });
+  });
 }
 
-/**
- * @param {ShadowRoot|HTMLElement} target ShadowRoot oder Host-Element der Instanz.
- * @returns {() => void} Aufräumfunktion (Timer und Listener der Instanz).
- */
-export function init(target) {
-  const root = target && target.shadowRoot ? target.shadowRoot : target;
-  if (!root || typeof root.querySelector !== 'function') return () => {};
-
-  const teardowns = [
-    initCountdown(root),
-    initScrollLinks(root),
-    initSignupForm(root),
-  ];
-
-  return () => teardowns.forEach((fn) => fn());
+function init(root) {
+  const data = read_data();
+  init_countdown(root);
+  init_scroll_links(root);
+  init_signup(root, data.translations);
 }
 
-export default init;
+function wait_for_ready() {
+  const top_el = document?.getElementById(top_el_ref)?.shadowRoot?.getElementById(top_el_ref_shadow_inner_dst);
+  if (top_el == null) {
+    setTimeout(wait_for_ready, 60);
+    return;
+  }
+  init(top_el);
+}
+
+if (top_el_ref !== null && top_el_ref_shadow_inner_dst !== null) {
+  wait_for_ready();
+}
