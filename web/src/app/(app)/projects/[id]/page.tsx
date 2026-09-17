@@ -95,8 +95,9 @@ export default async function ProjectDetailPage({
   }
 
   return (
-    <div className="w-full px-4 pb-8 pt-6 lg:px-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="w-full pb-8">
+      {/* Kopfzeile: gleiche Breite/Ausrichtung wie die obere Navi-Leiste. */}
+      <div className="mx-auto flex max-w-6xl flex-wrap items-start justify-between gap-4 px-4 pt-6">
         <div>
           <Link href="/projects" className="text-sm text-neutral-500 hover:text-sdg-red">
             ← Projekte
@@ -125,6 +126,7 @@ export default async function ProjectDetailPage({
         </div>
       </div>
 
+      {/* Vorschau bleibt voll breit (große Fläche). */}
       <div className="mt-6">
         {page ? (
           <CommentablePreview
