@@ -57,8 +57,8 @@ export function CommentablePreview({
   const overlayRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [commentMode, setCommentMode] = useState(false);
-  // Vorschau-Ansicht: Normal (Editor-Breite) · Desktop (Vollbild) · Mobil.
-  const [view, setView] = useState<"normal" | "desktop" | "mobile">("normal");
+  // Vorschau-Ansicht: Desktop (Editor-Breite) oder Mobil (Handy-Rahmen).
+  const [view, setView] = useState<"desktop" | "mobile">("desktop");
   // Kommentarspalte ein-/ausblenden (ausgeblendet = breitere Vorschau).
   const [showComments, setShowComments] = useState(true);
   const [pending, setPending] = useState<{ x: number; y: number } | null>(null);
@@ -277,11 +277,10 @@ export function CommentablePreview({
           <span className="text-sm text-neutral-500">{openCount} offen</span>
         )}
 
-        {/* Ansicht: Normal (Editor-Breite) / Desktop (Vollbild) / Mobil */}
+        {/* Ansicht: Desktop (Editor-Breite) / Mobil (Handy) */}
         <div className="ml-auto inline-flex overflow-hidden rounded-lg border border-neutral-300">
           {(
             [
-              ["normal", "Normal"],
               ["desktop", "🖥 Desktop"],
               ["mobile", "📱 Mobil"],
             ] as const
@@ -292,11 +291,9 @@ export function CommentablePreview({
               onClick={() => setView(key)}
               aria-pressed={view === key}
               title={
-                key === "normal"
-                  ? "Normale Ansicht (wie im Editor)"
-                  : key === "desktop"
-                    ? "Vollbild – so wie die Seite auf dem Desktop aussieht"
-                    : "Mobil – so wie die Seite auf dem Handy aussieht"
+                key === "desktop"
+                  ? "Desktop – so wie die Seite am Computer aussieht"
+                  : "Mobil – so wie die Seite auf dem Handy aussieht"
               }
               className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                 i > 0 ? "border-l border-neutral-300" : ""
@@ -319,18 +316,14 @@ export function CommentablePreview({
             className={
               view === "mobile"
                 ? "relative mx-auto w-full max-w-[400px] overflow-hidden rounded-[2.2rem] border-[10px] border-neutral-800 bg-white shadow-xl transition-all"
-                : view === "desktop"
-                  ? "relative w-full overflow-hidden border border-neutral-200 bg-white transition-all"
-                  : "relative w-full overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all"
+                : "relative w-full overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all"
             }
           >
             <iframe
               ref={iframeRef}
               title="Vorschau"
               srcDoc={previewHtml}
-              className={`w-full ${
-                view === "desktop" ? "h-[calc(100vh-11rem)]" : "h-[70vh] lg:h-[76vh]"
-              }`}
+              className="h-[70vh] w-full lg:h-[76vh]"
               sandbox="allow-same-origin"
             />
 
