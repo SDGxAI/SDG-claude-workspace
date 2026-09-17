@@ -96,40 +96,37 @@ export default async function ProjectDetailPage({
   }
 
   return (
-    <>
-      <PageContainer>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <Link href="/projects" className="text-sm text-neutral-500 hover:text-sdg-red">
-              ← Projekte
-            </Link>
-            <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-              {project.title}
-            </h1>
-            <div className="mt-1 text-sm text-neutral-500">
-              {project.brand}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {access.canEdit && page && <ExportMenu projectId={id} />}
-            {access.isAdmin && (
-              <DeleteProjectButton projectId={id} title={project.title} />
-            )}
-            {access.canEdit && (
-              <Link
-                href={`/projects/${id}/editor`}
-                className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark"
-              >
-                Bearbeiten
-              </Link>
-            )}
+    <PageContainer>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link href="/projects" className="text-sm text-neutral-500 hover:text-sdg-red">
+            ← Projekte
+          </Link>
+          <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
+            {project.title}
+          </h1>
+          <div className="mt-1 text-sm text-neutral-500">
+            {project.brand}
           </div>
         </div>
-      </PageContainer>
 
-      {/* Vorschau in voller Breite (wie im Editor) – nicht auf die Seitenbreite begrenzt */}
-      <div className="w-full px-4 pb-8 lg:px-6">
+        <div className="flex items-center gap-2">
+          {access.canEdit && page && <ExportMenu projectId={id} />}
+          {access.isAdmin && (
+            <DeleteProjectButton projectId={id} title={project.title} />
+          )}
+          {access.canEdit && (
+            <Link
+              href={`/projects/${id}/editor`}
+              className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark"
+            >
+              Bearbeiten
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6">
         {page ? (
           <CommentablePreview
             previewHtml={previewHtml}
@@ -146,6 +143,6 @@ export default async function ProjectDetailPage({
           </p>
         )}
       </div>
-    </>
+    </PageContainer>
   );
 }
