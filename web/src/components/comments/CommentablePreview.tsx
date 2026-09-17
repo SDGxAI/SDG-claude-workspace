@@ -57,8 +57,8 @@ export function CommentablePreview({
   const overlayRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [commentMode, setCommentMode] = useState(false);
-  // Vorschau-Gerät: Desktop (volle Breite) oder Mobil (iPhone-Breite).
-  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  // Vorschau-Ansicht: Normal (Editor-Breite) · Desktop (Vollbild) · Mobil.
+  const [view, setView] = useState<"normal" | "desktop" | "mobile">("normal");
   // Kommentarspalte ein-/ausblenden (ausgeblendet = breitere Vorschau).
   const [showComments, setShowComments] = useState(true);
   const [pending, setPending] = useState<{ x: number; y: number } | null>(null);
@@ -238,87 +238,101 @@ export function CommentablePreview({
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row">
-      {/* Vorschau mit Pin-Overlay */}
-      <div className="lg:flex-1">
-        <div className="mb-2 flex flex-wrap items-center gap-3">
-          {canComment && (
-            <button
-              onClick={() => {
-                setCommentMode((m) => !m);
-                setPending(null);
-                setShowComments(true);
-              }}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                commentMode
-                  ? "bg-sdg-red text-white"
-                  : "border border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
-              }`}
-            >
-              {commentMode ? "Kommentarmodus aktiv – klicke in die Vorschau" : "Kommentar hinzufügen"}
-            </button>
-          )}
-
-          {/* Kommentarspalte ein-/ausblenden */}
+    <div>
+      {/* Obere Werkzeugleiste: Kommentare + Ansicht (Normal/Desktop/Mobil) */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        {canComment && (
           <button
-            type="button"
-            onClick={() => setShowComments((s) => !s)}
-            aria-pressed={showComments}
-            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-              showComments
-                ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
-                : "border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
+            onClick={() => {
+              setCommentMode((m) => !m);
+              setPending(null);
+              setShowComments(true);
+            }}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              commentMode
+                ? "bg-sdg-red text-white"
+                : "border border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
             }`}
-            title="Kommentarspalte ein-/ausblenden – ausgeblendet ist die Vorschau breiter"
           >
-            {showComments ? "Kommentare ausblenden" : `Kommentare einblenden (${threads.length})`}
+            {commentMode ? "Kommentarmodus aktiv – klicke in die Vorschau" : "Kommentar hinzufügen"}
           </button>
+        )}
 
-          {openCount > 0 && (
-            <span className="text-sm text-neutral-500">{openCount} offen</span>
-          )}
-
-          {/* Geräte-Umschalter: Desktop / Mobil (iPhone) */}
-          <div className="ml-auto inline-flex overflow-hidden rounded-lg border border-neutral-300">
-            <button
-              type="button"
-              onClick={() => setDevice("desktop")}
-              aria-pressed={device === "desktop"}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                device === "desktop"
-                  ? "bg-sdg-red text-white"
-                  : "bg-white text-neutral-600 hover:text-sdg-red"
-              }`}
-            >
-              🖥 Desktop
-            </button>
-            <button
-              type="button"
-              onClick={() => setDevice("mobile")}
-              aria-pressed={device === "mobile"}
-              className={`border-l border-neutral-300 px-3 py-1.5 text-sm font-medium transition-colors ${
-                device === "mobile"
-                  ? "bg-sdg-red text-white"
-                  : "bg-white text-neutral-600 hover:text-sdg-red"
-              }`}
-            >
-              📱 Mobil
-            </button>
-          </div>
-        </div>
-
-        <div
-          className={`relative overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all ${
-            device === "mobile" ? "mx-auto w-full max-w-[390px]" : "w-full"
+        {/* Kommentarspalte rechts ein-/ausblenden */}
+        <button
+          type="button"
+          onClick={() => setShowComments((s) => !s)}
+          aria-pressed={showComments}
+          className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+            showComments
+              ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
+              : "border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
           }`}
+          title="Kommentarspalte rechts ein-/ausblenden"
         >
-          <iframe
-            ref={iframeRef}
-            title="Vorschau"
-            srcDoc={previewHtml}
-            className="h-[60vh] w-full lg:h-[75vh]"
-            sandbox="allow-same-origin"
-          />
+          {showComments ? "Kommentare ausblenden" : `Kommentare einblenden (${threads.length})`}
+        </button>
+
+        {openCount > 0 && (
+          <span className="text-sm text-neutral-500">{openCount} offen</span>
+        )}
+
+        {/* Ansicht: Normal (Editor-Breite) / Desktop (Vollbild) / Mobil */}
+        <div className="ml-auto inline-flex overflow-hidden rounded-lg border border-neutral-300">
+          {(
+            [
+              ["normal", "Normal"],
+              ["desktop", "🖥 Desktop"],
+              ["mobile", "📱 Mobil"],
+            ] as const
+          ).map(([key, label], i) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setView(key)}
+              aria-pressed={view === key}
+              title={
+                key === "normal"
+                  ? "Normale Ansicht (wie im Editor)"
+                  : key === "desktop"
+                    ? "Vollbild – so wie die Seite auf dem Desktop aussieht"
+                    : "Mobil – so wie die Seite auf dem Handy aussieht"
+              }
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                i > 0 ? "border-l border-neutral-300" : ""
+              } ${
+                view === key
+                  ? "bg-sdg-red text-white"
+                  : "bg-white text-neutral-600 hover:text-sdg-red"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 lg:flex-row">
+        {/* Vorschau mit Pin-Overlay */}
+        <div className="min-w-0 lg:flex-1">
+          <div
+            className={
+              view === "mobile"
+                ? "relative mx-auto w-full max-w-[400px] overflow-hidden rounded-[2.2rem] border-[10px] border-neutral-800 bg-white shadow-xl transition-all"
+                : view === "desktop"
+                  ? "relative w-full overflow-hidden border border-neutral-200 bg-white transition-all"
+                  : "relative w-full overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all"
+            }
+          >
+            <iframe
+              ref={iframeRef}
+              title="Vorschau"
+              srcDoc={previewHtml}
+              className={`w-full ${
+                view === "desktop" ? "h-[calc(100vh-11rem)]" : "h-[70vh] lg:h-[76vh]"
+              }`}
+              sandbox="allow-same-origin"
+            />
 
           {/* Overlay: fängt Klicks nur im Kommentarmodus, Pins immer klickbar.
               overflow-hidden blendet Pins aus, die gerade außerhalb des
@@ -546,6 +560,7 @@ export function CommentablePreview({
         )}
       </div>
       )}
+      </div>
     </div>
   );
 }
