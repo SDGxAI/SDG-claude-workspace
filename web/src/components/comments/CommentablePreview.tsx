@@ -57,6 +57,8 @@ export function CommentablePreview({
   const overlayRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [commentMode, setCommentMode] = useState(false);
+  // Vorschau-Gerät: Desktop (volle Breite) oder Mobil (iPhone-Breite).
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [pending, setPending] = useState<{ x: number; y: number } | null>(null);
   const [pendingText, setPendingText] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -257,9 +259,41 @@ export function CommentablePreview({
             {openCount} offen{openCount === 1 ? "er" : "e"} Kommentar
             {openCount === 1 ? "" : "e"}
           </span>
+
+          {/* Geräte-Umschalter: Desktop / Mobil (iPhone) */}
+          <div className="ml-auto inline-flex overflow-hidden rounded-lg border border-neutral-300">
+            <button
+              type="button"
+              onClick={() => setDevice("desktop")}
+              aria-pressed={device === "desktop"}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                device === "desktop"
+                  ? "bg-sdg-red text-white"
+                  : "bg-white text-neutral-600 hover:text-sdg-red"
+              }`}
+            >
+              🖥 Desktop
+            </button>
+            <button
+              type="button"
+              onClick={() => setDevice("mobile")}
+              aria-pressed={device === "mobile"}
+              className={`border-l border-neutral-300 px-3 py-1.5 text-sm font-medium transition-colors ${
+                device === "mobile"
+                  ? "bg-sdg-red text-white"
+                  : "bg-white text-neutral-600 hover:text-sdg-red"
+              }`}
+            >
+              📱 Mobil
+            </button>
+          </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white">
+        <div
+          className={`relative overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all ${
+            device === "mobile" ? "mx-auto w-full max-w-[390px]" : "w-full"
+          }`}
+        >
           <iframe
             ref={iframeRef}
             title="Vorschau"
