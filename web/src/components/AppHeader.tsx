@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { SdgLogo } from "@/components/SdgLogo";
 
 export function AppHeader({
   email,
@@ -25,10 +26,10 @@ export function AppHeader({
   return (
     <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-        <Link href="/projects" className="flex items-center gap-2">
-          <span className="inline-block h-6 w-6 rounded bg-sdg-red" aria-hidden />
-          <span className="font-semibold text-neutral-900">
-            SDG Landingpage-Editor
+        <Link href="/projects" className="flex items-center gap-2.5">
+          <SdgLogo className="h-6 w-auto" />
+          <span className="hidden text-sm font-medium text-neutral-500 sm:inline">
+            Landingpage-Editor
           </span>
         </Link>
 

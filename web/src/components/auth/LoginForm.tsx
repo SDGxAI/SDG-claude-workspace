@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { SdgLogo } from "@/components/SdgLogo";
 
 function LoginFormInner() {
   const router = useRouter();
@@ -46,10 +47,10 @@ function LoginFormInner() {
       onSubmit={handleSubmit}
       className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 shadow-sm"
     >
-      <div className="flex items-center gap-2">
-        <span className="inline-block h-6 w-6 rounded bg-sdg-red" aria-hidden />
-        <span className="font-semibold text-neutral-900">
-          SDG Landingpage-Editor
+      <div className="flex flex-col items-center text-center">
+        <SdgLogo className="h-7 w-auto" />
+        <span className="mt-2 text-sm font-medium text-neutral-500">
+          Landingpage-Editor
         </span>
       </div>
       <h1 className="mt-6 text-xl font-semibold text-neutral-900">Anmelden</h1>
