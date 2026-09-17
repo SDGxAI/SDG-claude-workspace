@@ -239,8 +239,10 @@ export function CommentablePreview({
 
   return (
     <div>
-      {/* Obere Werkzeugleiste: Kommentare + Ansicht (Normal/Desktop/Mobil) */}
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+      {/* Obere Werkzeugleiste: Kommentare + Ansicht (Desktop/Mobil).
+          Gleiche Breite/Ausrichtung wie die Kopfzeile und die Navi-Leiste,
+          damit die Buttons nicht bis zum Bildschirmrand ragen. */}
+      <div className="mx-auto mb-3 flex max-w-6xl flex-wrap items-center gap-3 px-4">
         {canComment && (
           <button
             onClick={() => {
@@ -309,7 +311,8 @@ export function CommentablePreview({
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
+      {/* Vorschau-Fläche voll breit (nur seitlicher Innenabstand). */}
+      <div className="flex flex-col gap-4 px-4 lg:flex-row lg:px-6">
         {/* Vorschau mit Pin-Overlay */}
         <div className="min-w-0 lg:flex-1">
           <div
