@@ -7,7 +7,6 @@ import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import { ExportMenu } from "@/components/projects/ExportMenu";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
-import { PageContainer } from "@/components/PageContainer";
 import {
   CommentablePreview,
   type CommentThread,
@@ -96,7 +95,7 @@ export default async function ProjectDetailPage({
   }
 
   return (
-    <PageContainer>
+    <div className="w-full px-4 pb-8 pt-6 lg:px-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href="/projects" className="text-sm text-neutral-500 hover:text-sdg-red">
@@ -143,6 +142,6 @@ export default async function ProjectDetailPage({
           </p>
         )}
       </div>
-    </PageContainer>
+    </div>
   );
 }
