@@ -12,7 +12,6 @@ import {
   CommentablePreview,
   type CommentThread,
 } from "@/components/comments/CommentablePreview";
-import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/status";
 import type { ContentState, DetectedElement } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -106,14 +105,8 @@ export default async function ProjectDetailPage({
           <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
             {project.title}
           </h1>
-          <div className="mt-1 flex items-center gap-2 text-sm text-neutral-500">
-            <span>{project.brand}</span>
-            <span>·</span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[project.status]}`}
-            >
-              {STATUS_LABELS[project.status]}
-            </span>
+          <div className="mt-1 text-sm text-neutral-500">
+            {project.brand}
           </div>
         </div>
 
