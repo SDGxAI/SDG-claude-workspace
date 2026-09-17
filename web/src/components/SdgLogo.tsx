@@ -1,35 +1,19 @@
 /**
- * SDG-Logo (SIMBA · DICKIE · GROUP) als scharfe Inline-SVG.
+ * SDG-Logo (SIMBA · DICKIE · GROUP) – die Original-Bilddatei.
  *
- * Als SVG nachgebaut statt Bilddatei: gestochen scharf in jeder Größe,
- * winzige Dateigröße, kein zusätzlicher Netzwerk-Abruf. Höhe per CSS-Klasse
- * setzen (z. B. `h-6`), die Breite ergibt sich automatisch aus dem Seiten-
- * verhältnis.
+ * Liegt als `public/sdg-logo.png` und wird per Höhe skaliert (z. B. `h-6`);
+ * die Breite ergibt sich automatisch aus dem Seitenverhältnis. Als einfaches
+ * <img> eingebunden (kein next/image nötig für ein kleines statisches Logo).
  */
 export function SdgLogo({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 620 100"
-      role="img"
-      aria-label="SIMBA DICKIE GROUP"
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/sdg-logo.png"
+      alt="SIMBA DICKIE GROUP"
+      width={1423}
+      height={148}
       className={className}
-    >
-      <rect width="620" height="100" rx="2" fill="#E30613" />
-      <text
-        x="310"
-        y="50"
-        fill="#FFFFFF"
-        fontFamily="'Arial Black', Arial, Helvetica, sans-serif"
-        fontWeight={900}
-        fontSize={52}
-        letterSpacing={2}
-        textAnchor="middle"
-        dominantBaseline="central"
-        textLength={560}
-        lengthAdjust="spacingAndGlyphs"
-      >
-        SIMBA · DICKIE · GROUP
-      </text>
-    </svg>
+    />
   );
 }
