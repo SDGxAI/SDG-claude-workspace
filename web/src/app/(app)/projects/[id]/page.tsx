@@ -5,7 +5,6 @@ import { getProjectAccess } from "@/lib/access";
 import { getCurrentProfile } from "@/lib/auth";
 import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
-import { StatusSelect } from "@/components/projects/StatusSelect";
 import { ExportMenu } from "@/components/projects/ExportMenu";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
 import { PageContainer } from "@/components/PageContainer";
@@ -119,9 +118,6 @@ export default async function ProjectDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
-          {access.isAdmin && (
-            <StatusSelect projectId={id} currentStatus={project.status} />
-          )}
           {access.canEdit && page && <ExportMenu projectId={id} />}
           {access.isAdmin && (
             <DeleteProjectButton projectId={id} title={project.title} />

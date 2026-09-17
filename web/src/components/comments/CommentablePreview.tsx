@@ -59,6 +59,8 @@ export function CommentablePreview({
   const [commentMode, setCommentMode] = useState(false);
   // Vorschau-Gerät: Desktop (volle Breite) oder Mobil (iPhone-Breite).
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  // Kommentarspalte ein-/ausblenden (ausgeblendet = breitere Vorschau).
+  const [showComments, setShowComments] = useState(true);
   const [pending, setPending] = useState<{ x: number; y: number } | null>(null);
   const [pendingText, setPendingText] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -239,12 +241,13 @@ export function CommentablePreview({
     <div className="flex flex-col gap-4 lg:flex-row">
       {/* Vorschau mit Pin-Overlay */}
       <div className="lg:flex-1">
-        <div className="mb-2 flex items-center gap-3">
+        <div className="mb-2 flex flex-wrap items-center gap-3">
           {canComment && (
             <button
               onClick={() => {
                 setCommentMode((m) => !m);
                 setPending(null);
+                setShowComments(true);
               }}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 commentMode
@@ -255,10 +258,25 @@ export function CommentablePreview({
               {commentMode ? "Kommentarmodus aktiv – klicke in die Vorschau" : "Kommentar hinzufügen"}
             </button>
           )}
-          <span className="text-sm text-neutral-500">
-            {openCount} offen{openCount === 1 ? "er" : "e"} Kommentar
-            {openCount === 1 ? "" : "e"}
-          </span>
+
+          {/* Kommentarspalte ein-/ausblenden */}
+          <button
+            type="button"
+            onClick={() => setShowComments((s) => !s)}
+            aria-pressed={showComments}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+              showComments
+                ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
+                : "border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
+            }`}
+            title="Kommentarspalte ein-/ausblenden – ausgeblendet ist die Vorschau breiter"
+          >
+            {showComments ? "Kommentare ausblenden" : `Kommentare einblenden (${threads.length})`}
+          </button>
+
+          {openCount > 0 && (
+            <span className="text-sm text-neutral-500">{openCount} offen</span>
+          )}
 
           {/* Geräte-Umschalter: Desktop / Mobil (iPhone) */}
           <div className="ml-auto inline-flex overflow-hidden rounded-lg border border-neutral-300">
@@ -326,6 +344,7 @@ export function CommentablePreview({
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedId(thread.id);
+                      setShowComments(true);
                     }}
                     className={`absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow ${
                       thread.status === "erledigt" ? "bg-green-600" : "bg-sdg-red"
@@ -381,7 +400,8 @@ export function CommentablePreview({
         </div>
       </div>
 
-      {/* Kommentar-Liste */}
+      {/* Kommentar-Liste (ausblendbar – ausgeblendet ist die Vorschau breiter) */}
+      {showComments && (
       <div className="lg:w-80 lg:shrink-0">
         <h2 className="mb-3 font-semibold text-neutral-900">
           Kommentare ({threads.length})
@@ -525,6 +545,7 @@ export function CommentablePreview({
           </ul>
         )}
       </div>
+      )}
     </div>
   );
 }
