@@ -3,9 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
 import { extractI18nKeyOrder } from "@/lib/html/i18n";
-import { computeInsertionPoints } from "@/lib/html/structure";
 import { resolveImages } from "@/lib/storage";
-import { getSnapshots } from "@/lib/actions/pages";
 import { Editor } from "@/components/editor/Editor";
 import type { ContentState, DetectedElement } from "@/types/database";
 
@@ -40,12 +38,8 @@ export default async function EditorPage({
   const contentState = page.content_state as ContentState;
   const detectedElements = page.detected_elements as DetectedElement[];
 
-  // Bild-URLs signieren und (falls berechtigt) Snapshots laden – beides
-  // hängt von der Seite ab, ist aber untereinander unabhängig → parallel.
-  const [resolvedImages, initialSnapshots] = await Promise.all([
-    resolveImages(supabase, contentState.images),
-    access.canEdit ? getSnapshots(page.id) : Promise.resolve([]),
-  ]);
+  // Bild-URLs signieren, damit Vorschau und Sidebar-Thumbnails greifen.
+  const resolvedImages = await resolveImages(supabase, contentState.images);
   const initialHtml = renderHtml(
     page.template_html,
     { ...contentState, images: resolvedImages },
@@ -57,8 +51,6 @@ export default async function EditorPage({
     ? extractI18nKeyOrder(page.template_html)
     : undefined;
 
-  const insertionPoints = computeInsertionPoints(page.template_html);
-
   return (
     <Editor
       projectId={id}
@@ -69,9 +61,7 @@ export default async function EditorPage({
       detectedElements={detectedElements}
       initialContentState={contentState}
       resolvedImages={resolvedImages}
-      initialSnapshots={initialSnapshots}
       i18nKeyOrder={i18nKeyOrder}
-      insertionPoints={insertionPoints}
       canEdit={access.canEdit}
     />
   );
