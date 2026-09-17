@@ -20,19 +20,9 @@ import {
   applyI18nValue,
 } from "@/lib/html/liveApply";
 import { savePageContent } from "@/lib/actions/pages";
-import {
-  createSnapshot,
-  restoreSnapshot,
-  type SnapshotEntry,
-} from "@/lib/actions/pages";
 import { uploadProjectImage } from "@/lib/actions/upload";
 import { translatePageContent } from "@/lib/actions/translate";
-import type {
-  ContentState,
-  CustomButton,
-  DetectedElement,
-} from "@/types/database";
-import type { InsertionPoint } from "@/lib/html/structure";
+import type { ContentState, DetectedElement } from "@/types/database";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -49,11 +39,8 @@ export interface EditorProps {
   detectedElements: DetectedElement[];
   initialContentState: ContentState;
   resolvedImages: Record<string, string>;
-  initialSnapshots: SnapshotEntry[];
   /** Übersetzungs-Schlüssel in Seitenreihenfolge (oben nach unten). */
   i18nKeyOrder?: string[];
-  /** Mögliche Einfüge-Positionen für neue Buttons. */
-  insertionPoints: InsertionPoint[];
   canEdit: boolean;
 }
 
@@ -121,9 +108,7 @@ export function Editor({
   detectedElements,
   initialContentState,
   resolvedImages,
-  initialSnapshots,
   i18nKeyOrder,
-  insertionPoints,
   canEdit,
 }: EditorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -133,21 +118,9 @@ export function Editor({
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [snapshots, setSnapshots] = useState<SnapshotEntry[]>(initialSnapshots);
-  const [snapshotLabel, setSnapshotLabel] = useState("");
-  const [snapshotBusy, setSnapshotBusy] = useState(false);
-  const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
 
-  const [newBtnLabel, setNewBtnLabel] = useState("");
-  const [newBtnUrl, setNewBtnUrl] = useState("");
-  const [newBtnPos, setNewBtnPos] = useState(insertionPoints[0]?.selector ?? "");
-  const [newBtnPosLabel, setNewBtnPosLabel] = useState<string>(
-    insertionPoints[0]?.label ?? "",
-  );
-  const [newBtnColor, setNewBtnColor] = useState("#E30613");
-
-  // Anklicken in der Vorschau: "position" (Button-Position) oder "link".
-  const [pickMode, setPickMode] = useState<null | "position" | "link">(null);
+  // Anklicken in der Vorschau: bestehendes Element verlinken.
+  const [pickMode, setPickMode] = useState<null | "link">(null);
   const [linkTarget, setLinkTarget] = useState<{
     editId: string;
     isAnchor: boolean;
@@ -346,36 +319,25 @@ export function Editor({
         return;
       }
       const editId = el.getAttribute("data-edit-id");
-      const i18nKey = el.getAttribute("data-i18n");
-      const selector = editId
-        ? `[data-edit-id="${editId}"]`
-        : `[data-i18n="${i18nKey}"]`;
       const labelText =
         `${el.tagName}: ${(el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40)}`;
       highlight(el);
 
-      if (pickMode === "position") {
-        setNewBtnPos(selector);
-        setNewBtnPosLabel(labelText);
-        setPickMode(null);
-        setPickHint(null);
-      } else {
-        // Link-Modus
-        if (!editId) {
-          setPickHint(
-            "Übersetzte Texte hier bitte über die Sprach-Bearbeitung verlinken.",
-          );
-          setPickMode(null);
-          return;
-        }
-        const isAnchor = el.tagName === "A";
-        setLinkTarget({ editId, isAnchor, label: labelText });
-        setLinkUrlInput(
-          content.links?.[editId] ?? content.wrapLinks?.[editId] ?? "",
+      // Bestehendes Element verlinken.
+      if (!editId) {
+        setPickHint(
+          "Übersetzte Texte hier bitte über die Sprach-Bearbeitung verlinken.",
         );
         setPickMode(null);
-        setPickHint(null);
+        return;
       }
+      const isAnchor = el.tagName === "A";
+      setLinkTarget({ editId, isAnchor, label: labelText });
+      setLinkUrlInput(
+        content.links?.[editId] ?? content.wrapLinks?.[editId] ?? "",
+      );
+      setPickMode(null);
+      setPickHint(null);
     }
 
     doc.addEventListener("click", onClick, true);
@@ -468,31 +430,6 @@ export function Editor({
     );
   }
 
-  function reconcileButtons(buttons: CustomButton[]) {
-    const doc = getDoc();
-    if (doc) applyCustomButtons(doc, buttons);
-  }
-
-  function addCustomButton(button: CustomButton) {
-    const next = [...(content.customButtons ?? []), button];
-    reconcileButtons(next);
-    commit({ ...content, customButtons: next }, null);
-  }
-
-  function updateCustomButton(id: string, patch: Partial<CustomButton>) {
-    const next = (content.customButtons ?? []).map((b) =>
-      b.id === id ? { ...b, ...patch } : b,
-    );
-    reconcileButtons(next);
-    commit({ ...content, customButtons: next }, `custombtn:${id}`);
-  }
-
-  function removeCustomButton(id: string) {
-    const next = (content.customButtons ?? []).filter((b) => b.id !== id);
-    reconcileButtons(next);
-    commit({ ...content, customButtons: next }, null);
-  }
-
   function handleI18nChange(key: string, value: string) {
     if (!content.i18n) return;
     const doc = getDoc();
@@ -524,36 +461,6 @@ export function Editor({
     const doc = getDoc();
     if (doc) applyImage(doc, id, result.url);
     commit({ ...content, images: { ...content.images, [id]: result.ref } }, null);
-  }
-
-  async function handleCreateSnapshot() {
-    setSnapshotMsg(null);
-    setSnapshotBusy(true);
-    const result = await createSnapshot(pageId, snapshotLabel, content);
-    setSnapshotBusy(false);
-    if (result.ok) {
-      setSnapshots(result.snapshots);
-      setSnapshotLabel("");
-      setSnapshotMsg("Snapshot gespeichert.");
-    } else {
-      setSnapshotMsg(result.error);
-    }
-  }
-
-  async function handleRestore(snapshotId: string) {
-    setSnapshotMsg(null);
-    const result = await restoreSnapshot(snapshotId, pageId, projectId);
-    if (!result.ok) {
-      setSnapshotMsg(result.error);
-      return;
-    }
-    // Wiederherstellen ist rückgängig machbar (als History-Schritt).
-    setPast((p) => [...p.slice(-(HISTORY_LIMIT - 1)), content]);
-    setFuture([]);
-    lastKey.current = null;
-    applyStateToDoc(result.contentState);
-    setContent(result.contentState);
-    setSnapshotMsg("Snapshot wiederhergestellt.");
   }
 
   async function handleTranslate() {
@@ -948,147 +855,6 @@ export function Editor({
             </Panel>
 
             <Panel
-              id="button"
-              title="Button hinzufügen"
-              open={openSection === "button"}
-              onToggle={toggleSection}
-            >
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={newBtnLabel}
-                  onChange={(e) => setNewBtnLabel(e.target.value)}
-                  placeholder="Beschriftung (z. B. Jetzt kaufen)"
-                  className="w-full rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
-                />
-                <input
-                  type="text"
-                  value={newBtnUrl}
-                  onChange={(e) => setNewBtnUrl(e.target.value)}
-                  placeholder="https://…"
-                  className="w-full rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
-                />
-                <div>
-                  <p className="text-xs text-neutral-500">Position</p>
-                  <button
-                    onClick={() => {
-                      setPickMode(pickMode === "position" ? null : "position");
-                      setPickHint(
-                        pickMode === "position"
-                          ? null
-                          : "Klicke in der Vorschau auf die Stelle, hinter der der Button erscheinen soll.",
-                      );
-                    }}
-                    className={`mt-1 w-full rounded border px-2 py-1.5 text-left text-sm ${
-                      pickMode === "position"
-                        ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
-                        : "border-neutral-300 text-neutral-700 hover:border-sdg-red"
-                    }`}
-                  >
-                    {pickMode === "position"
-                      ? "In der Vorschau anklicken … (zum Abbrechen erneut klicken)"
-                      : newBtnPosLabel
-                        ? `Nach: ${newBtnPosLabel}`
-                        : "Position in Vorschau wählen"}
-                  </button>
-                  <label className="mt-1 block text-[11px] text-neutral-400">
-                    oder aus Liste:
-                    <select
-                      value={newBtnPos}
-                      onChange={(e) => {
-                        setNewBtnPos(e.target.value);
-                        const p = insertionPoints.find(
-                          (x) => x.selector === e.target.value,
-                        );
-                        setNewBtnPosLabel(p?.label ?? "");
-                      }}
-                      className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-700 outline-none focus:border-sdg-red"
-                    >
-                      {insertionPoints.map((p) => (
-                        <option key={p.selector} value={p.selector}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 text-xs text-neutral-500">
-                    Farbe
-                    <input
-                      type="color"
-                      value={newBtnColor}
-                      onChange={(e) => setNewBtnColor(e.target.value)}
-                      className="h-7 w-7 cursor-pointer rounded border border-neutral-300"
-                    />
-                  </label>
-                  <button
-                    onClick={() => {
-                      if (!newBtnLabel.trim() || !newBtnUrl.trim() || !newBtnPos) return;
-                      addCustomButton({
-                        id: `custom-${Date.now()}`,
-                        label: newBtnLabel.trim(),
-                        url: newBtnUrl.trim(),
-                        afterSelector: newBtnPos,
-                        color: newBtnColor,
-                      });
-                      setNewBtnLabel("");
-                      setNewBtnUrl("");
-                    }}
-                    disabled={!newBtnLabel.trim() || !newBtnUrl.trim() || !newBtnPos}
-                    className="ml-auto rounded bg-sdg-red px-3 py-1 text-xs font-medium text-white hover:bg-sdg-red-dark disabled:opacity-50"
-                  >
-                    Button einfügen
-                  </button>
-                </div>
-              </div>
-
-              {(content.customButtons ?? []).length > 0 && (
-                <ul className="mt-3 space-y-2">
-                  {(content.customButtons ?? []).map((btn) => (
-                    <li
-                      key={btn.id}
-                      className="rounded border border-neutral-200 p-2"
-                    >
-                      <input
-                        type="text"
-                        value={btn.label}
-                        onChange={(e) =>
-                          updateCustomButton(btn.id, { label: e.target.value })
-                        }
-                        className="w-full rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-sdg-red"
-                      />
-                      <input
-                        type="text"
-                        value={btn.url}
-                        onChange={(e) =>
-                          updateCustomButton(btn.id, { url: e.target.value })
-                        }
-                        className="mt-1 w-full rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-sdg-red"
-                      />
-                      <div className="mt-1 flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={btn.color}
-                          onChange={(e) =>
-                            updateCustomButton(btn.id, { color: e.target.value })
-                          }
-                          className="h-6 w-6 cursor-pointer rounded border border-neutral-300"
-                        />
-                        <button
-                          onClick={() => removeCustomButton(btn.id)}
-                          className="ml-auto text-xs text-neutral-500 hover:text-sdg-red"
-                        >
-                          Entfernen
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-
-            <Panel
               id="texte"
               title="Texte (fest)"
               badge={texts.length}
@@ -1113,68 +879,6 @@ export function Editor({
                     </div>
                   ))}
                 </div>
-              )}
-            </Panel>
-
-            <Panel
-              id="snapshots"
-              title="Snapshots"
-              open={openSection === "snapshots"}
-              onToggle={toggleSection}
-            >
-              <p className="mb-2 text-xs text-neutral-500">
-                Speichere einen benannten Stand, um jederzeit dorthin
-                zurückzukehren.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={snapshotLabel}
-                  onChange={(e) => setSnapshotLabel(e.target.value)}
-                  placeholder="z. B. Vor Farbanpassung"
-                  className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-sdg-red"
-                />
-                <button
-                  onClick={handleCreateSnapshot}
-                  disabled={snapshotBusy || !snapshotLabel.trim()}
-                  className="rounded bg-sdg-red px-2 py-1 text-xs font-medium text-white hover:bg-sdg-red-dark disabled:opacity-50"
-                >
-                  Speichern
-                </button>
-              </div>
-              {snapshotMsg && (
-                <p className="mt-2 text-xs text-neutral-500">{snapshotMsg}</p>
-              )}
-
-              {snapshots.length > 0 && (
-                <ul className="mt-3 space-y-2">
-                  {snapshots.map((snap) => (
-                    <li
-                      key={snap.id}
-                      className="flex items-center gap-2 rounded border border-neutral-200 px-2 py-1.5"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-neutral-800" title={snap.label}>
-                          {snap.label}
-                        </p>
-                        <p className="text-[10px] text-neutral-400">
-                          {new Date(snap.created_at).toLocaleString("de-DE", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleRestore(snap.id)}
-                        className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
-                      >
-                        Wiederherstellen
-                      </button>
-                    </li>
-                  ))}
-                </ul>
               )}
             </Panel>
           </>
