@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
+import { listNotifications } from "@/lib/actions/notifications";
 import { AppHeader } from "@/components/AppHeader";
 
 /**
@@ -28,12 +29,15 @@ export default async function AppLayout({
     redirect("/set-password");
   }
 
+  const notifications = await listNotifications(15);
+
   return (
     <>
       <AppHeader
         email={profile.email ?? ""}
         isAdmin={profile.is_admin}
         avatarUrl={profile.avatar_url}
+        notifications={notifications}
       />
       <main className="flex flex-1 flex-col">{children}</main>
     </>

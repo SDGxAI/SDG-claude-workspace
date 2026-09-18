@@ -15,6 +15,7 @@ import {
   saveVersion,
   type VersionMeta,
 } from "@/lib/actions/versions";
+import { umsetzenComment } from "@/lib/actions/umsetzen";
 import type { PageVersionSource } from "@/types/database";
 
 /** Kurze, verständliche Bezeichnung, woher eine Version stammt. */
@@ -316,6 +317,25 @@ export function CommentablePreview({
     );
     setBusy(false);
     router.refresh();
+  }
+
+  const [umsetzenId, setUmsetzenId] = useState<string | null>(null);
+
+  async function handleUmsetzen(thread: CommentThread) {
+    setUmsetzenId(thread.id);
+    const res = await umsetzenComment(thread.id, pageId, projectId);
+    setUmsetzenId(null);
+    if (res.ok) {
+      window.alert(
+        `Erledigt: Die KI hat ${res.changed} Änderung(en) übernommen und eine neue Version angelegt. ` +
+          "Prüfe das Ergebnis und markiere den Kommentar bei Bedarf als erledigt.",
+      );
+      // Zurück zum aktuellen Stand, damit die Änderung sofort sichtbar ist.
+      await selectVersion(null);
+      router.refresh();
+    } else {
+      window.alert(res.error);
+    }
   }
 
   async function handleDelete(commentId: string, isThread: boolean) {
@@ -807,7 +827,20 @@ export function CommentablePreview({
                     </div>
                   )}
 
-                  <div className="mt-2 flex items-center gap-3">
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    {canModerate && thread.status === "offen" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUmsetzen(thread);
+                        }}
+                        disabled={busy || umsetzenId !== null}
+                        className="rounded bg-sdg-red px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
+                        title="Die KI setzt dieses Feedback direkt in der Seite um (neue Version)"
+                      >
+                        {umsetzenId === thread.id ? "KI arbeitet …" : "✨ Umsetzen"}
+                      </button>
+                    )}
                     {canToggle && (
                       <button
                         onClick={(e) => {
