@@ -8,6 +8,24 @@ import {
   setCommentStatus,
   deleteComment,
 } from "@/lib/actions/comments";
+import {
+  getVersionHtml,
+  deleteVersion,
+  restoreVersion,
+  saveVersion,
+  type VersionMeta,
+} from "@/lib/actions/versions";
+import { umsetzenComment } from "@/lib/actions/umsetzen";
+import type { PageVersionSource } from "@/types/database";
+
+/** Kurze, verständliche Bezeichnung, woher eine Version stammt. */
+const VERSION_SOURCE_LABEL: Record<PageVersionSource, string> = {
+  manual: "Gespeichert",
+  editor: "Editor",
+  claude: "Aus Claude",
+  umsetzen: "KI-Umsetzung",
+  import: "Import",
+};
 
 export interface CommentThread {
   id: string;
@@ -33,6 +51,17 @@ interface Props {
   canComment: boolean;
   canModerate: boolean;
   currentUserEmail: string;
+  versions: VersionMeta[];
+}
+
+function formatVersionTime(iso: string): string {
+  return new Date(iso).toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatTime(iso: string): string {
@@ -52,6 +81,7 @@ export function CommentablePreview({
   canComment,
   canModerate,
   currentUserEmail,
+  versions,
 }: Props) {
   const router = useRouter();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -66,6 +96,73 @@ export function CommentablePreview({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
+
+  // Versionsverlauf: Leiste ein-/ausblenden, aktuell betrachtete Version
+  // (null = aktueller/live Stand), deren HTML und Vergleichsmodus.
+  const [showVersions, setShowVersions] = useState(false);
+  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+  const [versionHtml, setVersionHtml] = useState("");
+  const [loadingVersion, setLoadingVersion] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
+
+  const activeVersion = versions.find((v) => v.id === activeVersionId) ?? null;
+
+  /** Wechselt die betrachtete Version (null = aktueller Stand). */
+  const selectVersion = useCallback(async (v: VersionMeta | null) => {
+    setCommentMode(false);
+    setPending(null);
+    setCompareMode(false);
+    if (!v) {
+      setActiveVersionId(null);
+      setVersionHtml("");
+      return;
+    }
+    setActiveVersionId(v.id);
+    setLoadingVersion(true);
+    const res = await getVersionHtml(v.id);
+    setLoadingVersion(false);
+    setVersionHtml(res.ok ? res.html : "");
+  }, []);
+
+  async function removeVersion(v: VersionMeta) {
+    if (!window.confirm(`Version ${v.versionNo} wirklich löschen?`)) return;
+    setBusy(true);
+    await deleteVersion(v.id, projectId);
+    setBusy(false);
+    if (activeVersionId === v.id) await selectVersion(null);
+    router.refresh();
+  }
+
+  async function handleSaveVersion() {
+    setBusy(true);
+    const res = await saveVersion(pageId, projectId);
+    setBusy(false);
+    if (res.ok) {
+      setShowVersions(true);
+      router.refresh();
+    } else {
+      window.alert(res.error);
+    }
+  }
+
+  async function restore(v: VersionMeta) {
+    if (
+      !window.confirm(
+        `Version ${v.versionNo} als aktuellen Stand wiederherstellen?\n\n` +
+          "Der jetzige Stand wird vorher automatisch als Version gesichert.",
+      )
+    )
+      return;
+    setBusy(true);
+    const res = await restoreVersion(v.id, pageId, projectId);
+    setBusy(false);
+    if (res.ok) {
+      await selectVersion(null);
+      router.refresh();
+    } else {
+      window.alert(res.error);
+    }
+  }
 
   // Scroll-Position und Gesamthöhe der Vorschau-Seite. Pins werden relativ
   // zur GESAMTEN Seite (nicht zum sichtbaren Ausschnitt) gespeichert, damit
@@ -222,6 +319,25 @@ export function CommentablePreview({
     router.refresh();
   }
 
+  const [umsetzenId, setUmsetzenId] = useState<string | null>(null);
+
+  async function handleUmsetzen(thread: CommentThread) {
+    setUmsetzenId(thread.id);
+    const res = await umsetzenComment(thread.id, pageId, projectId);
+    setUmsetzenId(null);
+    if (res.ok) {
+      window.alert(
+        `Erledigt: Die KI hat ${res.changed} Änderung(en) übernommen und eine neue Version angelegt. ` +
+          "Prüfe das Ergebnis und markiere den Kommentar bei Bedarf als erledigt.",
+      );
+      // Zurück zum aktuellen Stand, damit die Änderung sofort sichtbar ist.
+      await selectVersion(null);
+      router.refresh();
+    } else {
+      window.alert(res.error);
+    }
+  }
+
   async function handleDelete(commentId: string, isThread: boolean) {
     const msg = isThread
       ? "Diesen Kommentar samt Antworten löschen?"
@@ -246,17 +362,22 @@ export function CommentablePreview({
         {canComment && (
           <button
             onClick={() => {
+              // Beim Betrachten einer alten Version zurück zum aktuellen Stand,
+              // denn Kommentare gehen nur dort.
+              if (activeVersionId !== null) selectVersion(null);
               setCommentMode((m) => !m);
               setPending(null);
               setShowComments(true);
             }}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              commentMode
+              commentMode && activeVersionId === null
                 ? "bg-sdg-red text-white"
                 : "border border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
             }`}
           >
-            {commentMode ? "Kommentarmodus aktiv – klicke in die Vorschau" : "Kommentar hinzufügen"}
+            {commentMode && activeVersionId === null
+              ? "Kommentarmodus aktiv – klicke in die Vorschau"
+              : "Kommentar hinzufügen"}
           </button>
         )}
 
@@ -277,6 +398,33 @@ export function CommentablePreview({
 
         {openCount > 0 && (
           <span className="text-sm text-neutral-500">{openCount} offen</span>
+        )}
+
+        {/* Versionsverlauf ein-/ausblenden */}
+        <button
+          type="button"
+          onClick={() => setShowVersions((s) => !s)}
+          aria-pressed={showVersions}
+          className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+            showVersions
+              ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
+              : "border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
+          }`}
+          title="Frühere Versionen ansehen und vergleichen"
+        >
+          🕘 Versionen ({versions.length})
+        </button>
+
+        {canModerate && (
+          <button
+            type="button"
+            onClick={handleSaveVersion}
+            disabled={busy}
+            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:border-sdg-red hover:text-sdg-red disabled:opacity-50"
+            title="Aktuellen Stand als Version merken"
+          >
+            Version speichern
+          </button>
         )}
 
         {/* Ansicht: Desktop (Editor-Breite) / Mobil (Handy) */}
@@ -311,8 +459,166 @@ export function CommentablePreview({
         </div>
       </div>
 
-      {/* Vorschau-Fläche voll breit (nur seitlicher Innenabstand). */}
-      <div className="flex flex-col gap-4 px-4 lg:flex-row lg:px-6">
+      {/* Versionsleiste: aktueller Stand + frühere Versionen zum Ansehen,
+          Vergleichen, Wiederherstellen und Löschen. */}
+      {showVersions && (
+        <div className="mb-3 px-4 lg:px-6">
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-sm font-medium text-neutral-700">
+                Versionen:
+              </span>
+
+              {/* Aktueller (Live-)Stand */}
+              <button
+                type="button"
+                onClick={() => selectVersion(null)}
+                className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                  activeVersionId === null
+                    ? "bg-sdg-red text-white"
+                    : "border border-neutral-300 bg-white text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
+                }`}
+                title="Der aktuelle Stand – hier wird kommentiert und bearbeitet"
+              >
+                Aktuell
+              </button>
+
+              {versions.length === 0 && (
+                <span className="text-sm text-neutral-500">
+                  Noch keine früheren Versionen vorhanden.
+                </span>
+              )}
+
+              {versions.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => selectVersion(v)}
+                  className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                    activeVersionId === v.id
+                      ? "bg-sdg-red text-white"
+                      : "border border-neutral-300 bg-white text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
+                  }`}
+                  title={`${VERSION_SOURCE_LABEL[v.source]} · ${formatVersionTime(v.createdAt)}${
+                    v.authorEmail ? ` · ${v.authorEmail}` : ""
+                  }`}
+                >
+                  V{v.versionNo}
+                </button>
+              ))}
+            </div>
+
+            {/* Aktionen für die gerade betrachtete Version */}
+            {activeVersion && (
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-neutral-200 pt-3">
+                <span className="text-sm text-neutral-600">
+                  Version {activeVersion.versionNo} ·{" "}
+                  {VERSION_SOURCE_LABEL[activeVersion.source]} ·{" "}
+                  {formatVersionTime(activeVersion.createdAt)}
+                </span>
+                <label className="flex items-center gap-1.5 text-sm text-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={compareMode}
+                    onChange={(e) => setCompareMode(e.target.checked)}
+                  />
+                  Mit aktuellem vergleichen
+                </label>
+                {canModerate && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => restore(activeVersion)}
+                      disabled={busy}
+                      className="rounded-lg border border-neutral-300 px-3 py-1 text-sm font-medium text-neutral-700 transition-colors hover:border-sdg-red hover:text-sdg-red disabled:opacity-50"
+                    >
+                      Wiederherstellen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeVersion(activeVersion)}
+                      disabled={busy}
+                      className="rounded-lg px-3 py-1 text-sm font-medium text-neutral-500 transition-colors hover:text-sdg-red disabled:opacity-50"
+                    >
+                      Löschen
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => selectVersion(null)}
+                  className="ml-auto text-sm text-neutral-500 hover:text-sdg-red"
+                >
+                  ← Zur aktuellen Version
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Nur-Ansicht einer früheren Version (kein Kommentieren möglich). */}
+      {activeVersion && (
+        <div className="mb-3 px-4 lg:px-6">
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+            Du siehst <strong>Version {activeVersion.versionNo}</strong> (nur
+            Ansicht). Kommentare sind nur in der aktuellen Version möglich.
+          </div>
+
+          {loadingVersion ? (
+            <div className="flex h-[40vh] items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-500">
+              Version wird geladen …
+            </div>
+          ) : compareMode ? (
+            <div className="flex flex-col gap-4 lg:flex-row">
+              <div className="min-w-0 lg:flex-1">
+                <div className="mb-1 text-sm font-medium text-neutral-600">
+                  Version {activeVersion.versionNo} (vorher)
+                </div>
+                <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                  <iframe
+                    title={`Version ${activeVersion.versionNo}`}
+                    srcDoc={versionHtml}
+                    className="h-[70vh] w-full lg:h-[76vh]"
+                    sandbox="allow-same-origin"
+                  />
+                </div>
+              </div>
+              <div className="min-w-0 lg:flex-1">
+                <div className="mb-1 text-sm font-medium text-neutral-600">
+                  Aktuell (jetzt)
+                </div>
+                <div className="overflow-hidden rounded-xl border border-sdg-red bg-white">
+                  <iframe
+                    title="Aktueller Stand"
+                    srcDoc={previewHtml}
+                    className="h-[70vh] w-full lg:h-[76vh]"
+                    sandbox="allow-same-origin"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+              <iframe
+                title={`Version ${activeVersion.versionNo}`}
+                srcDoc={versionHtml}
+                className="h-[70vh] w-full lg:h-[76vh]"
+                sandbox="allow-same-origin"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Vorschau-Fläche voll breit (nur seitlicher Innenabstand).
+          Bei betrachteter Alt-Version ausgeblendet (Live-Stand bleibt aber
+          im DOM, damit Scroll-/Pin-Logik erhalten bleibt). */}
+      <div
+        className={`flex flex-col gap-4 px-4 lg:flex-row lg:px-6 ${
+          activeVersion ? "hidden" : ""
+        }`}
+      >
         {/* Vorschau mit Pin-Overlay */}
         <div className="min-w-0 lg:flex-1">
           <div
@@ -521,7 +827,20 @@ export function CommentablePreview({
                     </div>
                   )}
 
-                  <div className="mt-2 flex items-center gap-3">
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    {canModerate && thread.status === "offen" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUmsetzen(thread);
+                        }}
+                        disabled={busy || umsetzenId !== null}
+                        className="rounded bg-sdg-red px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
+                        title="Die KI setzt dieses Feedback direkt in der Seite um (neue Version)"
+                      >
+                        {umsetzenId === thread.id ? "KI arbeitet …" : "✨ Umsetzen"}
+                      </button>
+                    )}
                     {canToggle && (
                       <button
                         onClick={(e) => {

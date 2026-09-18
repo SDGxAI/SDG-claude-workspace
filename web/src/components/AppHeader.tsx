@@ -4,15 +4,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { SdgLogo } from "@/components/SdgLogo";
+import { NotificationBell } from "@/components/NotificationBell";
+import type { NotificationItem } from "@/lib/actions/notifications";
 
 export function AppHeader({
   email,
   isAdmin,
   avatarUrl,
+  notifications,
 }: {
   email: string;
   isAdmin: boolean;
   avatarUrl: string | null;
+  notifications: NotificationItem[];
 }) {
   const router = useRouter();
 
@@ -45,6 +49,7 @@ export function AppHeader({
         </nav>
 
         <div className="ml-auto flex items-center gap-3 text-sm">
+          <NotificationBell items={notifications} />
           <Link
             href="/profile"
             className="flex items-center gap-2 text-neutral-600 hover:text-sdg-red"

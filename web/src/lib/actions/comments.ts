@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/actions/notifications";
 import type { CommentStatus } from "@/types/database";
 
 export type CommentActionResult = { ok: true } | { ok: false; error: string };
@@ -79,13 +81,47 @@ export async function setCommentStatus(
   status: CommentStatus,
 ): Promise<CommentActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: comment, error } = await supabase
     .from("comments")
     .update({ status })
-    .eq("id", commentId);
+    .eq("id", commentId)
+    .select("author_id, body")
+    .single();
   if (error) {
     return { ok: false, error: "Status konnte nicht geändert werden." };
   }
+
+  // Beim Erledigen die Autor:in benachrichtigen (nicht sich selbst).
+  if (
+    status === "erledigt" &&
+    comment?.author_id &&
+    comment.author_id !== user?.id
+  ) {
+    const admin = createAdminClient();
+    const { data: project } = await admin
+      .from("projects")
+      .select("title")
+      .eq("id", projectId)
+      .maybeSingle();
+    const excerpt =
+      comment.body.length > 80
+        ? `${comment.body.slice(0, 80)}…`
+        : comment.body;
+    await createNotification(admin, {
+      userId: comment.author_id,
+      type: "comment_done",
+      body: `Dein Kommentar wurde erledigt${
+        project?.title ? ` (Projekt „${project.title}“)` : ""
+      }: „${excerpt}“`,
+      projectId,
+      commentId,
+    });
+  }
+
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
 }

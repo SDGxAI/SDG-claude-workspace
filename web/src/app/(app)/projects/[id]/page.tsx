@@ -3,10 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { getCurrentProfile } from "@/lib/auth";
+import { listVersions, type VersionMeta } from "@/lib/actions/versions";
 import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import { ExportMenu } from "@/components/projects/ExportMenu";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
+import { IngestPanel } from "@/components/projects/IngestPanel";
 import {
   CommentablePreview,
   type CommentThread,
@@ -43,6 +45,7 @@ export default async function ProjectDetailPage({
     "<p style=\"font-family:sans-serif;padding:2rem\">Keine Seite vorhanden.</p>";
   let threads: CommentThread[] = [];
   let currentUserEmail = "";
+  let versions: VersionMeta[] = [];
 
   if (page) {
     const contentState = page.content_state as ContentState;
@@ -53,7 +56,7 @@ export default async function ProjectDetailPage({
       page.detected_elements as DetectedElement[],
     );
 
-    const [{ data: comments }, { data: profiles }, currentProfile] =
+    const [{ data: comments }, { data: profiles }, currentProfile, versionList] =
       await Promise.all([
         supabase
           .from("comments")
@@ -62,7 +65,9 @@ export default async function ProjectDetailPage({
           .order("created_at", { ascending: true }),
         supabase.from("profiles").select("id, email"),
         getCurrentProfile(),
+        listVersions(page.id),
       ]);
+    versions = versionList;
 
     currentUserEmail = currentProfile?.email ?? "";
     const emailById = new Map((profiles ?? []).map((p) => [p.id, p.email]));
@@ -126,6 +131,15 @@ export default async function ProjectDetailPage({
         </div>
       </div>
 
+      {access.canEdit && page && (
+        <div className="mx-auto max-w-6xl px-4">
+          <IngestPanel
+            projectId={id}
+            initialToken={project.ingest_token ?? null}
+          />
+        </div>
+      )}
+
       {/* Vorschau bleibt voll breit (große Fläche). */}
       <div className="mt-6">
         {page ? (
@@ -137,6 +151,7 @@ export default async function ProjectDetailPage({
             canComment={access.canComment}
             canModerate={access.canEdit}
             currentUserEmail={currentUserEmail}
+            versions={versions}
           />
         ) : (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-neutral-500">
