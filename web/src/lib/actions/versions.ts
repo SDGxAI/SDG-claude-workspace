@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import type {
   ContentState,
+  Database,
   DetectedElement,
   PageVersionSource,
 } from "@/types/database";
@@ -20,7 +22,9 @@ export interface VersionMeta {
   authorEmail: string | null;
 }
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+// Deckt sowohl den Session-Client (SSR) als auch den Admin-Client
+// (service_role, für die API-Schnittstelle) ab.
+type SupabaseServerClient = SupabaseClient<Database>;
 
 /**
  * Archiviert den AKTUELLEN Stand einer Seite als neue Version. Wird vor dem

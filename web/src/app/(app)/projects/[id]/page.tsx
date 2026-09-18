@@ -8,6 +8,7 @@ import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import { ExportMenu } from "@/components/projects/ExportMenu";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
+import { IngestPanel } from "@/components/projects/IngestPanel";
 import {
   CommentablePreview,
   type CommentThread,
@@ -129,6 +130,15 @@ export default async function ProjectDetailPage({
           )}
         </div>
       </div>
+
+      {access.canEdit && page && (
+        <div className="mx-auto max-w-6xl px-4">
+          <IngestPanel
+            projectId={id}
+            initialToken={project.ingest_token ?? null}
+          />
+        </div>
+      )}
 
       {/* Vorschau bleibt voll breit (große Fläche). */}
       <div className="mt-6">

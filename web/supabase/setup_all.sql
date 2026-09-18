@@ -574,3 +574,13 @@ create policy "page_versions_delete_editor"
         and is_project_member(p.project_id, 'editor')
     )
   );
+
+-- =====================================================================
+-- 0008_ingest_token.sql  (Update-Schlüssel für Claude-Schnittstelle)
+-- =====================================================================
+
+alter table projects add column if not exists ingest_token text;
+
+create unique index if not exists projects_ingest_token_idx
+  on projects (ingest_token)
+  where ingest_token is not null;

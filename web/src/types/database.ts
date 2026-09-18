@@ -80,6 +80,7 @@ export interface Database {
           brand: string;
           status: ProjectStatus;
           created_by: string | null;
+          ingest_token: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -89,6 +90,7 @@ export interface Database {
           brand: string;
           status?: ProjectStatus;
           created_by?: string | null;
+          ingest_token?: string | null;
           created_at?: string;
           updated_at?: string;
         };
