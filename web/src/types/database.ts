@@ -8,6 +8,13 @@ export type ProjectRole = "editor" | "reviewer" | "viewer";
 export type ProjectStatus = "entwurf" | "in_review" | "live";
 export type CommentStatus = "offen" | "erledigt";
 export type ProfileStatus = "eingeladen" | "aktiv";
+/** Woher eine archivierte Seitenversion stammt. */
+export type PageVersionSource =
+  | "manual"
+  | "editor"
+  | "claude"
+  | "umsetzen"
+  | "import";
 
 export interface DetectedElement {
   id: string;
@@ -150,6 +157,36 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["snapshots"]["Insert"]>;
         Relationships: [];
       };
+      page_versions: {
+        Row: {
+          id: string;
+          page_id: string;
+          version_no: number;
+          label: string | null;
+          source: PageVersionSource;
+          template_html: string;
+          detected_elements: DetectedElement[];
+          content_state: ContentState;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          page_id: string;
+          version_no: number;
+          label?: string | null;
+          source?: PageVersionSource;
+          template_html: string;
+          detected_elements?: DetectedElement[];
+          content_state?: ContentState;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["page_versions"]["Insert"]
+        >;
+        Relationships: [];
+      };
       comments: {
         Row: {
           id: string;
@@ -186,6 +223,10 @@ export interface Database {
       is_admin: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      next_page_version_no: {
+        Args: { p_page_id: string };
+        Returns: number;
       };
     };
     Enums: {
