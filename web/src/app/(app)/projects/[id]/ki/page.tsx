@@ -6,6 +6,8 @@ import { listAnthropicModels } from "@/lib/ai/models";
 import { KiWorkspace, type KiComment } from "@/components/ki/KiWorkspace";
 
 export const dynamic = "force-dynamic";
+// Mehr Zeit für langsamere Modelle (z. B. Sonnet/Opus mit Denkstufe).
+export const maxDuration = 60;
 
 export default async function KiPage({
   params,

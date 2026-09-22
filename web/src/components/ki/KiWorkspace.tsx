@@ -7,6 +7,7 @@ import {
   sendDraftInstruction,
   discardDraft,
   commitDraft,
+  refreshDraftHtml,
 } from "@/lib/actions/draft";
 import { uploadKiAsset } from "@/lib/actions/upload";
 import { withBlankLinks } from "@/lib/html/previewLinks";
@@ -154,31 +155,60 @@ export function KiWorkspace({
     });
   }
 
+  async function syncPreview() {
+    const res = await refreshDraftHtml(pageId, projectId);
+    if (res.ok) setHtml(res.html);
+    return res.ok;
+  }
+
   async function send() {
     const ids = [...checked];
     if (!text.trim() && ids.length === 0 && assets.length === 0) return;
     setBusy(true);
-    const res = await sendDraftInstruction(
-      pageId,
-      projectId,
-      text,
-      ids,
-      assets,
-      model,
-      effort,
-    );
-    setBusy(false);
-    if (res.ok) {
-      setHtml(res.draft.html);
-      setMessages(res.draft.messages);
-      setText("");
-      setApplied((prev) => new Set([...prev, ...ids]));
-      setChecked(new Set());
-      setAssets([]);
-    } else {
-      window.alert(res.error);
+    try {
+      const res = await sendDraftInstruction(
+        pageId,
+        projectId,
+        text,
+        ids,
+        assets,
+        model,
+        effort,
+      );
+      if (res.ok) {
+        setHtml(res.draft.html);
+        setMessages(res.draft.messages);
+        setText("");
+        setApplied((prev) => new Set([...prev, ...ids]));
+        setChecked(new Set());
+        setAssets([]);
+      } else {
+        window.alert(res.error);
+      }
+    } catch {
+      // Antwort ging verloren (z. B. lange Rechenzeit) – Entwurf trotzdem
+      // nachladen, die Änderung wurde meist schon gespeichert.
+      const ok = await syncPreview();
+      window.alert(
+        ok
+          ? "Die KI hat etwas länger gebraucht – die Vorschau wurde aktualisiert. Bitte prüfe das Ergebnis."
+          : "Die Antwort kam nicht rechtzeitig an. Klicke „Vorschau aktualisieren“ oder versuche es erneut.",
+      );
+    } finally {
+      setBusy(false);
     }
   }
+
+  // Kommt man ins Fenster zurück, den Entwurf leise nachziehen (falls eine
+  // Antwort im Hintergrund fertig wurde).
+  useEffect(() => {
+    const onFocus = () => {
+      if (!busy) void syncPreview();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, pageId, projectId]);
 
   async function save() {
     setCommitting(true);
@@ -246,8 +276,16 @@ export function KiWorkspace({
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Live-Vorschau des Entwurfs */}
         <div className="flex min-h-0 flex-1 flex-col bg-neutral-100">
-          {/* Ansicht umschalten (nur zum Schauen) */}
-          <div className="flex items-center justify-center gap-1 p-2">
+          {/* Ansicht umschalten (nur zum Schauen) + Vorschau nachladen */}
+          <div className="flex items-center justify-center gap-2 p-2">
+            <button
+              type="button"
+              onClick={() => void syncPreview()}
+              className="rounded-lg border border-neutral-300 bg-white px-3 py-1 text-sm font-medium text-neutral-600 hover:border-sdg-red hover:text-sdg-red"
+              title="Neuesten Entwurf-Stand laden"
+            >
+              🔄 Vorschau aktualisieren
+            </button>
             <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 bg-white">
               {(
                 [

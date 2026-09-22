@@ -176,6 +176,23 @@ export async function sendDraftInstruction(
   };
 }
 
+/** Aktuellen Entwurfs-Stand (HTML) frisch aus der DB holen. */
+export async function refreshDraftHtml(
+  pageId: string,
+  projectId: string,
+): Promise<{ ok: true; html: string } | { ok: false; error: string }> {
+  const access = await getProjectAccess(projectId);
+  if (!access?.canEdit) return { ok: false, error: "Keine Berechtigung." };
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("page_drafts")
+    .select("html")
+    .eq("page_id", pageId)
+    .maybeSingle();
+  if (!data) return { ok: false, error: "Kein Entwurf vorhanden." };
+  return { ok: true, html: data.html };
+}
+
 /** Entwurf verwerfen (löschen). */
 export async function discardDraft(
   pageId: string,
