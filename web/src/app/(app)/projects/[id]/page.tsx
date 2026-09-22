@@ -16,6 +16,8 @@ import {
 import type { ContentState, DetectedElement } from "@/types/database";
 
 export const dynamic = "force-dynamic";
+// Mehr Zeit für die KI beim „Umsetzen" (langsamere Modelle).
+export const maxDuration = 60;
 
 export default async function ProjectDetailPage({
   params,
