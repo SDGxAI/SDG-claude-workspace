@@ -18,13 +18,25 @@ export interface KiComment {
   authorEmail: string;
 }
 
-/** Wählbare Claude-Modelle (schnell … besonders gründlich). */
+/** Wählbare Claude-Modelle (genaue Modellnamen). */
 const MODEL_OPTIONS: { id: string; label: string }[] = [
-  { id: "claude-haiku-4-5", label: "Schnell (Haiku)" },
-  { id: "claude-sonnet-4-5", label: "Gründlich (Sonnet)" },
-  { id: "claude-opus-4-1", label: "Beste Qualität (Opus)" },
+  { id: "claude-haiku-4-5", label: "Haiku 4.5 (schnell)" },
+  { id: "claude-fable-5-1", label: "Fable 5.1" },
+  { id: "claude-sonnet-4-5", label: "Sonnet 4.5" },
+  { id: "claude-sonnet-5", label: "Sonnet 5" },
+  { id: "claude-opus-4-1", label: "Opus 4.1" },
+  { id: "claude-opus-5", label: "Opus 5 (gründlich)" },
 ];
 const MODEL_STORAGE_KEY = "sdg-ki-model";
+
+/** Denkstufe (erweitertes Nachdenken der KI). */
+const EFFORT_OPTIONS: { id: "standard" | "mittel" | "hoch"; label: string }[] = [
+  { id: "standard", label: "Aufwand: Standard" },
+  { id: "mittel", label: "Aufwand: Mittel" },
+  { id: "hoch", label: "Aufwand: Hoch" },
+];
+const EFFORT_STORAGE_KEY = "sdg-ki-effort";
+type Effort = "standard" | "mittel" | "hoch";
 
 
 /**
@@ -59,13 +71,18 @@ export function KiWorkspace({
   const [uploading, setUploading] = useState(false);
   // Nur-Ansicht: Desktop- oder Mobil-Darstellung des Entwurfs (kein Speichern).
   const [view, setView] = useState<"desktop" | "mobile">("desktop");
-  // Gewähltes Claude-Modell (in diesem Browser gemerkt).
+  // Gewähltes Claude-Modell + Denkstufe (in diesem Browser gemerkt).
   const [model, setModel] = useState<string>(MODEL_OPTIONS[0].id);
+  const [effort, setEffort] = useState<Effort>("standard");
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(MODEL_STORAGE_KEY);
-      if (saved && MODEL_OPTIONS.some((m) => m.id === saved)) setModel(saved);
+      const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
+      if (savedModel && MODEL_OPTIONS.some((m) => m.id === savedModel))
+        setModel(savedModel);
+      const savedEffort = localStorage.getItem(EFFORT_STORAGE_KEY);
+      if (savedEffort && EFFORT_OPTIONS.some((e) => e.id === savedEffort))
+        setEffort(savedEffort as Effort);
     } catch {
       /* localStorage nicht verfügbar */
     }
@@ -75,6 +92,15 @@ export function KiWorkspace({
     setModel(id);
     try {
       localStorage.setItem(MODEL_STORAGE_KEY, id);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function chooseEffort(id: Effort) {
+    setEffort(id);
+    try {
+      localStorage.setItem(EFFORT_STORAGE_KEY, id);
     } catch {
       /* ignore */
     }
@@ -142,6 +168,7 @@ export function KiWorkspace({
       ids,
       assets,
       model,
+      effort,
     );
     setBusy(false);
     if (res.ok) {
@@ -397,11 +424,23 @@ export function KiWorkspace({
                   value={model}
                   onChange={(e) => chooseModel(e.target.value)}
                   className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-700 outline-none focus:border-sdg-red"
-                  title="KI-Modell wählen – gründlichere Modelle brauchen länger"
+                  title="Genaues KI-Modell wählen – gründlichere Modelle brauchen länger"
                 >
                   {MODEL_OPTIONS.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={effort}
+                  onChange={(e) => chooseEffort(e.target.value as Effort)}
+                  className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-700 outline-none focus:border-sdg-red"
+                  title="Denkstufe – höher = gründlicher, aber langsamer"
+                >
+                  {EFFORT_OPTIONS.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.label}
                     </option>
                   ))}
                 </select>
