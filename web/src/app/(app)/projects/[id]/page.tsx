@@ -9,6 +9,7 @@ import { resolveImages } from "@/lib/storage";
 import { ExportMenu } from "@/components/projects/ExportMenu";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
 import { IngestPanel } from "@/components/projects/IngestPanel";
+import { AnnounceButton } from "@/components/projects/AnnounceButton";
 import {
   CommentablePreview,
   type CommentThread,
@@ -118,6 +119,7 @@ export default async function ProjectDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          {access.isAdmin && <AnnounceButton projectId={id} />}
           {access.canEdit && page && <ExportMenu projectId={id} />}
           {access.isAdmin && (
             <DeleteProjectButton projectId={id} title={project.title} />
