@@ -93,6 +93,7 @@ export async function sendDraftInstruction(
   projectId: string,
   freeText: string,
   commentIds: string[],
+  assetUrls: string[] = [],
 ): Promise<DraftResult> {
   const access = await getProjectAccess(projectId);
   if (!access?.canEdit) return { ok: false, error: "Keine Berechtigung." };
@@ -122,6 +123,12 @@ export async function sendDraftInstruction(
       `Setze außerdem dieses Feedback um:\n${commentLines.join("\n")}`,
     );
   }
+  if (assetUrls.length > 0) {
+    parts.push(
+      "Verfügbare hochgeladene Bilder (als <img src> einsetzen, wo in der Anweisung beschrieben):\n" +
+        assetUrls.map((u, i) => `Bild ${i + 1}: ${u}`).join("\n"),
+    );
+  }
   const instruction = parts.join("\n\n");
   if (!instruction) return { ok: false, error: "Bitte eine Anweisung eingeben oder Kommentare auswählen." };
 
@@ -133,11 +140,20 @@ export async function sendDraftInstruction(
     (freeText.trim() ? freeText.trim() : "") +
     (commentLines.length > 0
       ? `${freeText.trim() ? "\n\n" : ""}Kommentare übernommen:\n${commentLines.join("\n")}`
+      : "") +
+    (assetUrls.length > 0
+      ? `${freeText.trim() || commentLines.length > 0 ? "\n\n" : ""}📷 ${assetUrls.length} Bild(er) hochgeladen`
       : "");
   const messages: DraftMessage[] = [
     ...((draft.messages as DraftMessage[]) ?? []),
     { role: "user", content: userVisible, at: now },
-    { role: "assistant", content: "Übernommen – schau dir die Vorschau an.", at: now },
+    {
+      role: "assistant",
+      content: edited.summary?.trim()
+        ? edited.summary.trim()
+        : "Übernommen – schau dir die Vorschau an.",
+      at: now,
+    },
   ];
 
   const {

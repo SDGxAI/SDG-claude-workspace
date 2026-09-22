@@ -17,6 +17,7 @@ import {
   type VersionMeta,
 } from "@/lib/actions/versions";
 import { umsetzenComment } from "@/lib/actions/umsetzen";
+import { withBlankLinks } from "@/lib/html/previewLinks";
 import type { PageVersionSource, StoredComment } from "@/types/database";
 
 /** Kurze, verständliche Bezeichnung, woher eine Version stammt. */
@@ -597,9 +598,9 @@ export function CommentablePreview({
                 <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
                   <iframe
                     title={`Version ${activeVersion.versionNo}`}
-                    srcDoc={versionHtml}
+                    srcDoc={withBlankLinks(versionHtml)}
                     className="h-[70vh] w-full lg:h-[76vh]"
-                    sandbox="allow-same-origin"
+                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                   />
                 </div>
               </div>
@@ -610,9 +611,9 @@ export function CommentablePreview({
                 <div className="overflow-hidden rounded-xl border border-sdg-red bg-white">
                   <iframe
                     title="Aktueller Stand"
-                    srcDoc={previewHtml}
+                    srcDoc={withBlankLinks(previewHtml)}
                     className="h-[70vh] w-full lg:h-[76vh]"
-                    sandbox="allow-same-origin"
+                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                   />
                 </div>
               </div>
@@ -621,9 +622,9 @@ export function CommentablePreview({
             <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
               <iframe
                 title={`Version ${activeVersion.versionNo}`}
-                srcDoc={versionHtml}
+                srcDoc={withBlankLinks(versionHtml)}
                 className="h-[70vh] w-full lg:h-[76vh]"
-                sandbox="allow-same-origin"
+                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
               />
             </div>
           )}
@@ -711,11 +712,11 @@ export function CommentablePreview({
             <iframe
               ref={iframeRef}
               title="Vorschau"
-              srcDoc={previewHtml}
+              srcDoc={withBlankLinks(previewHtml)}
               scrolling="no"
               className="block w-full"
               style={{ height: contentHeight ? `${contentHeight}px` : "80vh" }}
-              sandbox="allow-same-origin"
+              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
             />
 
           {/* Overlay über der GESAMTEN Seitenhöhe: fängt Klicks nur im

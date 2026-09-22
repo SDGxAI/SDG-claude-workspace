@@ -660,3 +660,21 @@ alter table page_versions drop constraint if exists page_versions_source_check;
 alter table page_versions
   add constraint page_versions_source_check
   check (source in ('manual', 'editor', 'claude', 'umsetzen', 'import', 'ki'));
+
+-- =====================================================================
+-- 0012_ki_assets.sql  (öffentlicher Bilder-Bucket für KI-Bearbeiten)
+-- =====================================================================
+
+insert into storage.buckets (id, name, public)
+values ('ki-assets', 'ki-assets', true)
+on conflict (id) do nothing;
+
+drop policy if exists "ki_assets_insert" on storage.objects;
+create policy "ki_assets_insert"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'ki-assets');
+
+drop policy if exists "ki_assets_read" on storage.objects;
+create policy "ki_assets_read"
+  on storage.objects for select
+  using (bucket_id = 'ki-assets');
