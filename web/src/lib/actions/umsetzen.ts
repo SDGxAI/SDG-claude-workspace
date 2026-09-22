@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
-import { archiveCurrentAsVersion } from "@/lib/actions/versions";
+import { renderHtml } from "@/lib/html/render";
+import { ingestHtmlIntoProject } from "@/lib/ingest/apply";
 import type { ContentState, DetectedElement } from "@/types/database";
 
 export type UmsetzenResult =
-  | { ok: true; changed: number }
+  | { ok: true }
   | { ok: false; error: string };
 
 const MODEL =
@@ -15,31 +16,45 @@ const MODEL =
   process.env.ANTHROPIC_TRANSLATE_MODEL ||
   "claude-haiku-4-5";
 
-interface ChangePayload {
-  texts?: Record<string, string>;
-  colors?: Record<string, string>;
-  i18n_de?: Record<string, string>;
+// Sehr große Seiten sprengen das KI-Zeitbudget / die Ausgabegröße.
+const MAX_HTML_CHARS = 200_000;
+
+/**
+ * Große Bild-/Datenquellen (data:-URIs) durch kurze Platzhalter ersetzen,
+ * damit das an die KI gesendete HTML klein bleibt. Gibt das reduzierte HTML
+ * und die Liste der Originalwerte zurück.
+ */
+function stripDataUris(html: string): { html: string; originals: string[] } {
+  const originals: string[] = [];
+  const stripped = html.replace(/data:[^"')\s]+/g, (match) => {
+    const idx = originals.length;
+    originals.push(match);
+    return `__SDG_ASSET_${idx}__`;
+  });
+  return { html: stripped, originals };
 }
 
-/** JSON-Objekt robust aus der Modell-Antwort lösen (Code-Fences tolerant). */
-function extractJson(text: string): ChangePayload {
+/** Platzhalter wieder durch die Originalwerte ersetzen. */
+function restoreDataUris(html: string, originals: string[]): string {
+  return html.replace(/__SDG_ASSET_(\d+)__/g, (whole, n) => {
+    const i = Number(n);
+    return originals[i] ?? whole;
+  });
+}
+
+/** HTML aus der KI-Antwort lösen (Code-Fences / Vor-/Nachtext tolerant). */
+function extractHtml(text: string): string {
   let t = text.trim();
-  const fence = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(t);
+  const fence = /```(?:html)?\s*([\s\S]*?)\s*```/i.exec(t);
   if (fence) t = fence[1].trim();
-  const start = t.indexOf("{");
-  const end = t.lastIndexOf("}");
-  if (start >= 0 && end > start) t = t.slice(start, end + 1);
-  return JSON.parse(t) as ChangePayload;
+  return t;
 }
 
 /**
- * Setzt einen Kommentar per KI um: schickt die editierbaren Inhalte der Seite
- * (Texte, Farben, ggf. deutsche mehrsprachige Texte) samt Feedback an Claude,
- * übernimmt die zurückgegebenen Änderungen als neuen Stand und sichert den
- * vorherigen Stand automatisch als Version.
- *
- * Bewusst auf das Inhaltsmodell begrenzt (Text/Farbe/Wortlaut) – große
- * strukturelle Umbauten laufen weiterhin über die Claude-Schnittstelle.
+ * Setzt einen Kommentar per KI um, indem die KI die GESAMTE Seite anpasst
+ * (Text, Bilder, Elemente entfernen/hinzufügen, Layout …). Der vorherige
+ * Stand wird als Version gesichert, das Ergebnis wird zur neuen aktuellen
+ * Version.
  */
 export async function umsetzenComment(
   commentId: string,
@@ -61,9 +76,6 @@ export async function umsetzenComment(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const { data: comment } = await supabase
     .from("comments")
@@ -74,65 +86,42 @@ export async function umsetzenComment(
 
   const { data: page } = await supabase
     .from("pages")
-    .select("content_state, detected_elements")
+    .select("template_html, content_state, detected_elements")
     .eq("id", pageId)
     .single();
   if (!page) return { ok: false, error: "Seite nicht gefunden." };
 
-  const content = page.content_state as ContentState;
-  const detected = (page.detected_elements as DetectedElement[]) ?? [];
+  // Aktuelles, vollständiges HTML aufbauen (mit den GESPEICHERTEN Bildwerten,
+  // nicht mit temporär signierten URLs – so bleiben Bilder dauerhaft gültig).
+  const currentHtml = renderHtml(
+    page.template_html,
+    page.content_state as ContentState,
+    page.detected_elements as DetectedElement[],
+  );
 
-  const texts = content.texts ?? {};
-  const colors = content.colors ?? {};
-  const i18nDe = content.i18n?.["de"] ?? null;
-
-  if (
-    Object.keys(texts).length === 0 &&
-    Object.keys(colors).length === 0 &&
-    !i18nDe
-  ) {
+  const { html: slimHtml, originals } = stripDataUris(currentHtml);
+  if (slimHtml.length > MAX_HTML_CHARS) {
     return {
       ok: false,
       error:
-        "Diese Seite hat keine editierbaren Text-/Farbfelder, die die KI ändern könnte.",
+        "Diese Seite ist für die automatische Umsetzung zu groß. Bitte die Änderung direkt in Claude vornehmen und über die Schnittstelle einspielen.",
     };
   }
 
-  // Sprechende Bezeichnungen der Text-Felder als Hilfestellung mitgeben.
-  const textLabels: Record<string, string> = {};
-  for (const el of detected) {
-    if (el.kind === "text" && texts[el.id] !== undefined) {
-      textLabels[el.id] = el.label;
-    }
-  }
-
-  const payload = {
-    feedback: comment.body,
-    texts,
-    text_labels: textLabels,
-    colors,
-    ...(i18nDe ? { i18n_de: i18nDe } : {}),
-  };
-
   const system =
-    `You edit the EDITABLE CONTENT of a marketing landing page for SIMBA-DICKIE-GROUP. ` +
-    `You receive a JSON object with: "feedback" (ONE reviewer's request, usually in German), ` +
-    `"texts" (id -> current text), "text_labels" (id -> human label for context), ` +
-    `"colors" (id -> CSS color), and optionally "i18n_de" (id -> German text). ` +
-    `Apply ONLY the single, specific change described in "feedback". ` +
-    `Change the FEWEST fields possible – usually EXACTLY ONE. ` +
-    `Do NOT rewrite, polish, shorten, or "improve" any other text, even if it seems related or could be better. ` +
-    `Never apply changes that the feedback did not explicitly ask for. ` +
-    `If "feedback" contains a concrete suggested wording (e.g. text after "Vorschlag:" or in quotation marks), ` +
-    `use exactly that as the new value for the ONE matching field. ` +
-    `Return ONLY a JSON object with the same groups ("texts", "colors", "i18n_de") ` +
-    `containing ONLY the entry/entries this feedback explicitly concerns – omit everything else and omit empty groups. ` +
-    `Keep any HTML tags/attributes inside text values intact. ` +
-    `Use valid CSS color values for colors. Keep the JSON keys (ids) unchanged. ` +
-    `If the request cannot be applied to these fields, return {}. ` +
-    `No explanations, no code fences.`;
+    `You are editing the FULL HTML of a marketing landing page for SIMBA-DICKIE-GROUP. ` +
+    `You receive the complete current HTML and ONE reviewer feedback (usually German). ` +
+    `Apply ONLY the single, specific change the feedback asks for – text wording, colors, ` +
+    `removing/hiding an element (e.g. a logo), resizing or swapping an image, small layout tweaks, etc. ` +
+    `Change as little as possible; do NOT redesign or "improve" unrelated parts. ` +
+    `If the page uses a translation object inside a <script> (i18n), and the feedback is about ` +
+    `visible text, change the text there as well so it actually shows. ` +
+    `IMPORTANT: The HTML contains placeholder tokens like __SDG_ASSET_0__ that represent images/assets. ` +
+    `Keep these tokens byte-for-byte unchanged; never invent, rename, or fill them. You may remove an ` +
+    `element that contains such a token if the feedback asks to remove that image. ` +
+    `Return the COMPLETE updated HTML document and NOTHING else – no explanations, no code fences.`;
 
-  let changes: ChangePayload;
+  let updatedHtml: string;
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -143,9 +132,16 @@ export async function umsetzenComment(
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 8000,
+        max_tokens: 32000,
         system,
-        messages: [{ role: "user", content: JSON.stringify(payload) }],
+        messages: [
+          {
+            role: "user",
+            content:
+              `FEEDBACK:\n${comment.body}\n\n` +
+              `CURRENT HTML:\n${slimHtml}`,
+          },
+        ],
       }),
     });
     if (!res.ok) {
@@ -159,76 +155,48 @@ export async function umsetzenComment(
     }
     const json = (await res.json()) as {
       content?: { type: string; text?: string }[];
+      stop_reason?: string;
     };
+    if (json.stop_reason === "max_tokens") {
+      return {
+        ok: false,
+        error:
+          "Die Seite ist für die automatische Umsetzung zu lang (Antwort abgeschnitten). Bitte die Änderung direkt in Claude vornehmen.",
+      };
+    }
     const text = (json.content ?? [])
       .filter((b) => b.type === "text")
       .map((b) => b.text ?? "")
       .join("");
-    changes = extractJson(text);
+    updatedHtml = restoreDataUris(extractHtml(text), originals);
   } catch {
-    return { ok: false, error: "Die KI-Antwort konnte nicht verarbeitet werden. Bitte erneut versuchen." };
-  }
-
-  // Änderungen auf die bekannten Felder anwenden (keine neuen Schlüssel).
-  const nextTexts = { ...texts };
-  const nextColors = { ...colors };
-  const nextI18nDe = i18nDe ? { ...i18nDe } : null;
-  let changed = 0;
-
-  for (const [id, val] of Object.entries(changes.texts ?? {})) {
-    if (typeof val === "string" && id in nextTexts && val !== nextTexts[id]) {
-      nextTexts[id] = val;
-      changed += 1;
-    }
-  }
-  for (const [id, val] of Object.entries(changes.colors ?? {})) {
-    if (typeof val === "string" && id in nextColors && val !== nextColors[id]) {
-      nextColors[id] = val;
-      changed += 1;
-    }
-  }
-  if (nextI18nDe) {
-    for (const [id, val] of Object.entries(changes.i18n_de ?? {})) {
-      if (typeof val === "string" && id in nextI18nDe && val !== nextI18nDe[id]) {
-        nextI18nDe[id] = val;
-        changed += 1;
-      }
-    }
-  }
-
-  if (changed === 0) {
     return {
       ok: false,
-      error:
-        "Die KI konnte aus diesem Kommentar keine eindeutige Änderung an Texten/Farben ableiten. Bitte den Kommentar konkreter formulieren – oder die Seite direkt in Claude anpassen.",
+      error: "Die KI-Antwort konnte nicht verarbeitet werden. Bitte erneut versuchen.",
     };
   }
 
-  // Aktuellen Stand sichern, dann die Änderungen übernehmen.
-  await archiveCurrentAsVersion(
+  if (!updatedHtml || !/<[a-z][\s\S]*>/i.test(updatedHtml)) {
+    return {
+      ok: false,
+      error: "Die KI hat kein gültiges Ergebnis geliefert. Bitte erneut versuchen.",
+    };
+  }
+
+  // Sichern + als neue aktuelle Version speichern (nutzt dieselbe Pipeline
+  // wie die Claude-Schnittstelle: alte Version archivieren, neu parsen).
+  const result = await ingestHtmlIntoProject(supabase, {
     pageId,
-    "umsetzen",
-    `KI-Umsetzung: ${comment.body.slice(0, 80)}`,
-    supabase,
-    user?.id ?? null,
-  );
-
-  const nextContent: ContentState = {
-    ...content,
-    texts: nextTexts,
-    colors: nextColors,
-    ...(nextI18nDe ? { i18n: { ...content.i18n, de: nextI18nDe } } : {}),
-  };
-
-  const { error } = await supabase
-    .from("pages")
-    .update({ content_state: nextContent })
-    .eq("id", pageId);
-  if (error) {
-    return { ok: false, error: "Die Änderung konnte nicht gespeichert werden." };
+    projectId,
+    html: updatedHtml,
+    source: "umsetzen",
+    label: `KI-Umsetzung: ${comment.body.slice(0, 80)}`,
+  });
+  if (!result.ok) {
+    return { ok: false, error: result.error };
   }
 
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/editor`);
-  return { ok: true, changed };
+  return { ok: true };
 }

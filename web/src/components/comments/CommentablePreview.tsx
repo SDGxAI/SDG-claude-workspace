@@ -332,7 +332,7 @@ export function CommentablePreview({
     setUmsetzenId(null);
     if (res.ok) {
       window.alert(
-        `Erledigt: Die KI hat ${res.changed} Änderung(en) übernommen und eine neue Version angelegt. ` +
+        "Erledigt: Die KI hat die Änderung übernommen und eine neue Version angelegt. " +
           "Prüfe das Ergebnis und markiere den Kommentar bei Bedarf als erledigt.",
       );
       // Zurück zum aktuellen Stand, damit die Änderung sofort sichtbar ist.
