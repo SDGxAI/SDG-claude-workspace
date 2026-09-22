@@ -18,15 +18,10 @@ export interface KiComment {
   authorEmail: string;
 }
 
-/** Wählbare Claude-Modelle (genaue Modellnamen). */
-const MODEL_OPTIONS: { id: string; label: string }[] = [
-  { id: "claude-haiku-4-5", label: "Haiku 4.5 (schnell)" },
-  { id: "claude-fable-5-1", label: "Fable 5.1" },
-  { id: "claude-sonnet-4-5", label: "Sonnet 4.5" },
-  { id: "claude-sonnet-5", label: "Sonnet 5" },
-  { id: "claude-opus-4-1", label: "Opus 4.1" },
-  { id: "claude-opus-5", label: "Opus 5 (gründlich)" },
-];
+export interface ModelOption {
+  id: string;
+  label: string;
+}
 const MODEL_STORAGE_KEY = "sdg-ki-model";
 
 /** Denkstufe (erweitertes Nachdenken der KI). */
@@ -51,6 +46,7 @@ export function KiWorkspace({
   initialHtml,
   initialMessages,
   openComments,
+  models,
 }: {
   projectId: string;
   pageId: string;
@@ -58,6 +54,7 @@ export function KiWorkspace({
   initialHtml: string;
   initialMessages: DraftMessage[];
   openComments: KiComment[];
+  models: ModelOption[];
 }) {
   const router = useRouter();
   const [html, setHtml] = useState(initialHtml);
@@ -72,13 +69,13 @@ export function KiWorkspace({
   // Nur-Ansicht: Desktop- oder Mobil-Darstellung des Entwurfs (kein Speichern).
   const [view, setView] = useState<"desktop" | "mobile">("desktop");
   // Gewähltes Claude-Modell + Denkstufe (in diesem Browser gemerkt).
-  const [model, setModel] = useState<string>(MODEL_OPTIONS[0].id);
+  const [model, setModel] = useState<string>(models[0]?.id ?? "");
   const [effort, setEffort] = useState<Effort>("standard");
 
   useEffect(() => {
     try {
       const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-      if (savedModel && MODEL_OPTIONS.some((m) => m.id === savedModel))
+      if (savedModel && models.some((m) => m.id === savedModel))
         setModel(savedModel);
       const savedEffort = localStorage.getItem(EFFORT_STORAGE_KEY);
       if (savedEffort && EFFORT_OPTIONS.some((e) => e.id === savedEffort))
@@ -86,7 +83,7 @@ export function KiWorkspace({
     } catch {
       /* localStorage nicht verfügbar */
     }
-  }, []);
+  }, [models]);
 
   function chooseModel(id: string) {
     setModel(id);
@@ -426,7 +423,7 @@ export function KiWorkspace({
                   className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-700 outline-none focus:border-sdg-red"
                   title="Genaues KI-Modell wählen – gründlichere Modelle brauchen länger"
                 >
-                  {MODEL_OPTIONS.map((m) => (
+                  {models.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.label}
                     </option>

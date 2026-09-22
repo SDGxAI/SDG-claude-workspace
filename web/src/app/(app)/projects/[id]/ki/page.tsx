@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
 import { getOrStartDraft } from "@/lib/actions/draft";
+import { listAnthropicModels } from "@/lib/ai/models";
 import { KiWorkspace, type KiComment } from "@/components/ki/KiWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,8 @@ export default async function KiPage({
     authorEmail: emailById.get(c.author_id ?? "") ?? "Unbekannt",
   }));
 
+  const models = await listAnthropicModels();
+
   return (
     <KiWorkspace
       projectId={id}
@@ -65,6 +68,7 @@ export default async function KiPage({
       initialHtml={draftRes.draft.html}
       initialMessages={draftRes.draft.messages}
       openComments={openComments}
+      models={models}
     />
   );
 }
