@@ -76,6 +76,7 @@ async function callClaude(
   system: string,
   userContent: string,
   maxTokens: number,
+  model: string,
 ): Promise<
   | { ok: true; text: string; truncated: boolean }
   | { ok: false; error: string }
@@ -89,13 +90,19 @@ async function callClaude(
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         max_tokens: maxTokens,
         system,
         messages: [{ role: "user", content: userContent }],
       }),
     });
     if (!res.ok) {
+      if (res.status === 400 || res.status === 404)
+        return {
+          ok: false,
+          error:
+            "Das gewählte KI-Modell ist mit deinem Schlüssel nicht verfügbar. Bitte ein anderes Modell wählen.",
+        };
       if (res.status === 401)
         return { ok: false, error: "Der KI-Schlüssel wird abgelehnt (401)." };
       if (res.status === 429)
@@ -131,7 +138,9 @@ const ASSET_RULE =
 export async function editHtmlWithAI(
   currentHtml: string,
   instruction: string,
+  model?: string,
 ): Promise<EditHtmlResult> {
+  const useModel = model?.trim() || MODEL;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
@@ -167,6 +176,7 @@ export async function editHtmlWithAI(
     editSystem,
     `INSTRUCTION:\n${instruction}\n\nCURRENT HTML:\n${slimHtml}`,
     8000,
+    useModel,
   );
   if (!editRes.ok) return { ok: false, error: editRes.error };
 
@@ -200,7 +210,8 @@ export async function editHtmlWithAI(
     apiKey,
     fullSystem,
     `INSTRUCTION:\n${instruction}\n\nCURRENT HTML:\n${slimHtml}`,
-    32000,
+    16000,
+    useModel,
   );
   if (!fullRes.ok) return { ok: false, error: fullRes.error };
   if (fullRes.truncated) {

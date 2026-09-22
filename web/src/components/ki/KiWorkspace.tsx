@@ -18,6 +18,14 @@ export interface KiComment {
   authorEmail: string;
 }
 
+/** Wählbare Claude-Modelle (schnell … besonders gründlich). */
+const MODEL_OPTIONS: { id: string; label: string }[] = [
+  { id: "claude-haiku-4-5", label: "Schnell (Haiku)" },
+  { id: "claude-sonnet-4-5", label: "Gründlich (Sonnet)" },
+  { id: "claude-opus-4-1", label: "Beste Qualität (Opus)" },
+];
+const MODEL_STORAGE_KEY = "sdg-ki-model";
+
 
 /**
  * Vollbild-Arbeitsbereich „Mit KI bearbeiten": links Live-Vorschau des
@@ -51,6 +59,26 @@ export function KiWorkspace({
   const [uploading, setUploading] = useState(false);
   // Nur-Ansicht: Desktop- oder Mobil-Darstellung des Entwurfs (kein Speichern).
   const [view, setView] = useState<"desktop" | "mobile">("desktop");
+  // Gewähltes Claude-Modell (in diesem Browser gemerkt).
+  const [model, setModel] = useState<string>(MODEL_OPTIONS[0].id);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(MODEL_STORAGE_KEY);
+      if (saved && MODEL_OPTIONS.some((m) => m.id === saved)) setModel(saved);
+    } catch {
+      /* localStorage nicht verfügbar */
+    }
+  }, []);
+
+  function chooseModel(id: string) {
+    setModel(id);
+    try {
+      localStorage.setItem(MODEL_STORAGE_KEY, id);
+    } catch {
+      /* ignore */
+    }
+  }
 
   const remaining = openComments.filter((c) => !applied.has(c.id));
 
@@ -107,7 +135,14 @@ export function KiWorkspace({
     const ids = [...checked];
     if (!text.trim() && ids.length === 0 && assets.length === 0) return;
     setBusy(true);
-    const res = await sendDraftInstruction(pageId, projectId, text, ids, assets);
+    const res = await sendDraftInstruction(
+      pageId,
+      projectId,
+      text,
+      ids,
+      assets,
+      model,
+    );
     setBusy(false);
     if (res.ok) {
       setHtml(res.draft.html);
@@ -346,17 +381,31 @@ export function KiWorkspace({
               placeholder={'Was soll geändert werden? (z. B. „Ersetze das Hero-Bild durch …", „mach die Überschrift kürzer")'}
               className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red"
             />
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <label className="cursor-pointer rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:border-sdg-red hover:text-sdg-red">
-                {uploading ? "Lädt …" : "📷 Bild"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={uploading}
-                  onChange={handleUpload}
-                />
-              </label>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <label className="cursor-pointer rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:border-sdg-red hover:text-sdg-red">
+                  {uploading ? "Lädt …" : "📷 Bild"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={handleUpload}
+                  />
+                </label>
+                <select
+                  value={model}
+                  onChange={(e) => chooseModel(e.target.value)}
+                  className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-700 outline-none focus:border-sdg-red"
+                  title="KI-Modell wählen – gründlichere Modelle brauchen länger"
+                >
+                  {MODEL_OPTIONS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-neutral-400">
                   Strg/⌘ + Enter
