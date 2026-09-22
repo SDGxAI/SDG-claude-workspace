@@ -120,6 +120,14 @@ export default async function ProjectDetailPage({
           {access.isAdmin && (
             <DeleteProjectButton projectId={id} title={project.title} />
           )}
+          {access.canEdit && page && (
+            <Link
+              href={`/projects/${id}/ki`}
+              className="rounded-lg border border-sdg-red px-4 py-2 text-sm font-medium text-sdg-red transition-colors hover:bg-sdg-red-light"
+            >
+              ✏️ Mit KI bearbeiten
+            </Link>
+          )}
           {access.canEdit && (
             <Link
               href={`/projects/${id}/editor`}

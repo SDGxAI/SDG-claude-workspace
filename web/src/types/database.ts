@@ -14,7 +14,15 @@ export type PageVersionSource =
   | "editor"
   | "claude"
   | "umsetzen"
-  | "import";
+  | "import"
+  | "ki";
+
+/** Eine Nachricht im KI-Bearbeiten-Chat (Meta-Ebene). */
+export interface DraftMessage {
+  role: "user" | "assistant";
+  content: string;
+  at: string;
+}
 
 export interface DetectedElement {
   id: string;
@@ -232,6 +240,24 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["notifications"]["Insert"]
         >;
+        Relationships: [];
+      };
+      page_drafts: {
+        Row: {
+          page_id: string;
+          html: string;
+          messages: DraftMessage[];
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          page_id: string;
+          html: string;
+          messages?: DraftMessage[];
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["page_drafts"]["Insert"]>;
         Relationships: [];
       };
       comments: {

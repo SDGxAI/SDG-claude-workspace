@@ -26,6 +26,7 @@ const VERSION_SOURCE_LABEL: Record<PageVersionSource, string> = {
   claude: "Aus Claude",
   umsetzen: "KI-Umsetzung",
   import: "Import",
+  ki: "KI-Bearbeitung",
 };
 
 export interface CommentThread {

@@ -1,0 +1,248 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  sendDraftInstruction,
+  discardDraft,
+  commitDraft,
+} from "@/lib/actions/draft";
+import type { DraftMessage } from "@/types/database";
+
+export interface KiComment {
+  id: string;
+  body: string;
+  authorEmail: string;
+}
+
+/**
+ * Vollbild-Arbeitsbereich „Mit KI bearbeiten": links Live-Vorschau des
+ * Entwurfs, rechts Chat + Kommentar-Auswahl. Man iteriert beliebig oft; erst
+ * „Als neue Version speichern" macht daraus eine Version.
+ */
+export function KiWorkspace({
+  projectId,
+  pageId,
+  projectTitle,
+  initialHtml,
+  initialMessages,
+  openComments,
+}: {
+  projectId: string;
+  pageId: string;
+  projectTitle: string;
+  initialHtml: string;
+  initialMessages: DraftMessage[];
+  openComments: KiComment[];
+}) {
+  const router = useRouter();
+  const [html, setHtml] = useState(initialHtml);
+  const [messages, setMessages] = useState<DraftMessage[]>(initialMessages);
+  const [text, setText] = useState("");
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [committing, setCommitting] = useState(false);
+
+  const remaining = openComments.filter((c) => !applied.has(c.id));
+
+  function toggle(id: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function send() {
+    const ids = [...checked];
+    if (!text.trim() && ids.length === 0) return;
+    setBusy(true);
+    const res = await sendDraftInstruction(pageId, projectId, text, ids);
+    setBusy(false);
+    if (res.ok) {
+      setHtml(res.draft.html);
+      setMessages(res.draft.messages);
+      setText("");
+      setApplied((prev) => new Set([...prev, ...ids]));
+      setChecked(new Set());
+    } else {
+      window.alert(res.error);
+    }
+  }
+
+  async function save() {
+    setCommitting(true);
+    const res = await commitDraft(pageId, projectId, [...applied]);
+    setCommitting(false);
+    if (res.ok) {
+      router.push(`/projects/${projectId}`);
+      router.refresh();
+    } else {
+      window.alert(res.error);
+    }
+  }
+
+  async function discard() {
+    if (
+      !window.confirm(
+        "Entwurf verwerfen? Alle Änderungen in diesem KI-Bearbeiten-Verlauf gehen verloren (die gespeicherten Versionen bleiben unberührt).",
+      )
+    )
+      return;
+    setCommitting(true);
+    const res = await discardDraft(pageId, projectId);
+    setCommitting(false);
+    if (res.ok) {
+      router.push(`/projects/${projectId}`);
+      router.refresh();
+    } else {
+      window.alert(res.error);
+    }
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+      {/* Kopfzeile */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-2">
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/projects/${projectId}`}
+            className="text-sm text-neutral-500 hover:text-sdg-red"
+          >
+            ← Zurück
+          </Link>
+          <span className="text-sm font-semibold text-neutral-900">
+            ✏️ Mit KI bearbeiten – {projectTitle}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={discard}
+            disabled={committing || busy}
+            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:border-sdg-red hover:text-sdg-red disabled:opacity-50"
+          >
+            Verwerfen
+          </button>
+          <button
+            onClick={save}
+            disabled={committing || busy}
+            className="rounded-lg bg-sdg-red px-4 py-1.5 text-sm font-medium text-white hover:bg-sdg-red-dark disabled:opacity-50"
+          >
+            {committing ? "Speichert …" : "Als neue Version speichern"}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Live-Vorschau des Entwurfs */}
+        <div className="min-h-0 flex-1 bg-neutral-100 p-3">
+          <iframe
+            title="Entwurf-Vorschau"
+            srcDoc={html}
+            className="h-full min-h-[50vh] w-full rounded-lg border border-neutral-200 bg-white"
+            sandbox="allow-same-origin"
+          />
+        </div>
+
+        {/* Chat + Kommentar-Auswahl */}
+        <div className="flex min-h-0 w-full flex-col border-t border-neutral-200 bg-white lg:w-[26rem] lg:border-l lg:border-t-0">
+          {/* Verlauf */}
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+            <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
+              Schreib der KI, was geändert werden soll – so oft du willst. Du
+              kannst auch offene Kommentare unten auswählen. Nichts wird
+              gespeichert, bis du oben auf „Als neue Version speichern“ klickst.
+            </p>
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                className={`rounded-lg p-3 text-sm ${
+                  m.role === "user"
+                    ? "bg-sdg-red-light text-neutral-800"
+                    : "bg-neutral-100 text-neutral-600"
+                }`}
+              >
+                <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
+                  {m.role === "user" ? "Du" : "KI"}
+                </div>
+                <p className="whitespace-pre-wrap">{m.content}</p>
+              </div>
+            ))}
+            {busy && (
+              <div className="rounded-lg bg-neutral-100 p-3 text-sm text-neutral-500">
+                KI arbeitet …
+              </div>
+            )}
+          </div>
+
+          {/* Kommentar-Auswahl */}
+          {remaining.length > 0 && (
+            <div className="max-h-48 overflow-y-auto border-t border-neutral-100 p-3">
+              <div className="mb-2 text-xs font-medium text-neutral-500">
+                Offene Kommentare übernehmen
+              </div>
+              <ul className="space-y-1">
+                {remaining.map((c) => (
+                  <li key={c.id}>
+                    <label className="flex cursor-pointer items-start gap-2 rounded p-1 text-sm hover:bg-neutral-50">
+                      <input
+                        type="checkbox"
+                        checked={checked.has(c.id)}
+                        onChange={() => toggle(c.id)}
+                        className="mt-1"
+                      />
+                      <span className="min-w-0">
+                        <span className="line-clamp-2 text-neutral-800">
+                          {c.body}
+                        </span>
+                        <span className="block text-[10px] text-neutral-400">
+                          {c.authorEmail}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {applied.size > 0 && (
+            <div className="border-t border-neutral-100 px-3 py-2 text-xs text-green-700">
+              ✓ {applied.size} Kommentar(e) übernommen – werden beim Speichern
+              als erledigt markiert.
+            </div>
+          )}
+
+          {/* Eingabe */}
+          <div className="border-t border-neutral-200 p-3">
+            <textarea
+              rows={3}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
+              }}
+              placeholder={'Was soll geändert werden? (z. B. „Ersetze das Hero-Bild durch …", „mach die Überschrift kürzer")'}
+              className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-[11px] text-neutral-400">
+                {checked.size > 0 ? `${checked.size} Kommentar(e) ausgewählt · ` : ""}
+                Strg/⌘ + Enter
+              </span>
+              <button
+                onClick={send}
+                disabled={busy || (!text.trim() && checked.size === 0)}
+                className="rounded-lg bg-neutral-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+              >
+                {busy ? "…" : "Senden"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
