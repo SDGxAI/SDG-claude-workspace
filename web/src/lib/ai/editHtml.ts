@@ -82,21 +82,21 @@ async function callClaude(
   | { ok: true; text: string; truncated: boolean }
   | { ok: false; error: string }
 > {
-  try {
-    // Bei aktivierter „Denkstufe" muss max_tokens über dem Denk-Budget liegen.
-    const effectiveMax =
-      thinkingBudget > 0 ? Math.max(maxTokens, thinkingBudget + 4000) : maxTokens;
+  // Bei aktivierter „Denkstufe" muss max_tokens über dem Denk-Budget liegen.
+  const effectiveMax =
+    thinkingBudget > 0 ? Math.max(maxTokens, thinkingBudget + 4000) : maxTokens;
+
+  const request = async (withThinking: boolean) => {
     const body: Record<string, unknown> = {
       model,
-      max_tokens: effectiveMax,
+      max_tokens: withThinking ? effectiveMax : maxTokens,
       system,
       messages: [{ role: "user", content: userContent }],
     };
-    if (thinkingBudget > 0) {
+    if (withThinking && thinkingBudget > 0) {
       body.thinking = { type: "enabled", budget_tokens: thinkingBudget };
     }
-
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    return fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
@@ -105,21 +105,45 @@ async function callClaude(
       },
       body: JSON.stringify(body),
     });
+  };
+
+  try {
+    let res = await request(thinkingBudget > 0);
+
+    // Klappt es mit Denkstufe nicht (400), einmal ohne Denkstufe versuchen –
+    // manche Modelle unterstützen das erweiterte Nachdenken nicht.
+    if (!res.ok && res.status === 400 && thinkingBudget > 0) {
+      res = await request(false);
+    }
+
     if (!res.ok) {
+      // Genauen Grund von Anthropic auslesen (hilft bei Diagnose).
+      let detail = "";
+      try {
+        const err = (await res.json()) as { error?: { message?: string } };
+        detail = err?.error?.message ? ` (${err.error.message})` : "";
+      } catch {
+        /* kein JSON */
+      }
       if (res.status === 400 || res.status === 404)
         return {
           ok: false,
-          error:
-            "Das gewählte KI-Modell oder die Denkstufe ist mit deinem Schlüssel nicht verfügbar. Bitte ein anderes Modell oder eine niedrigere Denkstufe wählen.",
+          error: `Das gewählte KI-Modell ist mit deinem Schlüssel nicht nutzbar${detail}. Bitte ein anderes Modell wählen.`,
         };
       if (res.status === 401)
         return { ok: false, error: "Der KI-Schlüssel wird abgelehnt (401)." };
+      if (res.status === 403)
+        return {
+          ok: false,
+          error: `Zugriff auf dieses Modell nicht erlaubt (403)${detail}. Bitte ein anderes Modell wählen.`,
+        };
       if (res.status === 429)
         return { ok: false, error: "Zu viele KI-Anfragen (429). Bitte kurz warten." };
       if (res.status === 529 || res.status === 500)
         return { ok: false, error: "Die KI ist gerade ausgelastet. Bitte gleich erneut versuchen." };
-      return { ok: false, error: `KI-Dienst-Fehler (${res.status}).` };
+      return { ok: false, error: `KI-Dienst-Fehler (${res.status})${detail}.` };
     }
+
     const json = (await res.json()) as {
       content?: { type: string; text?: string }[];
       stop_reason?: string;
