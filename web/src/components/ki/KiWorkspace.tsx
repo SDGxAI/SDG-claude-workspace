@@ -49,6 +49,8 @@ export function KiWorkspace({
   const [committing, setCommitting] = useState(false);
   const [assets, setAssets] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  // Nur-Ansicht: Desktop- oder Mobil-Darstellung des Entwurfs (kein Speichern).
+  const [view, setView] = useState<"desktop" | "mobile">("desktop");
 
   const remaining = openComments.filter((c) => !applied.has(c.id));
 
@@ -160,13 +162,51 @@ export function KiWorkspace({
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Live-Vorschau des Entwurfs */}
-        <div className="min-h-0 flex-1 bg-neutral-100 p-3">
-          <iframe
-            title="Entwurf-Vorschau"
-            srcDoc={withBlankLinks(html)}
-            className="h-full min-h-[50vh] w-full rounded-lg border border-neutral-200 bg-white"
-            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-          />
+        <div className="flex min-h-0 flex-1 flex-col bg-neutral-100">
+          {/* Ansicht umschalten (nur zum Schauen) */}
+          <div className="flex items-center justify-center gap-1 p-2">
+            <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 bg-white">
+              {(
+                [
+                  ["desktop", "🖥 Desktop"],
+                  ["mobile", "📱 Mobil"],
+                ] as const
+              ).map(([key, label], i) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setView(key)}
+                  aria-pressed={view === key}
+                  className={`px-3 py-1 text-sm font-medium transition-colors ${
+                    i > 0 ? "border-l border-neutral-300" : ""
+                  } ${
+                    view === key
+                      ? "bg-sdg-red text-white"
+                      : "bg-white text-neutral-600 hover:text-sdg-red"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
+            <div
+              className={
+                view === "mobile"
+                  ? "mx-auto h-full w-full max-w-[400px] overflow-hidden rounded-[2rem] border-[10px] border-neutral-800 bg-white shadow-xl"
+                  : "h-full w-full overflow-hidden rounded-lg border border-neutral-200 bg-white"
+              }
+            >
+              <iframe
+                title="Entwurf-Vorschau"
+                srcDoc={withBlankLinks(html)}
+                className="h-full min-h-[50vh] w-full bg-white"
+                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Chat + Kommentar-Auswahl */}
