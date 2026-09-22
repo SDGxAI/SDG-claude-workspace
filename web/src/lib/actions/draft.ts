@@ -94,6 +94,7 @@ export async function sendDraftInstruction(
   freeText: string,
   commentIds: string[],
   assetUrls: string[] = [],
+  model?: string,
 ): Promise<DraftResult> {
   const access = await getProjectAccess(projectId);
   if (!access?.canEdit) return { ok: false, error: "Keine Berechtigung." };
@@ -132,7 +133,7 @@ export async function sendDraftInstruction(
   const instruction = parts.join("\n\n");
   if (!instruction) return { ok: false, error: "Bitte eine Anweisung eingeben oder Kommentare auswählen." };
 
-  const edited = await editHtmlWithAI(draft.html, instruction);
+  const edited = await editHtmlWithAI(draft.html, instruction, model);
   if (!edited.ok) return { ok: false, error: edited.error };
 
   const now = new Date().toISOString();
