@@ -74,6 +74,12 @@ function formatTime(iso: string): string {
   });
 }
 
+/** Prozentwert auf 0–100 begrenzen. */
+function clampPct(value: number): number {
+  if (Number.isNaN(value)) return 0;
+  return Math.min(100, Math.max(0, value));
+}
+
 export function CommentablePreview({
   previewHtml,
   pageId,
@@ -165,68 +171,42 @@ export function CommentablePreview({
     }
   }
 
-  // Scroll-Position und Gesamthöhe der Vorschau-Seite. Pins werden relativ
-  // zur GESAMTEN Seite (nicht zum sichtbaren Ausschnitt) gespeichert, damit
-  // sie mit dem Inhalt mitscrollen und nur dort sichtbar sind, wo sie sitzen.
-  const [scrollY, setScrollY] = useState(0);
-  const [metrics, setMetrics] = useState({ height: 0, viewport: 0 });
-  const scrollRef = useRef(0);
-  const metricsRef = useRef({ height: 0, viewport: 0 });
+  // Die Vorschau wird so hoch dargestellt wie die ECHTE Seite (kein innerer
+  // Scrollbalken) – man scrollt die ganze Seite wie im echten Browser. Die
+  // Pins liegen als Overlay in Prozent der Seitenhöhe darüber und wandern
+  // dadurch von selbst mit.
+  const [contentHeight, setContentHeight] = useState(0);
 
   const openCount = threads.filter((t) => t.status === "offen").length;
 
-  // Scroll-/Größenmessung der eingebetteten Vorschau (same-origin iframe).
+  /** Echte Inhaltshöhe der Vorschau messen (same-origin iframe). */
+  const measure = useCallback(() => {
+    const iframe = iframeRef.current;
+    try {
+      const doc = iframe?.contentDocument;
+      if (!doc) return;
+      const h = Math.max(
+        doc.documentElement.scrollHeight,
+        doc.body?.scrollHeight ?? 0,
+        400,
+      );
+      setContentHeight(h);
+    } catch {
+      /* iframe noch nicht bereit */
+    }
+  }, []);
+
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
     let observer: ResizeObserver | null = null;
 
-    const measure = () => {
-      try {
-        const doc = iframe.contentDocument;
-        const win = iframe.contentWindow;
-        if (!doc || !win) return;
-        const height =
-          doc.documentElement.scrollHeight || doc.body?.scrollHeight || 0;
-        const viewport = iframe.clientHeight;
-        setMetrics({ height, viewport });
-        metricsRef.current = { height, viewport };
-        const top = win.scrollY || doc.documentElement.scrollTop || 0;
-        setScrollY(top);
-        scrollRef.current = top;
-      } catch {
-        /* iframe noch nicht bereit */
-      }
-    };
-
-    // Scroll-Events per requestAnimationFrame entzerren: pro Bild höchstens
-    // eine Zustandsänderung, damit die Pin-Neuberechnung das Scrollen nicht
-    // ins Ruckeln bringt.
-    let rafId = 0;
-    const onScroll = () => {
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = 0;
-        try {
-          const doc = iframe.contentDocument;
-          const win = iframe.contentWindow;
-          const top = (win?.scrollY ?? doc?.documentElement.scrollTop) || 0;
-          setScrollY(top);
-          scrollRef.current = top;
-        } catch {
-          /* ignore */
-        }
-      });
-    };
-
     const attach = () => {
       try {
-        iframe.contentWindow?.addEventListener("scroll", onScroll, {
-          passive: true,
-        });
         const body = iframe.contentDocument?.body;
         if (body) {
-          observer = new ResizeObserver(measure);
+          observer?.disconnect();
+          observer = new ResizeObserver(() => measure());
           observer.observe(body);
         }
         measure();
@@ -243,39 +223,33 @@ export function CommentablePreview({
       iframe.removeEventListener("load", attach);
       window.removeEventListener("resize", measure);
       observer?.disconnect();
-      if (rafId) cancelAnimationFrame(rafId);
-      try {
-        iframe.contentWindow?.removeEventListener("scroll", onScroll);
-      } catch {
-        /* ignore */
-      }
     };
-  }, [previewHtml]);
+  }, [previewHtml, measure]);
 
-  /** Bildschirm-Y eines Pins (relativ zum sichtbaren Ausschnitt). */
-  const screenTop = useCallback(
-    (yPct: number) => (yPct / 100) * metrics.height - scrollY,
-    [metrics.height, scrollY],
-  );
+  // Nach Rückkehr aus einer Alt-Version die Live-Vorschau neu vermessen.
+  useEffect(() => {
+    if (!activeVersionId) requestAnimationFrame(() => measure());
+  }, [activeVersionId, measure]);
 
-  /** Springt in der Vorschau zu der Stelle, an der ein Kommentar sitzt. */
+  /** Springt (in der ganzen Seite) zu der Stelle, an der ein Kommentar sitzt. */
   const scrollToThread = useCallback((thread: CommentThread) => {
     setSelectedId(thread.id);
-    const win = iframeRef.current?.contentWindow;
-    const { height, viewport } = metricsRef.current;
-    if (!win || !height) return;
-    const target = (thread.yPct / 100) * height - viewport / 2;
-    win.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const rect = overlay.getBoundingClientRect();
+    const target =
+      rect.top + window.scrollY + (thread.yPct / 100) * rect.height;
+    window.scrollTo({
+      top: Math.max(0, target - window.innerHeight / 2),
+      behavior: "smooth",
+    });
   }, []);
 
   function handleOverlayClick(e: React.MouseEvent) {
     if (!commentMode || !overlayRef.current) return;
     const rect = overlayRef.current.getBoundingClientRect();
-    const { height } = metricsRef.current;
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    // Y relativ zur GESAMTEN Seitenhöhe (inkl. aktuellem Scroll-Versatz).
-    const contentY = e.clientY - rect.top + scrollRef.current;
-    const y = height > 0 ? (contentY / height) * 100 : 0;
+    const x = clampPct(((e.clientX - rect.left) / rect.width) * 100);
+    const y = clampPct(((e.clientY - rect.top) / rect.height) * 100);
     setPending({ x, y });
     setPendingText("");
   }
@@ -650,9 +624,9 @@ export function CommentablePreview({
           activeVersion ? "hidden" : ""
         }`}
       >
-        {/* Vorschau mit Pin-Overlay – bleibt beim Scrollen der Kommentare
-            sichtbar (sticky), damit man Feedback und Seite zusammen sieht. */}
-        <div className="min-w-0 lg:sticky lg:top-4 lg:flex-1 lg:self-start">
+        {/* Vorschau mit Pin-Overlay – so hoch wie die echte Seite, man scrollt
+            die ganze Seite (kein innerer Scrollbalken). */}
+        <div className="min-w-0 lg:flex-1">
           <div
             className={
               view === "mobile"
@@ -664,57 +638,52 @@ export function CommentablePreview({
               ref={iframeRef}
               title="Vorschau"
               srcDoc={previewHtml}
-              className="h-[70vh] w-full lg:h-[76vh]"
+              scrolling="no"
+              className="block w-full"
+              style={{ height: contentHeight ? `${contentHeight}px` : "80vh" }}
               sandbox="allow-same-origin"
             />
 
-          {/* Overlay: fängt Klicks nur im Kommentarmodus, Pins immer klickbar.
-              overflow-hidden blendet Pins aus, die gerade außerhalb des
-              sichtbaren Ausschnitts liegen. */}
+          {/* Overlay über der GESAMTEN Seitenhöhe: fängt Klicks nur im
+              Kommentarmodus, Pins liegen prozentual und scrollen mit. */}
           <div
             ref={overlayRef}
             onClick={handleOverlayClick}
-            className="absolute inset-0 overflow-hidden"
+            className="absolute inset-0"
             style={{
               pointerEvents: commentMode ? "auto" : "none",
               cursor: commentMode ? "crosshair" : "default",
             }}
           >
-            {metrics.height > 0 &&
-              threads.map((thread, i) => {
-                const top = screenTop(thread.yPct);
-                // Nur anzeigen, wenn der Pin im sichtbaren Ausschnitt liegt.
-                if (top < -4 || top > metrics.viewport + 4) return null;
-                return (
-                  <button
-                    key={thread.id}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedId(thread.id);
-                      setShowComments(true);
-                    }}
-                    className={`absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow ${
-                      thread.status === "erledigt" ? "bg-green-600" : "bg-sdg-red"
-                    } ${selectedId === thread.id ? "ring-2 ring-sdg-red ring-offset-1" : ""}`}
-                    style={{
-                      left: `${thread.xPct}%`,
-                      top: `${top}px`,
-                      pointerEvents: "auto",
-                    }}
-                    title={thread.body}
-                  >
-                    {i + 1}
-                  </button>
-                );
-              })}
+            {threads.map((thread, i) => (
+              <button
+                key={thread.id}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedId(thread.id);
+                  setShowComments(true);
+                }}
+                className={`absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow ${
+                  thread.status === "erledigt" ? "bg-green-600" : "bg-sdg-red"
+                } ${selectedId === thread.id ? "ring-2 ring-sdg-red ring-offset-1" : ""}`}
+                style={{
+                  left: `${thread.xPct}%`,
+                  top: `${thread.yPct}%`,
+                  pointerEvents: "auto",
+                }}
+                title={thread.body}
+              >
+                {i + 1}
+              </button>
+            ))}
 
             {pending && (
               <div
                 className="absolute z-10 w-64 -translate-x-1/2 rounded-lg border border-neutral-300 bg-white p-3 shadow-lg"
                 style={{
                   left: `${pending.x}%`,
-                  top: `${screenTop(pending.y)}px`,
+                  top: `${pending.y}%`,
                   pointerEvents: "auto",
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -748,9 +717,10 @@ export function CommentablePreview({
         </div>
       </div>
 
-      {/* Kommentar-Liste (ausblendbar – ausgeblendet ist die Vorschau breiter) */}
+      {/* Kommentar-Liste: bleibt beim Scrollen der langen Seite sichtbar
+          (sticky) und scrollt bei Bedarf intern. */}
       {showComments && (
-      <div className="lg:w-80 lg:shrink-0">
+      <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-80 lg:shrink-0 lg:self-start lg:overflow-y-auto">
         <h2 className="mb-3 font-semibold text-neutral-900">
           Kommentare ({threads.length})
         </h2>
