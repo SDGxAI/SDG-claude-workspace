@@ -77,11 +77,25 @@ async function callClaude(
   userContent: string,
   maxTokens: number,
   model: string,
+  thinkingBudget: number,
 ): Promise<
   | { ok: true; text: string; truncated: boolean }
   | { ok: false; error: string }
 > {
   try {
+    // Bei aktivierter „Denkstufe" muss max_tokens über dem Denk-Budget liegen.
+    const effectiveMax =
+      thinkingBudget > 0 ? Math.max(maxTokens, thinkingBudget + 4000) : maxTokens;
+    const body: Record<string, unknown> = {
+      model,
+      max_tokens: effectiveMax,
+      system,
+      messages: [{ role: "user", content: userContent }],
+    };
+    if (thinkingBudget > 0) {
+      body.thinking = { type: "enabled", budget_tokens: thinkingBudget };
+    }
+
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -89,19 +103,14 @@ async function callClaude(
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: "user", content: userContent }],
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       if (res.status === 400 || res.status === 404)
         return {
           ok: false,
           error:
-            "Das gewählte KI-Modell ist mit deinem Schlüssel nicht verfügbar. Bitte ein anderes Modell wählen.",
+            "Das gewählte KI-Modell oder die Denkstufe ist mit deinem Schlüssel nicht verfügbar. Bitte ein anderes Modell oder eine niedrigere Denkstufe wählen.",
         };
       if (res.status === 401)
         return { ok: false, error: "Der KI-Schlüssel wird abgelehnt (401)." };
@@ -135,12 +144,22 @@ const ASSET_RULE =
  * die KI liefert nur die geänderten Stellen (find/replace). Klappt das nicht,
  * wird auf die vollständige Neuausgabe des HTML zurückgefallen.
  */
+export type Effort = "standard" | "mittel" | "hoch";
+
+function effortToBudget(effort?: Effort): number {
+  if (effort === "mittel") return 4000;
+  if (effort === "hoch") return 10000;
+  return 0;
+}
+
 export async function editHtmlWithAI(
   currentHtml: string,
   instruction: string,
   model?: string,
+  effort?: Effort,
 ): Promise<EditHtmlResult> {
   const useModel = model?.trim() || MODEL;
+  const budget = effortToBudget(effort);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
@@ -177,6 +196,7 @@ export async function editHtmlWithAI(
     `INSTRUCTION:\n${instruction}\n\nCURRENT HTML:\n${slimHtml}`,
     8000,
     useModel,
+    budget,
   );
   if (!editRes.ok) return { ok: false, error: editRes.error };
 
@@ -212,6 +232,7 @@ export async function editHtmlWithAI(
     `INSTRUCTION:\n${instruction}\n\nCURRENT HTML:\n${slimHtml}`,
     16000,
     useModel,
+    budget,
   );
   if (!fullRes.ok) return { ok: false, error: fullRes.error };
   if (fullRes.truncated) {

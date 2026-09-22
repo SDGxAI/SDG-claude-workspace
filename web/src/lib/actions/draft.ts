@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
-import { editHtmlWithAI } from "@/lib/ai/editHtml";
+import { editHtmlWithAI, type Effort } from "@/lib/ai/editHtml";
 import { ingestHtmlIntoProject } from "@/lib/ingest/apply";
 import { createNotification } from "@/lib/actions/notifications";
 import type {
@@ -95,6 +95,7 @@ export async function sendDraftInstruction(
   commentIds: string[],
   assetUrls: string[] = [],
   model?: string,
+  effort?: Effort,
 ): Promise<DraftResult> {
   const access = await getProjectAccess(projectId);
   if (!access?.canEdit) return { ok: false, error: "Keine Berechtigung." };
@@ -133,7 +134,7 @@ export async function sendDraftInstruction(
   const instruction = parts.join("\n\n");
   if (!instruction) return { ok: false, error: "Bitte eine Anweisung eingeben oder Kommentare auswählen." };
 
-  const edited = await editHtmlWithAI(draft.html, instruction, model);
+  const edited = await editHtmlWithAI(draft.html, instruction, model, effort);
   if (!edited.ok) return { ok: false, error: edited.error };
 
   const now = new Date().toISOString();
