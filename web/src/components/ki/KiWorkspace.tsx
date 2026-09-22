@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -54,10 +54,7 @@ export function KiWorkspace({
 
   const remaining = openComments.filter((c) => !applied.has(c.id));
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  async function uploadFile(file: File) {
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
@@ -69,6 +66,33 @@ export function KiWorkspace({
       window.alert(res.error);
     }
   }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) await uploadFile(file);
+  }
+
+  // Screenshots/Bilder direkt per Einfügen (Strg/⌘+V) übernehmen – egal wo
+  // im KI-Bereich. Nur Bilder aus der Zwischenablage werden hochgeladen.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            void uploadFile(file);
+          }
+        }
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   function toggle(id: string) {
     setChecked((prev) => {
@@ -215,7 +239,8 @@ export function KiWorkspace({
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
             <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
               Schreib der KI, was geändert werden soll – so oft du willst. Du
-              kannst auch offene Kommentare unten auswählen. Nichts wird
+              kannst auch offene Kommentare unten auswählen, Bilder hochladen
+              oder einen Screenshot direkt einfügen (Strg/⌘+V). Nichts wird
               gespeichert, bis du oben auf „Als neue Version speichern“ klickst.
             </p>
             {messages.map((m, i) => (
