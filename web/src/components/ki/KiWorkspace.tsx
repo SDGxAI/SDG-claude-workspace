@@ -8,6 +8,8 @@ import {
   discardDraft,
   commitDraft,
 } from "@/lib/actions/draft";
+import { uploadKiAsset } from "@/lib/actions/upload";
+import { withBlankLinks } from "@/lib/html/previewLinks";
 import type { DraftMessage } from "@/types/database";
 
 export interface KiComment {
@@ -15,6 +17,7 @@ export interface KiComment {
   body: string;
   authorEmail: string;
 }
+
 
 /**
  * Vollbild-Arbeitsbereich „Mit KI bearbeiten": links Live-Vorschau des
@@ -44,8 +47,26 @@ export function KiWorkspace({
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [committing, setCommitting] = useState(false);
+  const [assets, setAssets] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const remaining = openComments.filter((c) => !applied.has(c.id));
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await uploadKiAsset(projectId, fd);
+    setUploading(false);
+    if (res.ok) {
+      setAssets((prev) => [...prev, res.url]);
+    } else {
+      window.alert(res.error);
+    }
+  }
 
   function toggle(id: string) {
     setChecked((prev) => {
@@ -58,9 +79,9 @@ export function KiWorkspace({
 
   async function send() {
     const ids = [...checked];
-    if (!text.trim() && ids.length === 0) return;
+    if (!text.trim() && ids.length === 0 && assets.length === 0) return;
     setBusy(true);
-    const res = await sendDraftInstruction(pageId, projectId, text, ids);
+    const res = await sendDraftInstruction(pageId, projectId, text, ids, assets);
     setBusy(false);
     if (res.ok) {
       setHtml(res.draft.html);
@@ -68,6 +89,7 @@ export function KiWorkspace({
       setText("");
       setApplied((prev) => new Set([...prev, ...ids]));
       setChecked(new Set());
+      setAssets([]);
     } else {
       window.alert(res.error);
     }
@@ -141,9 +163,9 @@ export function KiWorkspace({
         <div className="min-h-0 flex-1 bg-neutral-100 p-3">
           <iframe
             title="Entwurf-Vorschau"
-            srcDoc={html}
+            srcDoc={withBlankLinks(html)}
             className="h-full min-h-[50vh] w-full rounded-lg border border-neutral-200 bg-white"
-            sandbox="allow-same-origin"
+            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           />
         </div>
 
@@ -215,6 +237,38 @@ export function KiWorkspace({
             </div>
           )}
 
+          {/* Hochgeladene Bilder */}
+          {assets.length > 0 && (
+            <div className="flex flex-wrap gap-2 border-t border-neutral-100 px-3 py-2">
+              {assets.map((url, i) => (
+                <div key={url} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`Bild ${i + 1}`}
+                    className="h-12 w-12 rounded border border-neutral-200 object-cover"
+                  />
+                  <span className="absolute -left-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-800 text-[9px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAssets((prev) => prev.filter((u) => u !== url))
+                    }
+                    className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] text-neutral-500 shadow hover:text-sdg-red"
+                    title="Entfernen"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <span className="self-center text-[11px] text-neutral-400">
+                In der Anweisung z. B. „füge Bild 1 oben ein“.
+              </span>
+            </div>
+          )}
+
           {/* Eingabe */}
           <div className="border-t border-neutral-200 p-3">
             <textarea
@@ -227,18 +281,32 @@ export function KiWorkspace({
               placeholder={'Was soll geändert werden? (z. B. „Ersetze das Hero-Bild durch …", „mach die Überschrift kürzer")'}
               className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red"
             />
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-[11px] text-neutral-400">
-                {checked.size > 0 ? `${checked.size} Kommentar(e) ausgewählt · ` : ""}
-                Strg/⌘ + Enter
-              </span>
-              <button
-                onClick={send}
-                disabled={busy || (!text.trim() && checked.size === 0)}
-                className="rounded-lg bg-neutral-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
-              >
-                {busy ? "…" : "Senden"}
-              </button>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <label className="cursor-pointer rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:border-sdg-red hover:text-sdg-red">
+                {uploading ? "Lädt …" : "📷 Bild"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={handleUpload}
+                />
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-neutral-400">
+                  Strg/⌘ + Enter
+                </span>
+                <button
+                  onClick={send}
+                  disabled={
+                    busy ||
+                    (!text.trim() && checked.size === 0 && assets.length === 0)
+                  }
+                  className="rounded-lg bg-neutral-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+                >
+                  {busy ? "…" : "Senden"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
