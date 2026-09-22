@@ -616,3 +616,10 @@ create policy "notifications_update_own"
 create policy "notifications_delete_own"
   on notifications for delete
   using (user_id = auth.uid());
+
+-- =====================================================================
+-- 0010_comments_snapshot.sql  (Kommentare je Version)
+-- =====================================================================
+
+alter table page_versions
+  add column if not exists comments_snapshot jsonb not null default '[]'::jsonb;

@@ -23,6 +23,23 @@ export interface DetectedElement {
   default: string;
 }
 
+/** In einer Version festgehaltener Kommentar (denormalisiert für die Anzeige). */
+export interface StoredComment {
+  id: string;
+  body: string;
+  xPct: number;
+  yPct: number;
+  status: CommentStatus;
+  createdAt: string;
+  authorEmail: string;
+  replies: {
+    id: string;
+    body: string;
+    createdAt: string;
+    authorEmail: string;
+  }[];
+}
+
 export interface CustomButton {
   id: string;
   label: string;
@@ -169,6 +186,7 @@ export interface Database {
           template_html: string;
           detected_elements: DetectedElement[];
           content_state: ContentState;
+          comments_snapshot: StoredComment[];
           created_by: string | null;
           created_at: string;
         };
@@ -181,6 +199,7 @@ export interface Database {
           template_html: string;
           detected_elements?: DetectedElement[];
           content_state?: ContentState;
+          comments_snapshot?: StoredComment[];
           created_by?: string | null;
           created_at?: string;
         };

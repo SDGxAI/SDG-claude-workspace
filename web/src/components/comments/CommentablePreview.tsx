@@ -17,7 +17,7 @@ import {
   type VersionMeta,
 } from "@/lib/actions/versions";
 import { umsetzenComment } from "@/lib/actions/umsetzen";
-import type { PageVersionSource } from "@/types/database";
+import type { PageVersionSource, StoredComment } from "@/types/database";
 
 /** Kurze, verständliche Bezeichnung, woher eine Version stammt. */
 const VERSION_SOURCE_LABEL: Record<PageVersionSource, string> = {
@@ -109,8 +109,19 @@ export function CommentablePreview({
   const [showVersions, setShowVersions] = useState(false);
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
   const [versionHtml, setVersionHtml] = useState("");
+  const [versionComments, setVersionComments] = useState<StoredComment[]>([]);
   const [loadingVersion, setLoadingVersion] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
+  // Erledigte Kommentare sind in der aktuellen Version standardmäßig
+  // ausgeblendet (nur offene). Über den Schalter kurz einblendbar.
+  const [showDone, setShowDone] = useState(false);
+
+  // In der aktuellen Ansicht nur offene Kommentare zeigen (erledigte sind
+  // in den alten Versionen weiter nachvollziehbar).
+  const displayThreads = showDone
+    ? threads
+    : threads.filter((t) => t.status !== "erledigt");
+  const doneCount = threads.filter((t) => t.status === "erledigt").length;
 
   const activeVersion = versions.find((v) => v.id === activeVersionId) ?? null;
 
@@ -122,6 +133,7 @@ export function CommentablePreview({
     if (!v) {
       setActiveVersionId(null);
       setVersionHtml("");
+      setVersionComments([]);
       return;
     }
     setActiveVersionId(v.id);
@@ -129,6 +141,7 @@ export function CommentablePreview({
     const res = await getVersionHtml(v.id);
     setLoadingVersion(false);
     setVersionHtml(res.ok ? res.html : "");
+    setVersionComments(res.ok ? res.comments : []);
   }, []);
 
   async function removeVersion(v: VersionMeta) {
@@ -613,6 +626,66 @@ export function CommentablePreview({
               />
             </div>
           )}
+
+          {/* Kommentare, die zu dieser Version gehörten (nur zum Nachverfolgen). */}
+          {!loadingVersion && (
+            <div className="mt-4">
+              <h3 className="mb-2 text-sm font-semibold text-neutral-700">
+                Kommentare dieser Version ({versionComments.length})
+              </h3>
+              {versionComments.length === 0 ? (
+                <p className="text-sm text-neutral-500">
+                  Zu dieser Version sind keine Kommentare gespeichert.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {versionComments.map((c, i) => (
+                    <li
+                      key={c.id}
+                      className="rounded-lg border border-neutral-200 p-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white ${
+                            c.status === "erledigt" ? "bg-green-600" : "bg-sdg-red"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="truncate text-xs text-neutral-500">
+                          {c.authorEmail}
+                        </span>
+                        <span
+                          className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            c.status === "erledigt"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {c.status === "erledigt" ? "Erledigt" : "Offen"}
+                        </span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">
+                        {c.body}
+                      </p>
+                      {c.replies.length > 0 && (
+                        <ul className="mt-2 space-y-1 border-l-2 border-neutral-100 pl-3">
+                          {c.replies.map((r) => (
+                            <li key={r.id} className="text-sm text-neutral-700">
+                              <span className="text-xs text-neutral-500">
+                                {r.authorEmail}:{" "}
+                              </span>
+                              {r.body}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -655,7 +728,7 @@ export function CommentablePreview({
               cursor: commentMode ? "crosshair" : "default",
             }}
           >
-            {threads.map((thread, i) => (
+            {displayThreads.map((thread, i) => (
               <button
                 key={thread.id}
                 type="button"
@@ -721,17 +794,32 @@ export function CommentablePreview({
           (sticky) und scrollt bei Bedarf intern. */}
       {showComments && (
       <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-80 lg:shrink-0 lg:self-start lg:overflow-y-auto">
-        <h2 className="mb-3 font-semibold text-neutral-900">
-          Kommentare ({threads.length})
+        <h2 className="mb-1 font-semibold text-neutral-900">
+          Kommentare ({displayThreads.length})
         </h2>
-        {threads.length === 0 ? (
+        {doneCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowDone((s) => !s)}
+            className="mb-3 text-xs text-neutral-500 hover:text-sdg-red"
+          >
+            {showDone
+              ? "Erledigte ausblenden"
+              : `+ ${doneCount} erledigte anzeigen`}
+          </button>
+        )}
+        {displayThreads.length === 0 ? (
           <p className="rounded-lg border border-dashed border-neutral-300 p-4 text-sm text-neutral-500">
-            Noch keine Kommentare.
-            {canComment && " Klicke auf „Kommentar hinzufügen“, um Feedback zu geben."}
+            {threads.length === 0
+              ? "Noch keine Kommentare."
+              : "Keine offenen Kommentare – alles erledigt. 🎉"}
+            {canComment &&
+              threads.length === 0 &&
+              " Klicke auf „Kommentar hinzufügen“, um Feedback zu geben."}
           </p>
         ) : (
           <ul className="space-y-3">
-            {threads.map((thread, i) => {
+            {displayThreads.map((thread, i) => {
               const canToggle =
                 canModerate || thread.authorEmail === currentUserEmail;
               return (

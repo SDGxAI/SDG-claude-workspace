@@ -10,7 +10,65 @@ import type {
   Database,
   DetectedElement,
   PageVersionSource,
+  StoredComment,
 } from "@/types/database";
+
+/**
+ * Baut aus den Kommentar-Zeilen einer Seite eine denormalisierte
+ * Momentaufnahme (mit Autor-E-Mails, Threads), die in einer Version
+ * festgehalten wird.
+ */
+async function buildCommentsSnapshot(
+  client: SupabaseClient<Database>,
+  pageId: string,
+): Promise<StoredComment[]> {
+  const { data: comments } = await client
+    .from("comments")
+    .select("id, parent_id, author_id, body, x_pct, y_pct, status, created_at")
+    .eq("page_id", pageId)
+    .order("created_at", { ascending: true });
+  if (!comments || comments.length === 0) return [];
+
+  const authorIds = [
+    ...new Set(comments.map((c) => c.author_id).filter((v): v is string => !!v)),
+  ];
+  const emailById = new Map<string, string>();
+  if (authorIds.length > 0) {
+    const { data: profiles } = await client
+      .from("profiles")
+      .select("id, email")
+      .in("id", authorIds);
+    (profiles ?? []).forEach((p) => emailById.set(p.id, p.email));
+  }
+  const emailOf = (id: string | null) =>
+    (id && emailById.get(id)) || "Unbekannt";
+
+  const topLevel = comments.filter((c) => !c.parent_id);
+  const repliesByParent = new Map<string, typeof comments>();
+  for (const c of comments) {
+    if (c.parent_id) {
+      const list = repliesByParent.get(c.parent_id) ?? [];
+      list.push(c);
+      repliesByParent.set(c.parent_id, list);
+    }
+  }
+
+  return topLevel.map((c) => ({
+    id: c.id,
+    body: c.body,
+    xPct: Number(c.x_pct),
+    yPct: Number(c.y_pct),
+    status: c.status,
+    createdAt: c.created_at,
+    authorEmail: emailOf(c.author_id),
+    replies: (repliesByParent.get(c.id) ?? []).map((r) => ({
+      id: r.id,
+      body: r.body,
+      createdAt: r.created_at,
+      authorEmail: emailOf(r.author_id),
+    })),
+  }));
+}
 
 /** Metadaten einer archivierten Version (ohne den schweren HTML-Inhalt). */
 export interface VersionMeta {
@@ -57,6 +115,8 @@ export async function archiveCurrentAsVersion(
   });
   const versionNo = typeof nextNo === "number" ? nextNo : 1;
 
+  const commentsSnapshot = await buildCommentsSnapshot(supabase, pageId);
+
   const { error } = await supabase.from("page_versions").insert({
     page_id: pageId,
     version_no: versionNo,
@@ -65,6 +125,7 @@ export async function archiveCurrentAsVersion(
     template_html: page.template_html,
     detected_elements: page.detected_elements as DetectedElement[],
     content_state: page.content_state as ContentState,
+    comments_snapshot: commentsSnapshot,
     created_by: createdBy ?? null,
   });
   if (error) {
@@ -135,11 +196,14 @@ export async function listVersions(pageId: string): Promise<VersionMeta[]> {
  */
 export async function getVersionHtml(
   versionId: string,
-): Promise<{ ok: true; html: string } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; html: string; comments: StoredComment[] }
+  | { ok: false; error: string }
+> {
   const supabase = await createClient();
   const { data: version } = await supabase
     .from("page_versions")
-    .select("template_html, detected_elements, content_state")
+    .select("template_html, detected_elements, content_state, comments_snapshot")
     .eq("id", versionId)
     .single();
   if (!version) return { ok: false, error: "Version nicht gefunden." };
@@ -151,7 +215,11 @@ export async function getVersionHtml(
     { ...contentState, images: resolvedImages },
     version.detected_elements as DetectedElement[],
   );
-  return { ok: true, html };
+  return {
+    ok: true,
+    html,
+    comments: (version.comments_snapshot as StoredComment[]) ?? [],
+  };
 }
 
 /** Löscht eine archivierte Version (Editor/Admin – per RLS erzwungen). */
