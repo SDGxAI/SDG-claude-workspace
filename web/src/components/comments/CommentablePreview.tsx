@@ -7,6 +7,7 @@ import {
   addReply,
   setCommentStatus,
   deleteComment,
+  editComment,
 } from "@/lib/actions/comments";
 import {
   getVersionHtml,
@@ -198,16 +199,24 @@ export function CommentablePreview({
       }
     };
 
+    // Scroll-Events per requestAnimationFrame entzerren: pro Bild höchstens
+    // eine Zustandsänderung, damit die Pin-Neuberechnung das Scrollen nicht
+    // ins Ruckeln bringt.
+    let rafId = 0;
     const onScroll = () => {
-      try {
-        const doc = iframe.contentDocument;
-        const win = iframe.contentWindow;
-        const top = (win?.scrollY ?? doc?.documentElement.scrollTop) || 0;
-        setScrollY(top);
-        scrollRef.current = top;
-      } catch {
-        /* ignore */
-      }
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        try {
+          const doc = iframe.contentDocument;
+          const win = iframe.contentWindow;
+          const top = (win?.scrollY ?? doc?.documentElement.scrollTop) || 0;
+          setScrollY(top);
+          scrollRef.current = top;
+        } catch {
+          /* ignore */
+        }
+      });
     };
 
     const attach = () => {
@@ -234,6 +243,7 @@ export function CommentablePreview({
       iframe.removeEventListener("load", attach);
       window.removeEventListener("resize", measure);
       observer?.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
       try {
         iframe.contentWindow?.removeEventListener("scroll", onScroll);
       } catch {
@@ -320,6 +330,27 @@ export function CommentablePreview({
   }
 
   const [umsetzenId, setUmsetzenId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
+  function startEdit(thread: CommentThread) {
+    setEditingId(thread.id);
+    setEditText(thread.body);
+  }
+
+  async function saveEdit(thread: CommentThread) {
+    const text = editText.trim();
+    if (!text) return;
+    setBusy(true);
+    const res = await editComment(thread.id, projectId, text);
+    setBusy(false);
+    if (res.ok) {
+      setEditingId(null);
+      router.refresh();
+    } else {
+      window.alert(res.error);
+    }
+  }
 
   async function handleUmsetzen(thread: CommentThread) {
     setUmsetzenId(thread.id);
@@ -619,8 +650,9 @@ export function CommentablePreview({
           activeVersion ? "hidden" : ""
         }`}
       >
-        {/* Vorschau mit Pin-Overlay */}
-        <div className="min-w-0 lg:flex-1">
+        {/* Vorschau mit Pin-Overlay – bleibt beim Scrollen der Kommentare
+            sichtbar (sticky), damit man Feedback und Seite zusammen sieht. */}
+        <div className="min-w-0 lg:sticky lg:top-4 lg:flex-1 lg:self-start">
           <div
             className={
               view === "mobile"
@@ -764,9 +796,36 @@ export function CommentablePreview({
                       {thread.status === "erledigt" ? "Erledigt" : "Offen"}
                     </span>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">
-                    {thread.body}
-                  </p>
+                  {editingId === thread.id ? (
+                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                      <textarea
+                        autoFocus
+                        rows={3}
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full resize-y rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
+                      />
+                      <div className="mt-1 flex justify-end gap-2">
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="rounded px-2 py-1 text-xs text-neutral-500 hover:text-neutral-800"
+                        >
+                          Abbrechen
+                        </button>
+                        <button
+                          onClick={() => saveEdit(thread)}
+                          disabled={busy || !editText.trim()}
+                          className="rounded bg-sdg-red px-3 py-1 text-xs font-medium text-white hover:bg-sdg-red-dark disabled:opacity-50"
+                        >
+                          Speichern
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">
+                      {thread.body}
+                    </p>
+                  )}
                   <p className="mt-1 text-[10px] text-neutral-400">
                     {formatTime(thread.createdAt)}
                   </p>
@@ -841,6 +900,20 @@ export function CommentablePreview({
                         {umsetzenId === thread.id ? "KI arbeitet …" : "✨ Umsetzen"}
                       </button>
                     )}
+                    {(canModerate || thread.authorEmail === currentUserEmail) &&
+                      editingId !== thread.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEdit(thread);
+                          }}
+                          disabled={busy}
+                          className="text-xs text-neutral-500 hover:text-sdg-red disabled:opacity-50"
+                          title="Wortlaut des Kommentars anpassen (z. B. vor dem Umsetzen)"
+                        >
+                          Bearbeiten
+                        </button>
+                      )}
                     {canToggle && (
                       <button
                         onClick={(e) => {

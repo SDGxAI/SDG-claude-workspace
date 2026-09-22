@@ -127,6 +127,31 @@ export async function setCommentStatus(
 }
 
 /**
+ * Ändert den Text eines Kommentars. RLS erlaubt das der Autor:in sowie
+ * Editor:innen/Admins des Projekts – so können Admins schwer verständliche
+ * Kommentare glätten, bevor die KI sie umsetzt.
+ */
+export async function editComment(
+  commentId: string,
+  projectId: string,
+  body: string,
+): Promise<CommentActionResult> {
+  const trimmed = body.trim();
+  if (!trimmed) return { ok: false, error: "Kommentar darf nicht leer sein." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("comments")
+    .update({ body: trimmed })
+    .eq("id", commentId);
+  if (error) {
+    return { ok: false, error: "Kommentar konnte nicht geändert werden." };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+/**
  * Löscht einen Kommentar (bzw. einen ganzen Thread, wenn es ein
  * Top-Level-Kommentar ist – Antworten werden per Cascade mitgelöscht).
  * RLS erlaubt das dem Autor sowie Editoren/Admins des Projekts.

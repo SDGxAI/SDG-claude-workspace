@@ -116,12 +116,17 @@ export async function umsetzenComment(
 
   const system =
     `You edit the EDITABLE CONTENT of a marketing landing page for SIMBA-DICKIE-GROUP. ` +
-    `You receive a JSON object with: "feedback" (a reviewer's request, usually in German), ` +
+    `You receive a JSON object with: "feedback" (ONE reviewer's request, usually in German), ` +
     `"texts" (id -> current text), "text_labels" (id -> human label for context), ` +
     `"colors" (id -> CSS color), and optionally "i18n_de" (id -> German text). ` +
-    `Apply EXACTLY what the feedback asks and nothing else. ` +
+    `Apply ONLY the single, specific change described in "feedback". ` +
+    `Change the FEWEST fields possible – usually EXACTLY ONE. ` +
+    `Do NOT rewrite, polish, shorten, or "improve" any other text, even if it seems related or could be better. ` +
+    `Never apply changes that the feedback did not explicitly ask for. ` +
+    `If "feedback" contains a concrete suggested wording (e.g. text after "Vorschlag:" or in quotation marks), ` +
+    `use exactly that as the new value for the ONE matching field. ` +
     `Return ONLY a JSON object with the same groups ("texts", "colors", "i18n_de") ` +
-    `containing ONLY the entries you changed – omit unchanged entries and omit empty groups. ` +
+    `containing ONLY the entry/entries this feedback explicitly concerns – omit everything else and omit empty groups. ` +
     `Keep any HTML tags/attributes inside text values intact. ` +
     `Use valid CSS color values for colors. Keep the JSON keys (ids) unchanged. ` +
     `If the request cannot be applied to these fields, return {}. ` +
