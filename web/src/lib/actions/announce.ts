@@ -149,14 +149,13 @@ export type AnnounceResult =
   | { ok: false; error: string };
 
 /**
- * Sendet eine Mitteilung (Glocke) an ausgewählte Empfänger – nur Admins.
- * Optional zusätzlich per E-Mail.
+ * Sendet eine Mitteilung an ausgewählte Empfänger – nur Admins. Geht immer
+ * per E-Mail raus und landet zusätzlich in der Glocke der App.
  */
 export async function sendAnnouncement(
   projectId: string,
   body: string,
   recipientIds: string[],
-  alsoEmail: boolean,
 ): Promise<AnnounceResult> {
   const text = body.trim();
   if (!text) return { ok: false, error: "Bitte eine Nachricht eingeben." };
@@ -214,45 +213,46 @@ export async function sendAnnouncement(
     });
   }
 
-  // Optional E-Mail (personalisiert je Empfänger, gebrandet).
-  let emailNote: string | undefined;
-  if (alsoEmail) {
-    if (!emailConfigured()) {
-      emailNote =
-        "E-Mail-Versand ist noch nicht eingerichtet – die Mitteilung ging nur an die Glocke";
-    } else {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || null;
-      const projectUrl = siteUrl ? `${siteUrl}/projects/${projectId}` : null;
-      const subject = project?.title
-        ? `Neue Mitteilung zu „${project.title}"`
-        : "Neue Mitteilung – SDG Landingpage-Editor";
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, email, name")
-        .in("id", targetIds);
-
-      let sent = 0;
-      let lastError = "";
-      for (const p of profiles ?? []) {
-        if (!p.email) continue;
-        const { html, text: body } = buildAnnouncementEmail({
-          message: text,
-          recipientName: p.name ?? null,
-          projectTitle: project?.title ?? null,
-          projectUrl,
-          siteUrl,
-        });
-        const r = await sendMail(p.email, subject, html, body);
-        if (r.ok) sent += 1;
-        else lastError = r.error;
-      }
-      emailNote =
-        sent > 0
-          ? `auch per E-Mail an ${sent} Person(en)`
-          : `E-Mail fehlgeschlagen: ${lastError}`;
-    }
+  // E-Mail (immer, personalisiert je Empfänger, gebrandet).
+  if (!emailConfigured()) {
+    return {
+      ok: true,
+      sent: targetIds.length,
+      emailNote:
+        "E-Mail-Versand ist noch nicht eingerichtet – die Mitteilung ging nur an die Glocke",
+    };
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || null;
+  const projectUrl = siteUrl ? `${siteUrl}/projects/${projectId}` : null;
+  const subject = project?.title
+    ? `Neue Mitteilung zu „${project.title}"`
+    : "Neue Mitteilung – SDG Landingpage-Editor";
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, email, name")
+    .in("id", targetIds);
+
+  let emailed = 0;
+  let lastError = "";
+  for (const p of profiles ?? []) {
+    if (!p.email) continue;
+    const { html, text: plain } = buildAnnouncementEmail({
+      message: text,
+      recipientName: p.name ?? null,
+      projectTitle: project?.title ?? null,
+      projectUrl,
+      siteUrl,
+    });
+    const r = await sendMail(p.email, subject, html, plain);
+    if (r.ok) emailed += 1;
+    else lastError = r.error;
+  }
+
+  const emailNote =
+    emailed > 0
+      ? `per E-Mail an ${emailed} Person(en)`
+      : `E-Mail fehlgeschlagen: ${lastError}`;
   return { ok: true, sent: targetIds.length, emailNote };
 }
