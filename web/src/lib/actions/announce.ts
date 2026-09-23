@@ -4,7 +4,8 @@ import { getProjectAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/actions/notifications";
-import { sendAnnouncementEmails } from "@/lib/email";
+import { sendMail, emailConfigured } from "@/lib/email";
+import { buildAnnouncementEmail } from "@/lib/emailTemplate";
 
 export interface Recipient {
   id: string;
@@ -88,23 +89,43 @@ export async function sendAnnouncement(
     });
   }
 
-  // Optional E-Mail.
+  // Optional E-Mail (personalisiert je Empfänger, gebrandet).
   let emailNote: string | undefined;
   if (alsoEmail) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, email")
-      .in("id", targetIds);
-    const emails = (profiles ?? []).map((p) => p.email).filter(Boolean);
-    const subject = project?.title
-      ? `Mitteilung zu „${project.title}"`
-      : "Mitteilung – SDG Landingpage-Editor";
-    const res = await sendAnnouncementEmails(emails, subject, text);
-    if (res.ok) emailNote = "auch per E-Mail versendet";
-    else if (res.skipped)
+    if (!emailConfigured()) {
       emailNote =
         "E-Mail-Versand ist noch nicht eingerichtet – die Mitteilung ging nur an die Glocke";
-    else emailNote = `E-Mail fehlgeschlagen: ${res.error}`;
+    } else {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || null;
+      const projectUrl = siteUrl ? `${siteUrl}/projects/${projectId}` : null;
+      const subject = project?.title
+        ? `Neue Mitteilung zu „${project.title}"`
+        : "Neue Mitteilung – SDG Landingpage-Editor";
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .in("id", targetIds);
+
+      let sent = 0;
+      let lastError = "";
+      for (const p of profiles ?? []) {
+        if (!p.email) continue;
+        const { html, text: body } = buildAnnouncementEmail({
+          message: text,
+          projectTitle: project?.title ?? null,
+          projectUrl,
+          siteUrl,
+        });
+        const r = await sendMail(p.email, subject, html, body);
+        if (r.ok) sent += 1;
+        else lastError = r.error;
+      }
+      emailNote =
+        sent > 0
+          ? `auch per E-Mail an ${sent} Person(en)`
+          : `E-Mail fehlgeschlagen: ${lastError}`;
+    }
   }
 
   return { ok: true, sent: targetIds.length, emailNote };

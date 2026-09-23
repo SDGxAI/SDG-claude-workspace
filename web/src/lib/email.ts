@@ -1,36 +1,33 @@
 import "server-only";
 import nodemailer from "nodemailer";
 
-export type EmailSendResult =
-  | { ok: true }
-  | { ok: false; skipped: true } // E-Mail nicht eingerichtet
-  | { ok: false; skipped?: false; error: string };
+export type SendResult = { ok: true } | { ok: false; error: string };
+
+/** Ist überhaupt ein Versandweg (SMTP oder Resend) konfiguriert? */
+export function emailConfigured(): boolean {
+  const from = process.env.NOTIFY_EMAIL_FROM;
+  if (!from) return false;
+  const smtp = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS;
+  return Boolean(smtp || process.env.RESEND_API_KEY);
+}
 
 /**
- * Verschickt eine Mitteilung per E-Mail an mehrere Empfänger (als BCC, damit
- * sich die Empfänger nicht gegenseitig sehen).
- *
- * Zwei Wege, je nachdem was im Hosting hinterlegt ist:
- *  1. SMTP (Agentur-Postfach): SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
- *  2. Resend (API-Dienst): RESEND_API_KEY
- * In beiden Fällen wird NOTIFY_EMAIL_FROM als Absender genutzt.
- * Ist nichts konfiguriert, wird sauber übersprungen (App läuft weiter).
+ * Versendet EINE E-Mail (HTML + Text-Fallback) an einen Empfänger.
+ * Weg 1: SMTP (Agentur-Postfach). Weg 2: Resend (API). Absender = NOTIFY_EMAIL_FROM.
  */
-export async function sendAnnouncementEmails(
-  recipients: string[],
+export async function sendMail(
+  to: string,
   subject: string,
+  html: string,
   text: string,
-): Promise<EmailSendResult> {
+): Promise<SendResult> {
   const from = process.env.NOTIFY_EMAIL_FROM;
-  if (!from) return { ok: false, skipped: true };
-  if (recipients.length === 0) return { ok: true };
+  if (!from) return { ok: false, error: "E-Mail-Absender nicht konfiguriert." };
 
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const resendKey = process.env.RESEND_API_KEY;
 
-  // --- Weg 1: SMTP (Agentur-Postfach) ----------------------------------
   if (host && user && pass) {
     const port = Number(process.env.SMTP_PORT || 587);
     try {
@@ -40,20 +37,17 @@ export async function sendAnnouncementEmails(
         secure: port === 465, // 465 = SSL, sonst STARTTLS
         auth: { user, pass },
       });
-      await transport.sendMail({ from, to: from, bcc: recipients, subject, text });
+      await transport.sendMail({ from, to, subject, html, text });
       return { ok: true };
     } catch (e) {
       return {
         ok: false,
-        error:
-          e instanceof Error
-            ? `E-Mail (SMTP) fehlgeschlagen: ${e.message}`
-            : "E-Mail (SMTP) fehlgeschlagen.",
+        error: e instanceof Error ? `SMTP: ${e.message}` : "SMTP-Fehler.",
       };
     }
   }
 
-  // --- Weg 2: Resend (API) --------------------------------------------
+  const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
     try {
       const res = await fetch("https://api.resend.com/emails", {
@@ -62,14 +56,14 @@ export async function sendAnnouncementEmails(
           Authorization: `Bearer ${resendKey}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ from, to: [from], bcc: recipients, subject, text }),
+        body: JSON.stringify({ from, to: [to], subject, html, text }),
       });
-      if (!res.ok) return { ok: false, error: `E-Mail-Dienst-Fehler (${res.status}).` };
+      if (!res.ok) return { ok: false, error: `Resend-Fehler (${res.status}).` };
       return { ok: true };
     } catch {
       return { ok: false, error: "E-Mail konnte nicht gesendet werden." };
     }
   }
 
-  return { ok: false, skipped: true };
+  return { ok: false, error: "Kein E-Mail-Versandweg konfiguriert." };
 }
