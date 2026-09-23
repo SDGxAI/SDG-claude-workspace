@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createUserWithPassword, type AccessRole } from "@/lib/actions/invite";
+import { createUserWithPassword, type UserRole } from "@/lib/actions/invite";
 import { BrandCheckboxes } from "@/components/admin/BrandCheckboxes";
 
 export function CreateUserForm({ brands }: { brands: string[] }) {
@@ -10,7 +10,7 @@ export function CreateUserForm({ brands }: { brands: string[] }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<AccessRole>("reviewer");
+  const [role, setRole] = useState<UserRole>("reviewer");
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(
     null,
@@ -20,6 +20,13 @@ export function CreateUserForm({ brands }: { brands: string[] }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
+    if (
+      role === "admin" &&
+      !window.confirm(
+        "Diese Person als Admin anlegen? Admins haben vollen Zugriff auf alle Projekte und können Nutzer verwalten.",
+      )
+    )
+      return;
     setLoading(true);
 
     const result = await createUserWithPassword(email, password, name, role, selected);
@@ -71,28 +78,35 @@ export function CreateUserForm({ brands }: { brands: string[] }) {
         />
         <select
           value={role}
-          onChange={(e) => setRole(e.target.value as AccessRole)}
+          onChange={(e) => setRole(e.target.value as UserRole)}
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red sm:max-w-xs"
         >
           <option value="reviewer">Rolle: Reviewer (kommentieren)</option>
           <option value="editor">Rolle: Editor (bearbeiten)</option>
+          <option value="admin">Rolle: Admin (alles)</option>
         </select>
       </div>
 
-      <div>
-        <p className="mb-1 text-sm font-medium text-neutral-700">
-          Berechtigt für Marken{" "}
-          <span className="font-normal text-neutral-400">
-            (die Rolle gilt für alle gewählten Marken – auch neue Projekte)
-          </span>
+      {role === "admin" ? (
+        <p className="text-sm text-neutral-500">
+          Admins haben automatisch Zugriff auf alle Marken und Projekte.
         </p>
-        <BrandCheckboxes
-          brands={brands}
-          selected={selected}
-          onChange={setSelected}
-          disabled={loading}
-        />
-      </div>
+      ) : (
+        <div>
+          <p className="mb-1 text-sm font-medium text-neutral-700">
+            Berechtigt für Marken{" "}
+            <span className="font-normal text-neutral-400">
+              (die Rolle gilt für alle gewählten Marken – auch neue Projekte)
+            </span>
+          </p>
+          <BrandCheckboxes
+            brands={brands}
+            selected={selected}
+            onChange={setSelected}
+            disabled={loading}
+          />
+        </div>
+      )}
 
       <button
         type="submit"
