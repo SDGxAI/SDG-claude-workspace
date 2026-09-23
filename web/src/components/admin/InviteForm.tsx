@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { inviteUser, type AccessRole } from "@/lib/actions/invite";
+import { inviteUser, type UserRole } from "@/lib/actions/invite";
 import { BrandCheckboxes } from "@/components/admin/BrandCheckboxes";
 
 export function InviteForm({ brands }: { brands: string[] }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [role, setRole] = useState<AccessRole>("reviewer");
+  const [role, setRole] = useState<UserRole>("reviewer");
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(
     null,
@@ -23,9 +22,17 @@ export function InviteForm({ brands }: { brands: string[] }) {
     setMessage(null);
     setFallbackLink(null);
     setCopied(false);
-    setLoading(true);
 
-    const result = await inviteUser(email, name, role, selected);
+    if (
+      role === "admin" &&
+      !window.confirm(
+        "Diese Person als Admin einladen? Admins haben vollen Zugriff auf alle Projekte und können Nutzer verwalten.",
+      )
+    )
+      return;
+
+    setLoading(true);
+    const result = await inviteUser(email, role, selected);
     if (result.ok) {
       if (result.emailed) {
         setMessage({
@@ -40,7 +47,6 @@ export function InviteForm({ brands }: { brands: string[] }) {
         setFallbackLink(result.link);
       }
       setEmail("");
-      setName("");
       setSelected([]);
       setRole("reviewer");
       router.refresh();
@@ -54,14 +60,6 @@ export function InviteForm({ brands }: { brands: string[] }) {
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
-          type="text"
-          required
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20 sm:max-w-[10rem]"
-        />
-        <input
           type="email"
           required
           placeholder="name@simba-dickie.com"
@@ -71,25 +69,35 @@ export function InviteForm({ brands }: { brands: string[] }) {
         />
         <select
           value={role}
-          onChange={(e) => setRole(e.target.value as AccessRole)}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red sm:max-w-[12rem]"
+          onChange={(e) => setRole(e.target.value as UserRole)}
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red sm:max-w-[14rem]"
         >
-          <option value="reviewer">Reviewer</option>
-          <option value="editor">Editor</option>
+          <option value="reviewer">Reviewer (kommentieren)</option>
+          <option value="editor">Editor (bearbeiten)</option>
+          <option value="admin">Admin (alles)</option>
         </select>
       </div>
 
-      <div>
-        <p className="mb-1 text-sm font-medium text-neutral-700">
-          Berechtigt für Marken
+      {role === "admin" ? (
+        <p className="text-sm text-neutral-500">
+          Admins haben automatisch Zugriff auf alle Marken und Projekte.
         </p>
-        <BrandCheckboxes
-          brands={brands}
-          selected={selected}
-          onChange={setSelected}
-          disabled={loading}
-        />
-      </div>
+      ) : (
+        <div>
+          <p className="mb-1 text-sm font-medium text-neutral-700">Berechtigt für Marken</p>
+          <BrandCheckboxes
+            brands={brands}
+            selected={selected}
+            onChange={setSelected}
+            disabled={loading}
+          />
+        </div>
+      )}
+
+      <p className="text-xs text-neutral-400">
+        Die Person bekommt eine E-Mail und trägt beim Einrichten des Zugangs
+        selbst ihren Vornamen und ihr Passwort ein.
+      </p>
 
       <button
         type="submit"

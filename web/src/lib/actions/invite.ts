@@ -55,8 +55,7 @@ export type InviteUserResult =
  */
 export async function inviteUser(
   rawEmail: string,
-  name?: string,
-  role: AccessRole = "reviewer",
+  role: UserRole = "reviewer",
   brands: string[] = [],
 ): Promise<InviteUserResult> {
   const email = rawEmail.trim().toLowerCase();
@@ -103,12 +102,13 @@ export async function inviteUser(
     };
   }
 
-  // Name + Marken-Zugriff direkt setzen (Profil entsteht per Trigger).
-  const cleanName = name?.trim() || null;
-  if (cleanName) {
-    await admin.from("profiles").update({ name: cleanName }).eq("id", link.user.id);
+  // Rolle setzen (Profil entsteht per Trigger). Den Vornamen trägt die Person
+  // beim Einrichten des Zugangs selbst ein.
+  if (role === "admin") {
+    await admin.from("profiles").update({ is_admin: true }).eq("id", link.user.id);
+  } else {
+    await applyBrandAccess(admin, link.user.id, role, brands);
   }
-  await applyBrandAccess(admin, link.user.id, role, brands);
   revalidatePath("/admin/users");
 
   // Eigener Link auf die Bestätigungs-Route (Token → Session → Passwort setzen).
@@ -126,7 +126,7 @@ export async function inviteUser(
   }
 
   const { html, text } = buildInviteEmail({
-    recipientName: cleanName,
+    recipientName: null,
     inviteUrl,
     siteUrl,
   });
@@ -151,7 +151,7 @@ export async function createUserWithPassword(
   rawEmail: string,
   password: string,
   name: string,
-  role: AccessRole = "reviewer",
+  role: UserRole = "reviewer",
   brands: string[] = [],
 ): Promise<InviteResult> {
   const email = rawEmail.trim().toLowerCase();
@@ -191,7 +191,7 @@ export async function createUserWithPassword(
     return { ok: false, error: `Anlegen fehlgeschlagen: ${error.message}` };
   }
 
-  // Profil aktiv setzen, Passwortänderung erzwingen, Name + Marken-Zugriff.
+  // Profil aktiv setzen, Passwortänderung erzwingen, Name + Rolle/Marken.
   if (created?.user) {
     await admin
       .from("profiles")
@@ -199,9 +199,12 @@ export async function createUserWithPassword(
         status: "aktiv",
         must_change_password: true,
         name: name.trim() || null,
+        is_admin: role === "admin",
       })
       .eq("id", created.user.id);
-    await applyBrandAccess(admin, created.user.id, role, brands);
+    if (role !== "admin") {
+      await applyBrandAccess(admin, created.user.id, role, brands);
+    }
   }
 
   revalidatePath("/admin/users");
@@ -290,22 +293,26 @@ export async function setUserName(
 }
 
 /**
- * Setzt das Flag "Passwort ändern beim nächsten Login" für die eingeloggte
- * Person zurück (nach erfolgreicher Passwortänderung).
+ * Abschluss der Registrierung (nach Einladungslink bzw. erstem Login): speichert
+ * den Vornamen der eingeloggten Person und hakt den Passwortwechsel ab.
+ * Admin-Client, da Nutzer:innen ihr Profil per RLS nicht selbst ändern dürfen –
+ * es wird ausschließlich die eigene Zeile berührt.
  */
-export async function clearMustChangePassword(): Promise<void> {
+export async function completeOnboarding(firstName: string): Promise<InviteResult> {
+  const name = firstName.trim().slice(0, 60);
+  if (!name) return { ok: false, error: "Bitte gib deinen Vornamen ein." };
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
-  // Admin-Client, da normale Nutzer:innen ihr Profil per RLS nicht selbst
-  // ändern dürfen. Es wird ausschließlich das eigene Flag zurückgesetzt.
+  if (!user) return { ok: false, error: "Nicht angemeldet." };
   const admin = createAdminClient();
-  await admin
+  const { error } = await admin
     .from("profiles")
-    .update({ must_change_password: false })
+    .update({ name, must_change_password: false })
     .eq("id", user.id);
+  if (error) return { ok: false, error: "Vorname konnte nicht gespeichert werden." };
+  return { ok: true };
 }
 
 /**
