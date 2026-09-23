@@ -3,12 +3,17 @@ import nodemailer from "nodemailer";
 
 export type SendResult = { ok: true } | { ok: false; error: string };
 
+/** Umgebungswert lesen und versehentliche Leerzeichen/Umbrüche entfernen. */
+function env(name: string): string | undefined {
+  const v = process.env[name]?.trim();
+  return v ? v : undefined;
+}
+
 /** Ist überhaupt ein Versandweg (SMTP oder Resend) konfiguriert? */
 export function emailConfigured(): boolean {
-  const from = process.env.NOTIFY_EMAIL_FROM;
-  if (!from) return false;
-  const smtp = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS;
-  return Boolean(smtp || process.env.RESEND_API_KEY);
+  if (!env("NOTIFY_EMAIL_FROM")) return false;
+  const smtp = env("SMTP_HOST") && env("SMTP_USER") && env("SMTP_PASS");
+  return Boolean(smtp || env("RESEND_API_KEY"));
 }
 
 /**
@@ -21,15 +26,15 @@ export async function sendMail(
   html: string,
   text: string,
 ): Promise<SendResult> {
-  const from = process.env.NOTIFY_EMAIL_FROM;
+  const from = env("NOTIFY_EMAIL_FROM");
   if (!from) return { ok: false, error: "E-Mail-Absender nicht konfiguriert." };
 
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const host = env("SMTP_HOST");
+  const user = env("SMTP_USER");
+  const pass = env("SMTP_PASS");
 
   if (host && user && pass) {
-    const port = Number(process.env.SMTP_PORT || 587);
+    const port = Number(env("SMTP_PORT") || 587);
     try {
       const transport = nodemailer.createTransport({
         host,
@@ -47,7 +52,7 @@ export async function sendMail(
     }
   }
 
-  const resendKey = process.env.RESEND_API_KEY;
+  const resendKey = env("RESEND_API_KEY");
   if (resendKey) {
     try {
       const res = await fetch("https://api.resend.com/emails", {

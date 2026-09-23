@@ -25,7 +25,6 @@ export function AnnounceButton({ projectId }: { projectId: string }) {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [body, setBody] = useState("");
-  const [alsoEmail, setAlsoEmail] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rewriting, setRewriting] = useState(false);
 
@@ -62,22 +61,14 @@ export function AnnounceButton({ projectId }: { projectId: string }) {
 
   async function send() {
     setBusy(true);
-    const res = await sendAnnouncement(
-      projectId,
-      body,
-      [...selected],
-      alsoEmail,
-    );
+    const res = await sendAnnouncement(projectId, body, [...selected]);
     setBusy(false);
     if (res.ok) {
       window.alert(
-        `Mitteilung an ${res.sent} Person(en) gesendet${
-          res.emailNote ? ` – ${res.emailNote}` : ""
-        }.`,
+        `Mitteilung gesendet${res.emailNote ? ` – ${res.emailNote}` : ""}.`,
       );
       setOpen(false);
       setBody("");
-      setAlsoEmail(false);
     } else {
       window.alert(res.error);
     }
@@ -106,7 +97,8 @@ export function AnnounceButton({ projectId }: { projectId: string }) {
               Mitteilung senden
             </h2>
             <p className="mb-3 text-sm text-neutral-500">
-              Geht an die 🔔 Glocke der ausgewählten Personen.
+              Geht per E-Mail an die ausgewählten Personen (und zusätzlich in
+              die 🔔 Glocke der App).
             </p>
 
             {/* Vorlagen zum Anklicken */}
@@ -195,15 +187,6 @@ export function AnnounceButton({ projectId }: { projectId: string }) {
                 </ul>
               )}
             </div>
-
-            <label className="mt-3 flex items-center gap-2 text-sm text-neutral-700">
-              <input
-                type="checkbox"
-                checked={alsoEmail}
-                onChange={(e) => setAlsoEmail(e.target.checked)}
-              />
-              Zusätzlich per E-Mail senden
-            </label>
 
             <div className="mt-4 flex justify-end gap-2">
               <button
