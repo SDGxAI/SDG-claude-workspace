@@ -83,6 +83,27 @@ export async function unreadNotificationCount(): Promise<number> {
   return count ?? 0;
 }
 
+/** Löscht eine eigene Mitteilung (RLS: nur eigene). */
+export async function deleteNotification(id: string): Promise<{ ok: true }> {
+  const supabase = await createClient();
+  await supabase.from("notifications").delete().eq("id", id);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Löscht alle eigenen Mitteilungen. */
+export async function deleteAllNotifications(): Promise<{ ok: true }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    await supabase.from("notifications").delete().eq("user_id", user.id);
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Markiert alle eigenen Mitteilungen als gelesen. */
 export async function markAllNotificationsRead(): Promise<{ ok: true }> {
   const supabase = await createClient();

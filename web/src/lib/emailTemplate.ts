@@ -1,5 +1,19 @@
 import "server-only";
 
+/*
+ * E-Mail-Vorlage im Aufbau der SDG/BIG-Service-Mails:
+ * graue Kopfleiste mit Logo links · große fette Überschrift · „Guten Tag
+ * <Name>," · kurze Absätze mit Leerzeilen · eckiger dunkler Button mit „→"
+ * (zentriert) · „Viele Grüße / Dein Group AI Team" · Footer mit Firmendaten,
+ * Hinweis „automatisch erstellte Nachricht" und zentriert „Datenschutz |
+ * Impressum". Tabellen-Layout + Inline-Styles für Outlook/Apple Mail/Gmail.
+ */
+
+const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const TEXT = "#333333";
+const DATENSCHUTZ_URL = "https://www.simba-dickie-group.de/datenschutz";
+const IMPRESSUM_URL = "https://www.simba-dickie-group.de/impressum";
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -8,14 +22,103 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-const RED = "#e30613";
+function para(text: string, extra = ""): string {
+  return `<p style="margin:0 0 27px;font-family:${FONT};font-size:17px;line-height:27px;color:${TEXT};${extra}">${escapeHtml(
+    text,
+  ).replace(/\n/g, "<br>")}</p>`;
+}
 
-/**
- * Gebrandete Mitteilungs-E-Mail im SDG-Look (angelehnt an die SDG/BIG-Service-
- * Mails): SDG-Logo oben, Anrede mit Namen, Nachricht, roter Button in die App,
- * Grußformel „Dein Group AI Team", Firmen-Footer. Tabellen-Layout + Inline-
- * Styles für maximale Kompatibilität in Mail-Clients.
- */
+interface BrandedEmail {
+  subjectHeading: string;
+  greetingName?: string | null;
+  paragraphs: string[];
+  button?: { label: string; url: string } | null;
+  afterButton?: string[];
+  siteUrl?: string | null;
+}
+
+/** Baut eine E-Mail im SDG-Service-Mail-Aufbau (HTML + Text). */
+export function buildBrandedEmail(input: BrandedEmail): { html: string; text: string } {
+  const { subjectHeading, greetingName, paragraphs, button, afterButton = [], siteUrl } =
+    input;
+  const name = greetingName?.trim();
+  const greeting = name ? `Guten Tag ${name},` : "Guten Tag,";
+
+  const logo = siteUrl
+    ? `<img src="${siteUrl}/sdg-logo-box.png" alt="SDG" width="128" height="44" style="display:block;height:44px;width:128px;border:0" />`
+    : `<span style="display:inline-block;background:#e30613;color:#ffffff;font-family:${FONT};font-weight:700;font-size:20px;letter-spacing:4px;padding:8px 14px">S·D·G</span>`;
+
+  const buttonHtml = button
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 27px">
+         <tr><td bgcolor="#1a1a1a" style="background:#1a1a1a">
+           <a href="${button.url}" style="display:inline-block;padding:12px 26px;font-family:${FONT};font-size:17px;font-weight:700;line-height:22px;color:#ffffff;text-decoration:none">${escapeHtml(
+             button.label,
+           )}</a>
+         </td></tr>
+       </table>`
+    : "";
+
+  const footerLine = (t: string) =>
+    `<div style="font-family:${FONT};font-size:14px;line-height:20px;color:#6b6b6b">${t}</div>`;
+
+  const html = `<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(
+    subjectHeading,
+  )}</title></head>
+<body style="margin:0;padding:0;background:#ffffff">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff">
+    <tr><td align="center">
+      <table role="presentation" width="660" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:660px">
+        <tr><td bgcolor="#ececec" style="background:#ececec;padding:18px 45px">${logo}</td></tr>
+        <tr><td style="padding:40px 45px 0">
+          <h1 style="margin:0 0 26px;font-family:${FONT};font-size:32px;line-height:38px;font-weight:700;color:#111111">${escapeHtml(
+            subjectHeading,
+          )}</h1>
+          ${para(greeting)}
+          ${paragraphs.map((p) => para(p)).join("\n          ")}
+          ${buttonHtml}
+          ${afterButton.map((p) => para(p)).join("\n          ")}
+          <p style="margin:54px 0 0;font-family:${FONT};font-size:17px;line-height:27px;color:${TEXT}">Viele Grüße<br>Dein Group AI Team</p>
+        </td></tr>
+        <tr><td style="padding:80px 45px 40px">
+          ${footerLine("SIMBA-DICKIE-GROUP GmbH<br>Werkstraße 1<br>90765 Fürth")}
+          <div style="height:20px;line-height:20px">&nbsp;</div>
+          ${footerLine(
+            "Geschäftsführer: Florian Sieber, Manfred Duschl, Uwe Weiler<br>Ust-Id-Nummer: DE 266 171 184<br>Amtsgericht: Fürth, HR B 11688",
+          )}
+          <div style="height:20px;line-height:20px">&nbsp;</div>
+          ${footerLine(
+            "Bitte beachte: Dies ist eine automatisch erstellte Nachricht. Eine direkte Antwort auf die E-Mail ist nicht möglich. Bei Fragen wende Dich bitte an das Group AI Team.",
+          )}
+          <div style="height:20px;line-height:20px">&nbsp;</div>
+          <div style="text-align:center;font-family:${FONT};font-size:14px;line-height:20px;color:#6b6b6b">
+            <a href="${DATENSCHUTZ_URL}" style="color:#1a73e8;text-decoration:underline">Datenschutz</a> | <a href="${IMPRESSUM_URL}" style="color:#1a73e8;text-decoration:underline">Impressum</a>
+          </div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const text = [
+    greeting,
+    "",
+    ...paragraphs.flatMap((p) => [p, ""]),
+    ...(button ? [`${button.label.replace(/\s*→\s*$/, "")}: ${button.url}`, ""] : []),
+    ...afterButton.flatMap((p) => [p, ""]),
+    "",
+    "Viele Grüße",
+    "Dein Group AI Team",
+    "",
+    "—",
+    "SIMBA-DICKIE-GROUP GmbH, Werkstraße 1, 90765 Fürth",
+    "Dies ist eine automatisch erstellte Nachricht.",
+  ].join("\n");
+
+  return { html, text };
+}
+
+/** Mitteilung an Projektbeteiligte. */
 export function buildAnnouncementEmail(input: {
   message: string;
   recipientName?: string | null;
@@ -24,67 +127,42 @@ export function buildAnnouncementEmail(input: {
   siteUrl?: string | null;
 }): { html: string; text: string } {
   const { message, recipientName, projectTitle, projectUrl, siteUrl } = input;
+  return buildBrandedEmail({
+    subjectHeading: "Neue Mitteilung",
+    greetingName: recipientName,
+    paragraphs: [
+      ...(projectTitle
+        ? [`es gibt Neuigkeiten zur Landingpage „${projectTitle}“:`]
+        : ["es gibt Neuigkeiten zu Deinen Landingpages:"]),
+      message,
+    ],
+    button: projectUrl || siteUrl
+      ? { label: "Zur Landingpage →", url: (projectUrl || siteUrl) as string }
+      : null,
+    afterButton: [
+      "Die weitere Abstimmung findet ausschließlich über den Landingpage-Editor statt.",
+    ],
+    siteUrl,
+  });
+}
 
-  const greetingName = recipientName?.trim();
-  const greeting = greetingName ? `Guten Tag ${escapeHtml(greetingName)},` : "Guten Tag,";
-  const heading = projectTitle ? escapeHtml(projectTitle) : "Neue Mitteilung";
-  const messageHtml = escapeHtml(message).replace(/\n/g, "<br>");
-  const linkUrl = projectUrl || siteUrl || "";
-
-  const logo = siteUrl
-    ? `<img src="${siteUrl}/sdg-logo-box.png" alt="SDG" height="30" style="height:30px;display:block" />`
-    : `<span style="display:inline-block;background:${RED};color:#fff;font-weight:800;letter-spacing:3px;padding:5px 10px;border-radius:3px">S·D·G</span>`;
-
-  const button = linkUrl
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 8px">
-         <tr><td style="border-radius:8px;background:${RED}">
-           <a href="${linkUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 26px;border-radius:8px">In der App ansehen →</a>
-         </td></tr>
-       </table>`
-    : "";
-
-  const html = `<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;background:#f4f4f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px">
-    <tr><td align="center">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
-        <tr><td style="padding:20px 28px 18px;border-bottom:1px solid #eeeeee">${logo}</td></tr>
-        <tr><td style="padding:28px 28px 8px">
-          <div style="font-size:24px;font-weight:700;color:#111827;line-height:1.25">${heading}</div>
-        </td></tr>
-        <tr><td style="padding:12px 28px 0;font-size:15px;line-height:1.6;color:#374151">
-          <p style="margin:0 0 14px">${greeting}</p>
-          <div style="margin:0 0 4px">${messageHtml}</div>
-          ${button}
-          <p style="margin:22px 0 2px">Viele Grüße</p>
-          <p style="margin:0;font-weight:600">Dein Group AI Team</p>
-        </td></tr>
-        <tr><td style="padding:22px 28px 26px">
-          <div style="border-top:1px solid #eeeeee;padding-top:16px;font-size:12px;line-height:1.6;color:#9ca3af">
-            <strong style="color:#6b7280">SIMBA-DICKIE-GROUP GmbH</strong><br>
-            Werkstraße 1, 90765 Fürth<br>
-            Telefon: +49 (0)9552 9301 0<br>
-            Geschäftsführer: Florian Sieber, Manfred Duschl, Uwe Weiler<br>
-            Ust-Id-Nummer: DE 266 171 184 · Amtsgericht: Fürth, HR B 11688
-            <p style="margin:12px 0 0">
-              Bitte beachte: Dies ist eine automatisch erstellte Nachricht. Eine direkte Antwort auf diese
-              E-Mail ist nicht möglich. Die weitere Kommunikation findet in der App statt.
-            </p>
-          </div>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
-
-  const text =
-    `${greetingName ? `Guten Tag ${greetingName},` : "Guten Tag,"}\n\n` +
-    `${message}\n` +
-    `${linkUrl ? `\nIn der App ansehen: ${linkUrl}\n` : ""}` +
-    `\nViele Grüße\nDein Group AI Team\n\n` +
-    `—\nSIMBA-DICKIE-GROUP GmbH, Werkstraße 1, 90765 Fürth\n` +
-    `Dies ist eine automatisch erstellte Nachricht.`;
-
-  return { html, text };
+/** Einladung in den Landingpage-Editor. */
+export function buildInviteEmail(input: {
+  recipientName?: string | null;
+  inviteUrl: string;
+  siteUrl?: string | null;
+}): { html: string; text: string } {
+  return buildBrandedEmail({
+    subjectHeading: "Deine Einladung",
+    greetingName: input.recipientName,
+    paragraphs: [
+      "Du wurdest zum SDG Landingpage-Editor eingeladen. Dort kannst Du unsere Landingpages ansehen und direkt Feedback geben.",
+      "Um Deinen Zugang einzurichten, klicke bitte auf den folgenden Button und lege Dein Passwort fest.",
+    ],
+    button: { label: "Zugang einrichten →", url: input.inviteUrl },
+    afterButton: [
+      "Sobald Dein Zugang eingerichtet ist, wirst Du per E-Mail über neue Versionen und erledigte Kommentare informiert.",
+    ],
+    siteUrl: input.siteUrl,
+  });
 }
