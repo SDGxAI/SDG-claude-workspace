@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { InviteForm } from "@/components/admin/InviteForm";
-import { CreateUserForm } from "@/components/admin/CreateUserForm";
 import { DeleteUserButton } from "@/components/admin/DeleteUserButton";
 import { RoleButton } from "@/components/admin/RoleButton";
 import { NameEditor } from "@/components/admin/NameEditor";
@@ -48,7 +47,7 @@ export default async function AdminUsersPage() {
         Nutzer &amp; Rechte
       </h1>
       <p className="mt-1 text-sm text-neutral-500">
-        Personen anlegen und per Rollen-Button festlegen, ob sie Reviewer,
+        Personen einladen und per Rollen-Button festlegen, ob sie Reviewer,
         Editor oder Admin sind – die Rolle gilt automatisch für alle Projekte
         der gewählten Marken.
       </p>
@@ -64,18 +63,6 @@ export default async function AdminUsersPage() {
           sie ihr Passwort selbst festlegt.
         </p>
         <InviteForm brands={[...SDG_BRANDS]} />
-      </section>
-
-      <section className="mt-4 rounded-xl border border-neutral-200 bg-white p-5">
-        <h2 className="font-medium text-neutral-900">
-          Alternativ: Nutzer direkt anlegen (mit Start-Passwort)
-        </h2>
-        <p className="mb-3 mt-1 text-sm text-neutral-500">
-          Ohne E-Mail: Du vergibst ein Start-Passwort und gibst E-Mail +
-          Passwort persönlich weiter. Beim ersten Login legt die Person ein
-          eigenes Passwort fest.
-        </p>
-        <CreateUserForm brands={[...SDG_BRANDS]} />
       </section>
 
       <section className="mt-6">
