@@ -74,10 +74,29 @@ export interface ContentState {
 export interface Database {
   public: {
     Tables: {
+      user_brand_roles: {
+        Row: {
+          user_id: string;
+          brand: string;
+          role: ProjectRole;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          brand: string;
+          role: ProjectRole;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["user_brand_roles"]["Insert"]
+        >;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
           email: string;
+          name: string | null;
           is_admin: boolean;
           status: ProfileStatus;
           must_change_password: boolean;
@@ -88,6 +107,7 @@ export interface Database {
         Insert: {
           id: string;
           email: string;
+          name?: string | null;
           is_admin?: boolean;
           status?: ProfileStatus;
           must_change_password?: boolean;
@@ -300,6 +320,10 @@ export interface Database {
       next_page_version_no: {
         Args: { p_page_id: string };
         Returns: number;
+      };
+      effective_project_role: {
+        Args: { p_project_id: string };
+        Returns: string | null;
       };
     };
     Enums: {

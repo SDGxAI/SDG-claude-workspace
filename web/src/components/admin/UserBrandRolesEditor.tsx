@@ -1,45 +1,49 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { setUserBrands } from "@/lib/actions/invite";
-import { BrandCheckboxes } from "@/components/admin/BrandCheckboxes";
+import { setUserBrandRole } from "@/lib/actions/invite";
+import { BrandRoleRows, type BrandRoleMap } from "@/components/admin/BrandRoleRows";
+import type { ProjectRole } from "@/types/database";
 
-export function UserBrandsEditor({
+/**
+ * Marken-Rollen einer Person bearbeiten (gilt automatisch für alle Projekte
+ * der Marke). Änderungen werden sofort gespeichert.
+ */
+export function UserBrandRolesEditor({
   userId,
   brands,
-  currentBrands,
+  current,
 }: {
   userId: string;
   brands: string[];
-  currentBrands: string[];
+  current: BrandRoleMap;
 }) {
-  const [selected, setSelected] = useState<string[]>(currentBrands);
+  const [map, setMap] = useState<BrandRoleMap>(current);
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleChange(next: string[]) {
-    setSelected(next);
-    setSaved(false);
+  function change(brand: string, role: ProjectRole | null) {
+    setMap((prev) => {
+      const next = { ...prev };
+      if (role === null) delete next[brand];
+      else next[brand] = role;
+      return next;
+    });
     setError(null);
     startTransition(async () => {
-      const result = await setUserBrands(userId, next);
-      if (result.ok) {
-        setSaved(true);
-      } else {
-        setError(result.error);
-      }
+      const res = await setUserBrandRole(userId, brand, role);
+      if (!res.ok) setError(res.error);
     });
   }
 
-  // Zusammenfassung für den Button (kompakt, statt aller Häkchen).
+  const active = Object.keys(map);
   const summary =
-    selected.length === 0
-      ? "Alle Marken"
-      : selected.length <= 2
-        ? selected.join(", ")
-        : `${selected.length} Marken`;
+    active.length === 0
+      ? "Keine Marken"
+      : active.length <= 2
+        ? active.join(", ")
+        : `${active.length} Marken`;
 
   return (
     <div className="mt-3">
@@ -49,12 +53,9 @@ export function UserBrandsEditor({
         className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
       >
         <span className="text-neutral-400">🏷</span>
-        Marken:{" "}
+        Marken &amp; Rollen:{" "}
         <span className="font-medium text-neutral-900">{summary}</span>
         {isPending && <span className="text-xs text-neutral-400">speichert …</span>}
-        {saved && !isPending && (
-          <span className="text-xs text-green-600">✓</span>
-        )}
       </button>
       {error && <p className="mt-1 text-xs text-sdg-red-dark">{error}</p>}
 
@@ -64,18 +65,17 @@ export function UserBrandsEditor({
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
+            className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-semibold text-neutral-900">
-                  Marken-Berechtigung
+                  Marken &amp; Rollen
                 </h3>
                 <p className="mt-1 text-xs text-neutral-500">
-                  Für welche Marken darf diese Person Projekte anlegen und sehen?
-                  <br />
-                  Nichts ausgewählt = alle Marken erlaubt.
+                  Die Rolle gilt automatisch für ALLE Projekte der Marke – auch
+                  für neue. Änderungen werden sofort gespeichert.
                 </p>
               </div>
               <button
@@ -89,22 +89,15 @@ export function UserBrandsEditor({
             </div>
 
             <div className="mt-4">
-              <BrandCheckboxes
+              <BrandRoleRows
                 brands={brands}
-                selected={selected}
-                onChange={handleChange}
+                value={map}
+                onChange={change}
                 disabled={isPending}
               />
             </div>
 
-            <div className="mt-5 flex items-center justify-between">
-              <span className="text-xs text-neutral-400">
-                {isPending
-                  ? "speichert …"
-                  : saved
-                    ? "Automatisch gespeichert."
-                    : "Änderungen werden automatisch gespeichert."}
-              </span>
+            <div className="mt-5 flex justify-end">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
