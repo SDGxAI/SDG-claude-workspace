@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SDG Landingpage-Editor",
+  title: "SDG Sites",
   description: "Interne Web-App zur gemeinsamen Bearbeitung von Landingpages",
 };
 

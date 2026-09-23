@@ -33,7 +33,7 @@ export function AppHeader({
         <Link href="/projects" className="flex items-center gap-2.5">
           <SdgLogo className="h-6 w-auto" />
           <span className="hidden text-sm font-medium text-neutral-500 sm:inline">
-            Landingpage-Editor
+            Sites
           </span>
         </Link>
 

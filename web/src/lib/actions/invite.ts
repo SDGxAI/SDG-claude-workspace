@@ -132,7 +132,7 @@ export async function inviteUser(
   });
   const sent = await sendMail(
     email,
-    "Deine Einladung zum SDG Landingpage-Editor",
+    "Deine Einladung zu SDG Sites",
     html,
     text,
   );
