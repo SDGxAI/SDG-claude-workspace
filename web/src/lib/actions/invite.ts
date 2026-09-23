@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SDG_BRANDS } from "@/lib/brands";
+import { emailConfigured, sendMail } from "@/lib/email";
+import { buildInviteEmail } from "@/lib/emailTemplate";
 
 export type InviteResult = { ok: true } | { ok: false; error: string };
 
@@ -41,17 +43,22 @@ async function applyBrandAccess(
   }
 }
 
+export type InviteUserResult =
+  | { ok: true; emailed: true }
+  | { ok: true; emailed: false; link: string; note: string }
+  | { ok: false; error: string };
+
 /**
- * Lädt eine Person per E-Mail ein (Supabase-Einladungsmail mit Link zur
- * Passwort-festlegen-Seite). Nur für Admins erlaubt - die Prüfung läuft
- * serverseitig gegen das Profil der eingeloggten Person.
+ * Lädt eine Person ein: erzeugt den Einladungslink selbst und verschickt ihn
+ * im SDG-Design über das eigene Postfach (SMTP). Klappt der Versand nicht,
+ * bekommt der Admin den Link zum persönlichen Weitergeben. Nur Admins.
  */
 export async function inviteUser(
   rawEmail: string,
   name?: string,
   role: AccessRole = "reviewer",
   brands: string[] = [],
-): Promise<InviteResult> {
+): Promise<InviteUserResult> {
   const email = rawEmail.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "Bitte eine gültige E-Mail-Adresse eingeben." };
@@ -74,31 +81,65 @@ export async function inviteUser(
     return { ok: false, error: "Nur Admins dürfen Personen einladen." };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const admin = createAdminClient();
-  const { data: invited, error } = await admin.auth.admin.inviteUserByEmail(
-    email,
-    { redirectTo: `${siteUrl}/auth/confirm?next=/set-password` },
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(
+    /\/$/,
+    "",
   );
+  const admin = createAdminClient();
 
-  if (error) {
-    if (error.code === "email_exists") {
-      return { ok: false, error: "Diese E-Mail-Adresse wurde bereits eingeladen." };
+  // Einladungslink erzeugen (legt den Account an, verschickt aber nichts).
+  const { data: link, error } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo: `${siteUrl}/auth/confirm?next=/set-password` },
+  });
+  if (error || !link?.user) {
+    if (error?.code === "email_exists") {
+      return { ok: false, error: "Diese E-Mail-Adresse gibt es bereits." };
     }
-    return { ok: false, error: `Einladung fehlgeschlagen: ${error.message}` };
+    return {
+      ok: false,
+      error: `Einladung fehlgeschlagen${error?.message ? `: ${error.message}` : "."}`,
+    };
   }
 
-  // Name + Marken-Zugriff direkt setzen (Profil existiert nach der Einladung).
-  if (invited?.user) {
-    const cleanName = name?.trim();
-    if (cleanName) {
-      await admin.from("profiles").update({ name: cleanName }).eq("id", invited.user.id);
-    }
-    await applyBrandAccess(admin, invited.user.id, role, brands);
+  // Name + Marken-Zugriff direkt setzen (Profil entsteht per Trigger).
+  const cleanName = name?.trim() || null;
+  if (cleanName) {
+    await admin.from("profiles").update({ name: cleanName }).eq("id", link.user.id);
   }
-
+  await applyBrandAccess(admin, link.user.id, role, brands);
   revalidatePath("/admin/users");
-  return { ok: true };
+
+  // Eigener Link auf die Bestätigungs-Route (Token → Session → Passwort setzen).
+  const inviteUrl = `${siteUrl}/auth/confirm?token_hash=${encodeURIComponent(
+    link.properties.hashed_token,
+  )}&type=invite&next=/set-password`;
+
+  if (!emailConfigured()) {
+    return {
+      ok: true,
+      emailed: false,
+      link: inviteUrl,
+      note: "E-Mail-Versand ist noch nicht eingerichtet.",
+    };
+  }
+
+  const { html, text } = buildInviteEmail({
+    recipientName: cleanName,
+    inviteUrl,
+    siteUrl,
+  });
+  const sent = await sendMail(
+    email,
+    "Deine Einladung zum SDG Landingpage-Editor",
+    html,
+    text,
+  );
+  if (!sent.ok) {
+    return { ok: true, emailed: false, link: inviteUrl, note: sent.error };
+  }
+  return { ok: true, emailed: true };
 }
 
 /**
@@ -167,60 +208,6 @@ export async function createUserWithPassword(
   return { ok: true };
 }
 
-/**
- * Macht eine Person zum Admin (oder entzieht die Admin-Rechte). Erfordert
- * das Admin-Bestätigungspasswort (Umgebungsvariable ADMIN_CONFIRM_PASSWORD)
- * und darf nur von Admins ausgeführt werden. Der eigene Status ist
- * unveränderbar (kein versehentliches Aussperren).
- */
-export async function setUserAdmin(
-  userId: string,
-  makeAdmin: boolean,
-  confirmPassword: string,
-): Promise<InviteResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { ok: false, error: "Nicht angemeldet." };
-  }
-  if (userId === user.id) {
-    return { ok: false, error: "Du kannst deinen eigenen Admin-Status nicht ändern." };
-  }
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-  if (!me?.is_admin) {
-    return { ok: false, error: "Nur Admins dürfen Admin-Rechte vergeben." };
-  }
-
-  const expected = process.env.ADMIN_CONFIRM_PASSWORD;
-  if (!expected) {
-    return {
-      ok: false,
-      error:
-        "Bestätigungspasswort ist nicht konfiguriert. Bitte ADMIN_CONFIRM_PASSWORD in den Umgebungsvariablen setzen.",
-    };
-  }
-  if (confirmPassword !== expected) {
-    return { ok: false, error: "Bestätigungspasswort ist falsch." };
-  }
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ is_admin: makeAdmin })
-    .eq("id", userId);
-  if (error) {
-    return { ok: false, error: "Änderung fehlgeschlagen." };
-  }
-
-  revalidatePath("/admin/users");
-  return { ok: true };
-}
-
 async function requireAdmin(): Promise<
   { ok: true } | { ok: false; error: string }
 > {
@@ -238,22 +225,49 @@ async function requireAdmin(): Promise<
   return { ok: true };
 }
 
+/** Rolle, wie sie im Rollen-Button gewählt wird. */
+export type UserRole = AccessRole | "admin";
+
 /**
- * Setzt den Zugriff einer Person: eine Rolle (Reviewer/Editor) für alle
- * ausgewählten Marken. Ersetzt die bisherige Zuweisung vollständig.
+ * Setzt die Rolle einer Person in einem Schritt: Admin (voller Zugriff) oder
+ * Reviewer/Editor für die gewählten Marken. Nur Admins; die eigene Rolle
+ * lässt sich nicht ändern (kein versehentliches Aussperren).
  */
-export async function setUserBrandAccess(
+export async function setUserRole(
   userId: string,
-  role: AccessRole,
+  role: UserRole,
   brands: string[],
 ): Promise<InviteResult> {
-  const guard = await requireAdmin();
-  if (!guard.ok) return guard;
-  if (role !== "reviewer" && role !== "editor") {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Nicht angemeldet." };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
+  if (!me?.is_admin) return { ok: false, error: "Nur Admins dürfen Rollen ändern." };
+  if (userId === user.id) {
+    return { ok: false, error: "Deine eigene Rolle kannst du nicht ändern." };
+  }
+  if (role !== "admin" && role !== "editor" && role !== "reviewer") {
     return { ok: false, error: "Ungültige Rolle." };
   }
+
   const admin = createAdminClient();
-  await applyBrandAccess(admin, userId, role, brands);
+  const { error } = await admin
+    .from("profiles")
+    .update({ is_admin: role === "admin" })
+    .eq("id", userId);
+  if (error) return { ok: false, error: "Rolle konnte nicht gespeichert werden." };
+
+  // Marken-Zugriff nur für Reviewer/Editor setzen (Admins sehen ohnehin alles).
+  if (role !== "admin") {
+    await applyBrandAccess(admin, userId, role, brands);
+  }
+
   revalidatePath("/admin/users");
   return { ok: true };
 }

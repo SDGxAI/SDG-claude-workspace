@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/status";
 import type { ProjectStatus } from "@/types/database";
 
 export interface ProjectCard {
@@ -98,16 +97,9 @@ export function ProjectGrid({ projects }: { projects: ProjectCard[] }) {
               href={`/projects/${project.id}`}
               className="group flex flex-col rounded-xl border border-neutral-200 bg-white p-5 transition-shadow hover:shadow-md"
             >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-                  {project.brand}
-                </span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[project.status]}`}
-                >
-                  {STATUS_LABELS[project.status]}
-                </span>
-              </div>
+              <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+                {project.brand}
+              </span>
               <h3 className="mt-2 font-semibold text-neutral-900 group-hover:text-sdg-red">
                 {project.title}
               </h3>
