@@ -11,8 +11,8 @@ import {
 /** Fertige Vorlagen zum Anklicken (nur diese Art von Infos verschicken wir). */
 const PRESETS = [
   "Dein Kommentar wurde bearbeitet.",
-  "Eine neue Version ist online – schau sie dir bitte an.",
-  "Bitte gib dein Feedback zur aktuellen Version.",
+  "Eine neue Version ist online – schau sie dir gerne an.",
+  "Dein Feedback ist uns wichtig.",
 ];
 
 /**
