@@ -102,6 +102,7 @@ export interface Database {
           must_change_password: boolean;
           avatar_url: string | null;
           brands: string[];
+          last_seen_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -113,6 +114,7 @@ export interface Database {
           must_change_password?: boolean;
           avatar_url?: string | null;
           brands?: string[];
+          last_seen_at?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;

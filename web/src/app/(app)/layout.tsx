@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
 import { listNotifications } from "@/lib/actions/notifications";
 import { AppHeader } from "@/components/AppHeader";
+import { PresencePinger } from "@/components/PresencePinger";
 
 /**
  * Layout für alle eingeloggten Bereiche: prüft die Session und lädt das
@@ -39,6 +40,7 @@ export default async function AppLayout({
         avatarUrl={profile.avatar_url}
         notifications={notifications}
       />
+      <PresencePinger />
       <main className="flex flex-1 flex-col">{children}</main>
     </>
   );

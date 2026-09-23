@@ -2,37 +2,27 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createUserWithPassword } from "@/lib/actions/invite";
-import { BrandRoleRows, type BrandRoleMap } from "@/components/admin/BrandRoleRows";
-import type { ProjectRole } from "@/types/database";
+import { createUserWithPassword, type AccessRole } from "@/lib/actions/invite";
+import { BrandCheckboxes } from "@/components/admin/BrandCheckboxes";
 
 export function CreateUserForm({ brands }: { brands: string[] }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [map, setMap] = useState<BrandRoleMap>({});
+  const [role, setRole] = useState<AccessRole>("reviewer");
+  const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(
     null,
   );
   const [loading, setLoading] = useState(false);
-
-  function change(brand: string, role: ProjectRole | null) {
-    setMap((prev) => {
-      const next = { ...prev };
-      if (role === null) delete next[brand];
-      else next[brand] = role;
-      return next;
-    });
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
     setLoading(true);
 
-    const brandRoles = Object.entries(map).map(([brand, role]) => ({ brand, role }));
-    const result = await createUserWithPassword(email, password, name, brandRoles);
+    const result = await createUserWithPassword(email, password, name, role, selected);
     if (result.ok) {
       setMessage({
         kind: "ok",
@@ -41,7 +31,8 @@ export function CreateUserForm({ brands }: { brands: string[] }) {
       setEmail("");
       setName("");
       setPassword("");
-      setMap({});
+      setSelected([]);
+      setRole("reviewer");
       router.refresh();
     } else {
       setMessage({ kind: "error", text: result.error });
@@ -69,23 +60,38 @@ export function CreateUserForm({ brands }: { brands: string[] }) {
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20 sm:max-w-xs"
         />
       </div>
-      <input
-        type="text"
-        required
-        placeholder="Start-Passwort (mind. 8 Zeichen)"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20 sm:max-w-xs"
-      />
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          type="text"
+          required
+          placeholder="Start-Passwort (mind. 8 Zeichen)"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20 sm:max-w-xs"
+        />
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value as AccessRole)}
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red sm:max-w-xs"
+        >
+          <option value="reviewer">Rolle: Reviewer (kommentieren)</option>
+          <option value="editor">Rolle: Editor (bearbeiten)</option>
+        </select>
+      </div>
 
       <div>
         <p className="mb-1 text-sm font-medium text-neutral-700">
-          Marken &amp; Rollen{" "}
+          Berechtigt für Marken{" "}
           <span className="font-normal text-neutral-400">
-            (gilt automatisch für alle Projekte der Marke)
+            (die Rolle gilt für alle gewählten Marken – auch neue Projekte)
           </span>
         </p>
-        <BrandRoleRows brands={brands} value={map} onChange={change} disabled={loading} />
+        <BrandCheckboxes
+          brands={brands}
+          selected={selected}
+          onChange={setSelected}
+          disabled={loading}
+        />
       </div>
 
       <button

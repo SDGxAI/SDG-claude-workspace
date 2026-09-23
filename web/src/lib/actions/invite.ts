@@ -4,34 +4,41 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SDG_BRANDS } from "@/lib/brands";
-import type { ProjectRole } from "@/types/database";
 
 export type InviteResult = { ok: true } | { ok: false; error: string };
 
-/** Rolle einer Person für eine Marke (gilt für alle Projekte der Marke). */
-export interface BrandRole {
-  brand: string;
-  role: ProjectRole;
+/** Rolle für den vereinfachten Zugriff (eine Rolle für alle gewählten Marken). */
+export type AccessRole = "reviewer" | "editor";
+
+function cleanBrands(brands: string[] | undefined): string[] {
+  return [
+    ...new Set(
+      (brands ?? []).filter((b) =>
+        SDG_BRANDS.includes(b as (typeof SDG_BRANDS)[number]),
+      ),
+    ),
+  ];
 }
 
-const VALID_ROLES: ProjectRole[] = ["editor", "reviewer", "viewer"];
+type AdminClient = ReturnType<typeof createAdminClient>;
 
-/** Nur gültige Marke+Rolle-Paare übernehmen. */
-function cleanBrandRoles(input: BrandRole[] | undefined): BrandRole[] {
-  if (!input) return [];
-  const seen = new Set<string>();
-  const out: BrandRole[] = [];
-  for (const br of input) {
-    if (
-      SDG_BRANDS.includes(br.brand as (typeof SDG_BRANDS)[number]) &&
-      VALID_ROLES.includes(br.role) &&
-      !seen.has(br.brand)
-    ) {
-      seen.add(br.brand);
-      out.push({ brand: br.brand, role: br.role });
-    }
+/**
+ * Setzt den Zugriff einer Person: EINE Rolle für alle ausgewählten Marken.
+ * Ersetzt alle bisherigen Marken-Rollen der Person.
+ */
+async function applyBrandAccess(
+  admin: AdminClient,
+  userId: string,
+  role: AccessRole,
+  brands: string[],
+): Promise<void> {
+  await admin.from("user_brand_roles").delete().eq("user_id", userId);
+  const clean = cleanBrands(brands);
+  if (clean.length > 0) {
+    await admin
+      .from("user_brand_roles")
+      .insert(clean.map((brand) => ({ user_id: userId, brand, role })));
   }
-  return out;
 }
 
 /**
@@ -42,7 +49,8 @@ function cleanBrandRoles(input: BrandRole[] | undefined): BrandRole[] {
 export async function inviteUser(
   rawEmail: string,
   name?: string,
-  brandRoles?: BrandRole[],
+  role: AccessRole = "reviewer",
+  brands: string[] = [],
 ): Promise<InviteResult> {
   const email = rawEmail.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -80,18 +88,13 @@ export async function inviteUser(
     return { ok: false, error: `Einladung fehlgeschlagen: ${error.message}` };
   }
 
-  // Name + Marken-Rollen direkt setzen (Profil existiert nach der Einladung).
+  // Name + Marken-Zugriff direkt setzen (Profil existiert nach der Einladung).
   if (invited?.user) {
     const cleanName = name?.trim();
     if (cleanName) {
       await admin.from("profiles").update({ name: cleanName }).eq("id", invited.user.id);
     }
-    const roles = cleanBrandRoles(brandRoles);
-    if (roles.length > 0) {
-      await admin.from("user_brand_roles").insert(
-        roles.map((r) => ({ user_id: invited.user.id, brand: r.brand, role: r.role })),
-      );
-    }
+    await applyBrandAccess(admin, invited.user.id, role, brands);
   }
 
   revalidatePath("/admin/users");
@@ -107,7 +110,8 @@ export async function createUserWithPassword(
   rawEmail: string,
   password: string,
   name: string,
-  brandRoles: BrandRole[] = [],
+  role: AccessRole = "reviewer",
+  brands: string[] = [],
 ): Promise<InviteResult> {
   const email = rawEmail.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -116,7 +120,6 @@ export async function createUserWithPassword(
   if (password.length < 8) {
     return { ok: false, error: "Das Passwort muss mindestens 8 Zeichen lang sein." };
   }
-  const roles = cleanBrandRoles(brandRoles);
 
   const supabase = await createClient();
   const {
@@ -147,7 +150,7 @@ export async function createUserWithPassword(
     return { ok: false, error: `Anlegen fehlgeschlagen: ${error.message}` };
   }
 
-  // Profil aktiv setzen, Passwortänderung erzwingen, Name + Marken-Rollen setzen.
+  // Profil aktiv setzen, Passwortänderung erzwingen, Name + Marken-Zugriff.
   if (created?.user) {
     await admin
       .from("profiles")
@@ -157,11 +160,7 @@ export async function createUserWithPassword(
         name: name.trim() || null,
       })
       .eq("id", created.user.id);
-    if (roles.length > 0) {
-      await admin.from("user_brand_roles").insert(
-        roles.map((r) => ({ user_id: created.user.id, brand: r.brand, role: r.role })),
-      );
-    }
+    await applyBrandAccess(admin, created.user.id, role, brands);
   }
 
   revalidatePath("/admin/users");
@@ -240,36 +239,21 @@ async function requireAdmin(): Promise<
 }
 
 /**
- * Setzt die Rolle einer Person für eine Marke (gilt für alle Projekte der
- * Marke). role = null entfernt den Zugriff für diese Marke.
+ * Setzt den Zugriff einer Person: eine Rolle (Reviewer/Editor) für alle
+ * ausgewählten Marken. Ersetzt die bisherige Zuweisung vollständig.
  */
-export async function setUserBrandRole(
+export async function setUserBrandAccess(
   userId: string,
-  brand: string,
-  role: ProjectRole | null,
+  role: AccessRole,
+  brands: string[],
 ): Promise<InviteResult> {
   const guard = await requireAdmin();
   if (!guard.ok) return guard;
-  if (!SDG_BRANDS.includes(brand as (typeof SDG_BRANDS)[number])) {
-    return { ok: false, error: "Ungültige Marke." };
+  if (role !== "reviewer" && role !== "editor") {
+    return { ok: false, error: "Ungültige Rolle." };
   }
   const admin = createAdminClient();
-
-  if (role === null) {
-    const { error } = await admin
-      .from("user_brand_roles")
-      .delete()
-      .eq("user_id", userId)
-      .eq("brand", brand);
-    if (error) return { ok: false, error: "Konnte nicht gespeichert werden." };
-  } else {
-    if (!VALID_ROLES.includes(role)) return { ok: false, error: "Ungültige Rolle." };
-    const { error } = await admin
-      .from("user_brand_roles")
-      .upsert({ user_id: userId, brand, role }, { onConflict: "user_id,brand" });
-    if (error) return { ok: false, error: "Konnte nicht gespeichert werden." };
-  }
-
+  await applyBrandAccess(admin, userId, role, brands);
   revalidatePath("/admin/users");
   return { ok: true };
 }
