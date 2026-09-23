@@ -4,8 +4,16 @@ import { useState } from "react";
 import {
   getAnnounceRecipients,
   sendAnnouncement,
+  rewriteAnnouncementText,
   type Recipient,
 } from "@/lib/actions/announce";
+
+/** Fertige Vorlagen zum Anklicken (nur diese Art von Infos verschicken wir). */
+const PRESETS = [
+  "Dein Kommentar wurde bearbeitet.",
+  "Eine neue Version ist online – schau sie dir bitte an.",
+  "Bitte gib dein Feedback zur aktuellen Version.",
+];
 
 /**
  * Admin-Funktion „📣 Mitteilung senden": kurze Nachricht an ausgewählte
@@ -19,6 +27,16 @@ export function AnnounceButton({ projectId }: { projectId: string }) {
   const [body, setBody] = useState("");
   const [alsoEmail, setAlsoEmail] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [rewriting, setRewriting] = useState(false);
+
+  async function rewrite() {
+    if (!body.trim()) return;
+    setRewriting(true);
+    const res = await rewriteAnnouncementText(projectId, body);
+    setRewriting(false);
+    if (res.ok) setBody(res.text);
+    else window.alert(res.error);
+  }
 
   async function openModal() {
     setOpen(true);
@@ -91,13 +109,38 @@ export function AnnounceButton({ projectId }: { projectId: string }) {
               Geht an die 🔔 Glocke der ausgewählten Personen.
             </p>
 
+            {/* Vorlagen zum Anklicken */}
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setBody(p)}
+                  className="rounded-full border border-neutral-300 px-2.5 py-1 text-xs text-neutral-600 hover:border-sdg-red hover:text-sdg-red"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
             <textarea
               rows={3}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Deine Nachricht … (z. B. „Neue Version ist online, bitte nochmal drüberschauen“)"
+              placeholder="Vorlage wählen – oder Stichpunkte tippen und „✨ KI-Umformulieren“ drücken."
               className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red"
             />
+            <div className="mt-1 flex justify-end">
+              <button
+                type="button"
+                onClick={rewrite}
+                disabled={rewriting || !body.trim()}
+                className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-600 hover:border-sdg-red hover:text-sdg-red disabled:opacity-50"
+                title="Stichpunkte in eine schöne Nachricht umformulieren"
+              >
+                {rewriting ? "KI schreibt …" : "✨ KI-Umformulieren"}
+              </button>
+            </div>
 
             <div className="mt-3">
               <div className="mb-1 flex items-center justify-between">
@@ -136,8 +179,15 @@ export function AnnounceButton({ projectId }: { projectId: string }) {
                           checked={selected.has(r.id)}
                           onChange={() => toggle(r.id)}
                         />
-                        <span className="truncate text-neutral-800">
-                          {r.email}
+                        <span className="min-w-0">
+                          <span className="block truncate text-neutral-800">
+                            {r.name || r.email}
+                          </span>
+                          {r.name && (
+                            <span className="block truncate text-[11px] text-neutral-400">
+                              {r.email}
+                            </span>
+                          )}
                         </span>
                       </label>
                     </li>
