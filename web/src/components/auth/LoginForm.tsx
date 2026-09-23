@@ -50,7 +50,7 @@ function LoginFormInner() {
       <div className="flex flex-col items-center text-center">
         <SdgLogo className="h-7 w-auto" />
         <span className="mt-2 text-sm font-medium text-neutral-500">
-          Landingpage-Editor
+          Sites
         </span>
       </div>
       <h1 className="mt-6 text-xl font-semibold text-neutral-900">Anmelden</h1>

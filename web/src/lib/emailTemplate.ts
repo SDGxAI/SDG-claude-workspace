@@ -140,13 +140,13 @@ export function buildAnnouncementEmail(input: {
       ? { label: "Zur Landingpage →", url: (projectUrl || siteUrl) as string }
       : null,
     afterButton: [
-      "Die weitere Abstimmung findet ausschließlich über den Landingpage-Editor statt.",
+      "Die weitere Abstimmung findet ausschließlich über SDG Sites statt.",
     ],
     siteUrl,
   });
 }
 
-/** Einladung in den Landingpage-Editor. */
+/** Einladung zu SDG Sites. */
 export function buildInviteEmail(input: {
   recipientName?: string | null;
   inviteUrl: string;
@@ -156,7 +156,7 @@ export function buildInviteEmail(input: {
     subjectHeading: "Deine Einladung",
     greetingName: input.recipientName,
     paragraphs: [
-      "Du wurdest zum SDG Landingpage-Editor eingeladen. Dort kannst Du unsere Landingpages ansehen und direkt Feedback geben.",
+      "Du wurdest zu SDG Sites eingeladen. Dort kannst Du unsere Landingpages ansehen und direkt Feedback geben.",
       "Um Deinen Zugang einzurichten, klicke bitte auf den folgenden Button und lege Dein Passwort fest.",
     ],
     button: { label: "Zugang einrichten →", url: input.inviteUrl },

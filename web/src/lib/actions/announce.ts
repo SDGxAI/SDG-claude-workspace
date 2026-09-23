@@ -227,7 +227,7 @@ export async function sendAnnouncement(
   const projectUrl = siteUrl ? `${siteUrl}/projects/${projectId}` : null;
   const subject = project?.title
     ? `Neue Mitteilung zu „${project.title}"`
-    : "Neue Mitteilung – SDG Landingpage-Editor";
+    : "Neue Mitteilung – SDG Sites";
 
   const { data: profiles } = await supabase
     .from("profiles")
