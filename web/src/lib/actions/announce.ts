@@ -104,7 +104,7 @@ export async function sendAnnouncement(
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, email")
+        .select("id, email, name")
         .in("id", targetIds);
 
       let sent = 0;
@@ -113,6 +113,7 @@ export async function sendAnnouncement(
         if (!p.email) continue;
         const { html, text: body } = buildAnnouncementEmail({
           message: text,
+          recipientName: p.name ?? null,
           projectTitle: project?.title ?? null,
           projectUrl,
           siteUrl,

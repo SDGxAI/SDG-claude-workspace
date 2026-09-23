@@ -38,22 +38,21 @@ export async function getProjectAccess(
 
   const supabase = await createClient();
 
-  const { data: member } = await supabase
-    .from("project_members")
-    .select("role")
-    .eq("project_id", projectId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Effektive Rolle = höchste aus Marken-Rolle und (Alt-)Projekt-Mitgliedschaft.
+  const { data: roleText } = await supabase.rpc("effective_project_role", {
+    p_project_id: projectId,
+  });
+  const role = (roleText as ProjectRole | null) ?? null;
 
-  if (!member) {
+  if (!role) {
     return { userId: user.id, isAdmin: false, role: null, canEdit: false, canComment: false };
   }
 
   return {
     userId: user.id,
     isAdmin: false,
-    role: member.role,
-    canEdit: member.role === "editor",
-    canComment: member.role === "editor" || member.role === "reviewer",
+    role,
+    canEdit: role === "editor",
+    canComment: role === "editor" || role === "reviewer",
   };
 }

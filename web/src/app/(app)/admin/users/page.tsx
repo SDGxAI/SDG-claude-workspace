@@ -3,13 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { InviteForm } from "@/components/admin/InviteForm";
 import { CreateUserForm } from "@/components/admin/CreateUserForm";
-import { RoleSelect } from "@/components/admin/RoleSelect";
 import { DeleteUserButton } from "@/components/admin/DeleteUserButton";
 import { AdminToggle } from "@/components/admin/AdminToggle";
-import { UserBrandsEditor } from "@/components/admin/UserBrandsEditor";
+import { UserBrandRolesEditor } from "@/components/admin/UserBrandRolesEditor";
+import { NameEditor } from "@/components/admin/NameEditor";
 import { PageContainer } from "@/components/PageContainer";
 import { SDG_BRANDS } from "@/lib/brands";
 import type { ProjectRole } from "@/types/database";
+import type { BrandRoleMap } from "@/components/admin/BrandRoleRows";
 
 export const dynamic = "force-dynamic";
 
@@ -24,16 +25,17 @@ export default async function AdminUsersPage() {
   }
 
   const supabase = await createClient();
-  const [{ data: profiles }, { data: projects }, { data: members }] =
-    await Promise.all([
-      supabase.from("profiles").select("*").order("created_at"),
-      supabase.from("projects").select("id, title, brand").order("title"),
-      supabase.from("project_members").select("*"),
-    ]);
+  const [{ data: profiles }, { data: brandRoles }] = await Promise.all([
+    supabase.from("profiles").select("*").order("created_at"),
+    supabase.from("user_brand_roles").select("user_id, brand, role"),
+  ]);
 
-  const roleByUserAndProject = new Map<string, ProjectRole>();
-  for (const m of members ?? []) {
-    roleByUserAndProject.set(`${m.user_id}:${m.project_id}`, m.role);
+  // Marken-Rollen je Nutzer als Map {brand: role}.
+  const rolesByUser = new Map<string, BrandRoleMap>();
+  for (const r of brandRoles ?? []) {
+    const m = rolesByUser.get(r.user_id) ?? {};
+    m[r.brand] = r.role as ProjectRole;
+    rolesByUser.set(r.user_id, m);
   }
 
   return (
@@ -42,8 +44,8 @@ export default async function AdminUsersPage() {
         Nutzer &amp; Rechte
       </h1>
       <p className="mt-1 text-sm text-neutral-500">
-        Personen einladen und pro Projekt festlegen, wer bearbeiten,
-        kommentieren oder nur ansehen darf.
+        Personen anlegen und je Marke festlegen, wer bearbeiten oder
+        kommentieren darf – gilt automatisch für alle Projekte der Marke.
       </p>
 
       <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-5">
@@ -81,7 +83,8 @@ export default async function AdminUsersPage() {
               className="rounded-xl border border-neutral-200 bg-white p-5"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-neutral-900">
+                <NameEditor userId={profile.id} currentName={profile.name} />
+                <span className="text-sm text-neutral-500">
                   {profile.email}
                 </span>
                 {profile.is_admin && (
@@ -117,52 +120,11 @@ export default async function AdminUsersPage() {
                   Admins haben automatisch vollen Zugriff auf alle Projekte.
                 </p>
               ) : (
-                <>
-                  <UserBrandsEditor
-                    userId={profile.id}
-                    brands={[...SDG_BRANDS]}
-                    currentBrands={profile.brands ?? []}
-                  />
-
-                  {(projects ?? []).length === 0 ? (
-                    <p className="mt-3 text-sm text-neutral-500">
-                      Noch keine Projekte vorhanden – Rollen können vergeben
-                      werden, sobald das erste Projekt angelegt ist.
-                    </p>
-                  ) : (
-                    <table className="mt-3 w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-neutral-500">
-                          <th className="py-1 pr-4 font-normal">Projekt</th>
-                          <th className="py-1 font-normal">Rolle</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(projects ?? []).map((project) => (
-                          <tr key={project.id} className="border-t border-neutral-100">
-                            <td className="py-2 pr-4 text-neutral-900">
-                              {project.title}
-                              <span className="ml-2 text-xs text-neutral-400">
-                                {project.brand}
-                              </span>
-                            </td>
-                            <td className="py-2">
-                              <RoleSelect
-                                projectId={project.id}
-                                userId={profile.id}
-                                currentRole={
-                                  roleByUserAndProject.get(
-                                    `${profile.id}:${project.id}`,
-                                  ) ?? null
-                                }
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </>
+                <UserBrandRolesEditor
+                  userId={profile.id}
+                  brands={[...SDG_BRANDS]}
+                  current={rolesByUser.get(profile.id) ?? {}}
+                />
               )}
             </div>
           ))}

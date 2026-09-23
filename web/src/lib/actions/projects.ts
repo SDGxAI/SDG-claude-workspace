@@ -56,22 +56,20 @@ export async function createProject(input: {
     .select("is_admin")
     .eq("id", user.id)
     .single();
-  let brands: string[] = [];
-  try {
-    const { data: brandRow } = await supabase
-      .from("profiles")
-      .select("brands")
-      .eq("id", user.id)
-      .single();
-    brands = brandRow?.brands ?? [];
-  } catch {
-    brands = [];
-  }
-  if (!profile?.is_admin && brands.length > 0 && !brands.includes(input.brand)) {
-    return {
-      ok: false,
-      error: "Du darfst nur Projekte für deine zugewiesene(n) Marke(n) anlegen.",
-    };
+  // Nicht-Admins dürfen nur für Marken anlegen, für die sie Editor-Rechte haben.
+  if (!profile?.is_admin) {
+    const { data: brandRole } = await supabase
+      .from("user_brand_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("brand", input.brand)
+      .maybeSingle();
+    if (brandRole?.role !== "editor") {
+      return {
+        ok: false,
+        error: "Du darfst nur Projekte für Marken anlegen, für die du Editor bist.",
+      };
+    }
   }
 
   let parsed;

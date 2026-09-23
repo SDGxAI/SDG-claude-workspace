@@ -7,6 +7,7 @@ import { inviteUser } from "@/lib/actions/invite";
 export function InviteForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [message, setMessage] = useState<{
     kind: "ok" | "error";
     text: string;
@@ -18,13 +19,14 @@ export function InviteForm() {
     setMessage(null);
     setLoading(true);
 
-    const result = await inviteUser(email);
+    const result = await inviteUser(email, name);
     if (result.ok) {
       setMessage({
         kind: "ok",
-        text: `Einladung an ${email.trim()} wurde verschickt.`,
+        text: `Einladung an ${email.trim()} wurde verschickt. Marken & Rollen kannst du unten bei der Person festlegen.`,
       });
       setEmail("");
+      setName("");
       router.refresh();
     } else {
       setMessage({ kind: "error", text: result.error });
@@ -37,6 +39,14 @@ export function InviteForm() {
       onSubmit={handleSubmit}
       className="flex flex-col gap-2 sm:flex-row sm:items-center"
     >
+      <input
+        type="text"
+        required
+        placeholder="Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20 sm:max-w-[10rem]"
+      />
       <input
         type="email"
         required
