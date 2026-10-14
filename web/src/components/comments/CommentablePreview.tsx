@@ -206,7 +206,8 @@ export function CommentablePreview({
         doc.body?.scrollHeight ?? 0,
         400,
       );
-      setContentHeight(h);
+      // Obergrenze: schützt vor Seiten, die mit der Vorschau-Höhe mitwachsen.
+      setContentHeight(Math.min(h, 40000));
     } catch {
       /* iframe noch nicht bereit */
     }

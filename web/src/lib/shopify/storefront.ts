@@ -122,9 +122,55 @@ export async function fetchThemePreviewHtml(
       };
     }
 
-    return { ok: true, html: preparePreviewHtml(html, conn.shop_domain) };
+    return { ok: true, html: await preparePreviewHtml(html, conn.shop_domain) };
   } catch {
     return { ok: false, error: `Der Shop ${conn.shop_domain} ist nicht erreichbar.` };
+  }
+}
+
+/** Angenommene Fensterhöhe der Vorschau: 1vh = 9px (≈ 900px Bildschirm). */
+const VH_PX = 9;
+
+/**
+ * Bildschirm-Einheiten (vh/svh/dvh/lvh) in feste Pixel umrechnen. In Sites
+ * ist die Vorschau so hoch wie die ganze Seite – „100vh“ würde sonst die
+ * komplette Seitenhöhe bedeuten und sich endlos aufblähen.
+ */
+export function fixViewportUnits(css: string): string {
+  return css.replace(/(-?(?:\d+\.\d+|\.\d+|\d+))(?:s|d|l)?vh\b/gi, (_, n: string) => {
+    const px = Math.round(parseFloat(n) * VH_PX * 100) / 100;
+    return `${px}px`;
+  });
+}
+
+/** Relative url(...)/@import in einer CSS-Datei auf absolute Adressen umstellen. */
+export function absolutizeCssUrls(css: string, cssUrl: string): string {
+  const abs = (ref: string) => {
+    const r = ref.trim();
+    if (!r || /^(data:|https?:|#)/i.test(r)) return r;
+    try {
+      return new URL(r, cssUrl).toString();
+    } catch {
+      return r;
+    }
+  };
+  return css
+    .replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (_, q: string, ref: string) => `url(${q}${abs(ref)}${q})`)
+    .replace(/@import\s+(['"])([^'"]+)\1/gi, (_, q: string, ref: string) => `@import ${q}${abs(ref)}${q}`);
+}
+
+async function fetchCss(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+      headers: { "user-agent": BROWSER_UA, accept: "text/css,*/*;q=0.1" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text.length > 1_500_000 ? null : text;
+  } catch {
+    return null;
   }
 }
 
@@ -132,15 +178,58 @@ export async function fetchThemePreviewHtml(
  * Bereitet die Shop-Seite für die Anzeige in Sites vor:
  * - <base href> auf den Shop, damit Bilder/CSS aus Shopify geladen werden
  * - Skripte entfernen (laufen in der Vorschau ohnehin nicht; spart Platz)
+ * - CSS, das sonst erst per JavaScript aktiviert würde, direkt aktivieren
+ * - Stylesheets einbetten und Bildschirm-Einheiten (vh) in Pixel umrechnen
  * - „lazy“ nachgeladene Bilder direkt anzeigen
- * - Einblende-Animationen abschalten, die sonst erst per JavaScript sichtbar würden
+ * - Einblende-Animationen und Lade-Bildschirme abschalten
  */
-export function preparePreviewHtml(html: string, shopDomain: string): string {
+export async function preparePreviewHtml(html: string, shopDomain: string): Promise<string> {
   const $ = cheerio.load(html);
+  const pageUrl = `https://${shopDomain}/`;
 
   $("script").remove();
   $('link[rel="modulepreload"], link[as="script"]').remove();
   $("base").remove();
+
+  // CSS, das per onload-Trick nachgeladen wird, direkt aktiv schalten.
+  $('link[rel="preload"][as="style"]').each((_, el) => {
+    $(el).attr("rel", "stylesheet").removeAttr("as").removeAttr("onload");
+  });
+  $('link[rel="stylesheet"][media="print"][onload]').each((_, el) => {
+    $(el).attr("media", "all").removeAttr("onload");
+  });
+
+  // Stylesheets einbetten (parallel, mit Obergrenze).
+  const links = $('link[rel="stylesheet"][href]').toArray().slice(0, 30);
+  await Promise.all(
+    links.map(async (el) => {
+      const link = $(el);
+      let url: string;
+      try {
+        url = new URL(link.attr("href") ?? "", pageUrl).toString();
+      } catch {
+        return;
+      }
+      const css = await fetchCss(url);
+      if (css === null) return;
+      const media = (link.attr("media") ?? "").trim();
+      let body = fixViewportUnits(absolutizeCssUrls(css, url));
+      if (media && media !== "all") body = `@media ${media}{${body}}`;
+      link.replaceWith(`<style data-sites-href="${url.replace(/"/g, "&quot;")}">${body}</style>`);
+    }),
+  );
+
+  // Auch eingebettete Styles und style-Attribute umrechnen.
+  $("style").each((_, el) => {
+    const node = $(el);
+    if (node.attr("data-sites-href")) return;
+    node.text(fixViewportUnits(node.text()));
+  });
+  $("[style]").each((_, el) => {
+    const node = $(el);
+    const style = node.attr("style") ?? "";
+    if (/vh\b/i.test(style)) node.attr("style", fixViewportUnits(style));
+  });
 
   $("img").each((_, el) => {
     const img = $(el);
@@ -155,13 +244,18 @@ export function preparePreviewHtml(html: string, shopDomain: string): string {
   });
 
   const head = $("head");
-  head.prepend(`<base href="https://${shopDomain}/">`);
+  head.prepend(`<base href="${pageUrl}">`);
   head.append(
     `<style id="sites-preview-fix">
+      html, body { opacity: 1 !important; visibility: visible !important; }
       .scroll-trigger, [data-aos], .animate--slide-in, .animate--fade-in, .reveal, [data-animate] {
         opacity: 1 !important; transform: none !important; animation: none !important;
       }
-      #preview-bar-iframe, #PBarNextFrameWrapper, .shopify-preview-bar { display: none !important; }
+      body .preloader, body #preloader, body .page-loader, body #page-loader,
+      body .loading-screen, body .splash-screen, body .loader-wrapper,
+      #preview-bar-iframe, #PBarNextFrameWrapper, .shopify-preview-bar {
+        display: none !important;
+      }
     </style>`,
   );
 
