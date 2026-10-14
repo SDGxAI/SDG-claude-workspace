@@ -11,6 +11,7 @@ export interface ProjectCard {
   status: ProjectStatus;
   updated_at: string;
   openComments?: number;
+  isShopify?: boolean;
 }
 
 type SortKey = "date_desc" | "date_asc" | "brand";
@@ -97,8 +98,13 @@ export function ProjectGrid({ projects }: { projects: ProjectCard[] }) {
               href={`/projects/${project.id}`}
               className="group flex flex-col rounded-xl border border-neutral-200 bg-white p-5 transition-shadow hover:shadow-md"
             >
-              <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+              <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-400">
                 {project.brand}
+                {project.isShopify && (
+                  <span className="rounded-full bg-green-50 px-2 py-0.5 normal-case tracking-normal text-green-700">
+                    🛍️ Shopify
+                  </span>
+                )}
               </span>
               <h3 className="mt-2 font-semibold text-neutral-900 group-hover:text-sdg-red">
                 {project.title}

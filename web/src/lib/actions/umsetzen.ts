@@ -6,7 +6,12 @@ import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
 import { editHtmlWithAI } from "@/lib/ai/editHtml";
 import { ingestHtmlIntoProject } from "@/lib/ingest/apply";
-import type { ContentState, DetectedElement } from "@/types/database";
+import {
+  applyThemeInstruction,
+  isFail,
+  loadShopifyProject,
+} from "@/lib/shopify/project";
+import type { ContentState, DetectedElement, ShopifyFileMap } from "@/types/database";
 
 export type UmsetzenResult = { ok: true } | { ok: false; error: string };
 
@@ -37,10 +42,48 @@ export async function umsetzenComment(
 
   const { data: page } = await supabase
     .from("pages")
-    .select("template_html, content_state, detected_elements")
+    .select("*")
     .eq("id", pageId)
     .single();
   if (!page) return { ok: false, error: "Seite nicht gefunden." };
+
+  // Shopify-Projekt: die KI ändert direkt die Theme-Dateien im Shop.
+  const shop = await loadShopifyProject(projectId);
+  if (isFail(shop)) return shop;
+  if (shop) {
+    const res = await applyThemeInstruction(shop, {
+      pageHtml: page.template_html,
+      instruction: comment.body,
+    });
+    if (!res.ok) return res;
+    if (Object.keys(res.changed).length === 0) {
+      return {
+        ok: false,
+        error: res.summary || "Die KI hat keine passende Stelle im Theme gefunden.",
+      };
+    }
+    const result = await ingestHtmlIntoProject(supabase, {
+      pageId,
+      projectId,
+      html: res.html ?? page.template_html,
+      filename: "shopify-vorschau.html",
+      source: "umsetzen",
+      label: `KI-Umsetzung: ${comment.body.slice(0, 80)}`,
+      shopifyFiles: {
+        ...((page.shopify_files as ShopifyFileMap) ?? {}),
+        ...res.changed,
+      },
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+    revalidatePath(`/projects/${projectId}`);
+    if (res.previewError) {
+      return {
+        ok: false,
+        error: `Die Änderung ist in Shopify gespeichert, aber die Vorschau konnte nicht neu geladen werden (${res.previewError}). Bitte „Aus Shopify neu laden“ klicken.`,
+      };
+    }
+    return { ok: true };
+  }
 
   // Aktuelles, vollständiges HTML aufbauen (mit den GESPEICHERTEN Bildwerten,
   // nicht mit temporär signierten URLs – so bleiben Bilder dauerhaft gültig).

@@ -18,7 +18,7 @@ export default async function ProjectsPage() {
   // Beide Abfragen sind unabhängig und laufen parallel (ein statt zwei
   // aufeinanderfolgende Roundtrips). RLS liefert automatisch nur Projekte,
   // die die Person sehen darf (Admins alle, andere nur zugewiesene).
-  const [{ data: projects }, { data: openComments }] = await Promise.all([
+  const [{ data: projects }, { data: openComments }, { data: shopifyProjects }] = await Promise.all([
     supabase
       .from("projects")
       .select("id, title, brand, status, updated_at")
@@ -29,7 +29,11 @@ export default async function ProjectsPage() {
       .select("id, pages!inner(project_id)")
       .eq("status", "offen")
       .is("parent_id", null),
+    // Projekte aus Shopify (Markierung auf der Karte). Liefert ohne
+    // Migration 0015 einfach nichts.
+    supabase.from("projects").select("id").eq("source", "shopify"),
   ]);
+  const shopifyIds = new Set((shopifyProjects ?? []).map((p) => p.id));
 
   const openByProject: Record<string, number> = {};
   for (const c of openComments ?? []) {
@@ -40,6 +44,7 @@ export default async function ProjectsPage() {
   const cards = (projects ?? []).map((p) => ({
     ...p,
     openComments: openByProject[p.id] ?? 0,
+    isShopify: shopifyIds.has(p.id),
   }));
 
   return (
