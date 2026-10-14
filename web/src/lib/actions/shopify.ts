@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProjectAccess } from "@/lib/access";
@@ -12,6 +13,12 @@ import { fetchShopName, listThemeFiles, listThemes } from "@/lib/shopify/themes"
 import { fetchThemePreviewHtml } from "@/lib/shopify/storefront";
 import { fetchProjectPreview, isFail, loadShopifyProject } from "@/lib/shopify/project";
 import { normalizeShopDomain, normalizeShopPath } from "@/lib/shopify/paths";
+import {
+  buildAuthorizeUrl,
+  encodeOAuthCookie,
+  newOAuthState,
+  OAUTH_COOKIE,
+} from "@/lib/shopify/oauth";
 import type { ProjectStatus } from "@/types/database";
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -39,7 +46,8 @@ export interface ShopifyConnectionInfo {
   id: string;
   name: string;
   shopDomain: string;
-  authType: "client" | "token";
+  /** client = Client-ID/Secret, oauth = über Shopify freigegeben, token = altes shpat_-Token */
+  authType: "client" | "oauth" | "token";
   hasPassword: boolean;
   createdAt: string;
 }
@@ -60,7 +68,7 @@ export async function listShopifyConnections(): Promise<
       id: c.id,
       name: c.name,
       shopDomain: c.shop_domain,
-      authType: c.access_token ? "token" : "client",
+      authType: c.access_token ? (c.client_id ? "oauth" : "token") : "client",
       hasPassword: !!c.storefront_password,
       createdAt: c.created_at,
     })),
@@ -325,4 +333,83 @@ export async function reloadFromShopify(projectId: string): Promise<Result> {
   if (!res.ok) return res;
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
+}
+
+/**
+ * Freigabe über Shopify starten: speichert die Angaben (ohne Test), merkt
+ * sich einen Zufallswert im Cookie und liefert die Shopify-Adresse, auf der
+ * man die Installation bestätigt. Danach leitet Shopify zu
+ * /api/shopify/callback zurück.
+ */
+export async function startShopifyAuthorization(input: {
+  id?: string;
+  name?: string;
+  shopDomain?: string;
+  clientId?: string;
+  clientSecret?: string;
+  storefrontPassword?: string;
+}): Promise<Result<{ url: string }>> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  const admin = createAdminClient();
+
+  let existing: ShopifyConnection | null = null;
+  if (input.id) {
+    existing = await loadConnection(input.id);
+    if (!existing) return { ok: false, error: "Verbindung nicht gefunden." };
+  }
+
+  const domain = input.shopDomain ? normalizeShopDomain(input.shopDomain) : existing?.shop_domain ?? null;
+  if (!domain) {
+    return { ok: false, error: "Bitte die Shop-Adresse im Format „name.myshopify.com“ angeben." };
+  }
+  const clientId = input.clientId?.trim() || existing?.client_id || null;
+  const clientSecret = input.clientSecret?.trim() || existing?.client_secret || null;
+  if (!clientId || !clientSecret) {
+    return { ok: false, error: "Für die Freigabe werden Client-ID und Client-Secret der App benötigt." };
+  }
+  const password = input.storefrontPassword?.trim();
+
+  // Bei gleicher Shop-Adresse die vorhandene Verbindung weiterverwenden.
+  if (!existing) {
+    const { data: sameShop } = await admin
+      .from("shopify_connections")
+      .select("*")
+      .eq("shop_domain", domain)
+      .maybeSingle();
+    existing = sameShop ?? null;
+  }
+
+  const row = {
+    name: input.name?.trim() || existing?.name || domain,
+    shop_domain: domain,
+    client_id: clientId,
+    client_secret: clientSecret,
+    storefront_password: password ? password : existing?.storefront_password ?? null,
+  };
+  let connectionId = existing?.id ?? null;
+  if (existing) {
+    const { error } = await admin.from("shopify_connections").update(row).eq("id", existing.id);
+    if (error) return { ok: false, error: MISSING_TABLE };
+  } else {
+    const { data, error } = await admin
+      .from("shopify_connections")
+      .insert({ ...row, created_by: guard.userId })
+      .select("id")
+      .single();
+    if (error || !data) return { ok: false, error: MISSING_TABLE };
+    connectionId = data.id;
+  }
+
+  const state = newOAuthState();
+  const store = await cookies();
+  store.set(OAUTH_COOKIE, encodeOAuthCookie(state, connectionId!), {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 15 * 60,
+  });
+  revalidatePath("/admin/shopify");
+  return { ok: true, url: buildAuthorizeUrl(domain, clientId, state) };
 }

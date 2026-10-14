@@ -8,12 +8,16 @@ in Sites kommentieren und per KI direkt in Shopify ändern.
 1. **Datenbank:** `supabase/migrations/0015_shopify.sql` im Supabase SQL Editor ausführen.
 2. **Shopify-App anlegen** (einmal für die ganze Organisation):
    - Im Shopify **Dev Dashboard** eine App anlegen (z. B. „SDG Sites“).
-   - Zugriffsbereiche: `read_themes`, `write_themes`, `write_files`. Version freigeben.
-   - App in jedem Shop installieren, der angebunden werden soll.
+   - Version mit: App-URL `https://<sites-domain>/api/shopify/auth`,
+     „In Admin einbetten“ aus, Weiterleitungs-URL
+     `https://<sites-domain>/api/shopify/callback`, Bereiche
+     `read_themes,write_themes,write_files`. Version veröffentlichen.
 3. **Shop in Sites verbinden:** Menü **Shopify** (nur Admins) → Shop-Adresse
-   (`name.myshopify.com`), Client-ID, Client-Secret und, falls der Shop noch
-   passwortgeschützt ist, das Onlineshop-Passwort eintragen. Die Verbindung wird
-   vor dem Speichern getestet.
+   (`name.myshopify.com`), Client-ID, Client-Secret und ggf. Onlineshop-Passwort
+   eintragen → **„Über Shopify freigeben ↗“**. In Shopify die Installation
+   bestätigen; Shopify leitet zurück und Sites speichert ein dauerhaftes Token.
+   (Alternativ „Shop verbinden“ mit Client-Credentials – klappt nur, wenn die App
+   bereits im Shop installiert ist und Shop + App in derselben Organisation liegen.)
 
 Ältere, direkt im Shopify-Admin angelegte Apps funktionieren ebenfalls – dann statt
 Client-ID/Secret das Admin-API-Zugriffstoken (`shpat_…`) eintragen.

@@ -3,12 +3,18 @@ import { getCurrentProfile } from "@/lib/auth";
 import { PageContainer } from "@/components/PageContainer";
 import { ShopifyConnections } from "@/components/admin/ShopifyConnections";
 import { listShopifyConnections } from "@/lib/actions/shopify";
+import { oauthAppUrl, oauthCallbackUrl } from "@/lib/shopify/oauth";
 
 export const dynamic = "force-dynamic";
 // Verbindungstest ruft Shopify mehrfach auf.
 export const maxDuration = 60;
 
-export default async function AdminShopifyPage() {
+export default async function AdminShopifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connected?: string; error?: string }>;
+}) {
+  const { connected, error } = await searchParams;
   const me = await getCurrentProfile();
   if (!me) redirect("/login");
   if (!me.is_admin) redirect("/projects");
@@ -23,6 +29,16 @@ export default async function AdminShopifyPage() {
         Shopify zu ändern. Neue Projekte legst du danach unter „Neues Projekt“ → „Shopify-Theme“ an.
       </p>
 
+      {connected && (
+        <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+          ✓ Verbunden mit „{connected}“. Du kannst jetzt unter „Neues Projekt“ → „Shopify-Theme“ ein
+          Projekt anlegen.
+        </p>
+      )}
+      {error && (
+        <p className="mt-4 rounded-lg bg-sdg-red-light px-4 py-3 text-sm text-sdg-red-dark">{error}</p>
+      )}
+
       <details className="mt-4 rounded-xl border border-neutral-200 bg-white p-5 text-sm text-neutral-700">
         <summary className="cursor-pointer font-medium text-neutral-900">
           Anleitung: Zugang in Shopify einrichten (einmalig je Shop)
@@ -33,16 +49,30 @@ export default async function AdminShopifyPage() {
             „SDG Sites“. Eine App reicht für alle Shops eurer Organisation.
           </li>
           <li>
-            Unter <strong>Versionen → Zugriffsbereiche (Scopes)</strong> auswählen:{" "}
-            <code className="rounded bg-neutral-100 px-1">read_themes</code>,{" "}
-            <code className="rounded bg-neutral-100 px-1">write_themes</code>,{" "}
-            <code className="rounded bg-neutral-100 px-1">write_files</code> – Version freigeben.
+            Neue <strong>Version</strong> anlegen mit:
+            <ul className="ml-5 mt-1 list-disc space-y-1">
+              <li>
+                App-URL: <code className="rounded bg-neutral-100 px-1">{oauthAppUrl()}</code>
+              </li>
+              <li>„App in Shopify-Adminbereich einbetten“: <strong>aus</strong></li>
+              <li>
+                Zulässige Weiterleitungs-URL:{" "}
+                <code className="rounded bg-neutral-100 px-1">{oauthCallbackUrl()}</code>
+              </li>
+              <li>
+                Bereiche: <code className="rounded bg-neutral-100 px-1">read_themes,write_themes,write_files</code>
+              </li>
+            </ul>
+            … und veröffentlichen.
           </li>
-          <li>Die App im jeweiligen Shop <strong>installieren</strong>.</li>
           <li>
             In der App unter <strong>Einstellungen</strong> die <strong>Client-ID</strong> und das{" "}
             <strong>Client-Secret</strong> kopieren und hier eintragen (nicht per Mail oder Chat
             verschicken).
+          </li>
+          <li>
+            Auf <strong>„Über Shopify freigeben ↗“</strong> klicken, in Shopify die Installation
+            bestätigen – du landest automatisch wieder hier.
           </li>
           <li>
             Ist der Shop noch nicht live, das <strong>Onlineshop-Passwort</strong> (Onlineshop →
