@@ -13,7 +13,7 @@ import { AnnounceButton } from "@/components/projects/AnnounceButton";
 import { ShopifyBar } from "@/components/projects/ShopifyBar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { shopifyPreviewUrl } from "@/lib/shopify/paths";
-import { proxyBaseUrl } from "@/lib/shopify/proxy";
+import { liveViewUrl, proxyBaseUrl } from "@/lib/shopify/proxy";
 import {
   CommentablePreview,
   type CommentThread,
@@ -40,7 +40,7 @@ export default async function ProjectDetailPage({
     supabase.from("projects").select("*").eq("id", id).single(),
     supabase
       .from("pages")
-      .select("id, template_html, content_state, detected_elements")
+      .select("id, template_html, content_state, detected_elements, updated_at")
       .eq("project_id", id)
       .order("created_at")
       .limit(1)
@@ -199,6 +199,11 @@ export default async function ProjectDetailPage({
             versions={versions}
             allowScripts={isShopify}
             proxyBase={isShopify ? proxyBaseUrl(id) : null}
+            liveSrc={
+              isShopify
+                ? `${liveViewUrl(id)}?v=${encodeURIComponent(page.updated_at ?? "")}`
+                : null
+            }
           />
         ) : (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-neutral-500">

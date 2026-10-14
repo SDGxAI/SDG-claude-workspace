@@ -60,6 +60,8 @@ interface Props {
   allowScripts?: boolean;
   /** Shopify: Durchleitung für Live-Daten (Preise, Produktlisten …). */
   proxyBase?: string | null;
+  /** Shopify: Live-Ansicht der echten Shop-Seite (iframe-Adresse). */
+  liveSrc?: string | null;
 }
 
 function formatVersionTime(iso: string): string {
@@ -98,6 +100,7 @@ export function CommentablePreview({
   versions,
   allowScripts = false,
   proxyBase = null,
+  liveSrc = null,
 }: Props) {
   const router = useRouter();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -198,6 +201,8 @@ export function CommentablePreview({
   // Pins liegen als Overlay in Prozent der Seitenhöhe darüber und wandern
   // dadurch von selbst mit.
   const [contentHeight, setContentHeight] = useState(0);
+  // Live-Ansicht (Shopify): Seitenhöhe, Scrollposition und Fensterhöhe der Seite.
+  const [live, setLive] = useState({ height: 0, scroll: 0, viewport: 0 });
 
   const openCount = threads.filter((t) => t.status === "offen").length;
 
@@ -263,6 +268,21 @@ export function CommentablePreview({
     return () => window.removeEventListener("message", onMessage);
   }, [allowScripts]);
 
+  // Live-Ansicht: Seite meldet Höhe + Scrollposition (für mitwandernde Pins).
+  useEffect(() => {
+    if (!liveSrc) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== iframeRef.current?.contentWindow) return;
+      const d = (e.data as { sitesLive?: { height?: unknown; scroll?: unknown; viewport?: unknown } } | null)
+        ?.sitesLive;
+      if (!d) return;
+      const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+      setLive({ height: num(d.height), scroll: num(d.scroll), viewport: num(d.viewport) });
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [liveSrc]);
+
   // Nach Rückkehr aus einer Alt-Version die Live-Vorschau neu vermessen.
   useEffect(() => {
     if (!activeVersionId) requestAnimationFrame(() => measure());
@@ -271,6 +291,13 @@ export function CommentablePreview({
   /** Springt (in der ganzen Seite) zu der Stelle, an der ein Kommentar sitzt. */
   const scrollToThread = useCallback((thread: CommentThread) => {
     setSelectedId(thread.id);
+    if (liveSrc) {
+      // Live-Ansicht: im Shop-Fenster zur Stelle scrollen.
+      const target = (thread.yPct / 100) * live.height - live.viewport / 2;
+      iframeRef.current?.contentWindow?.postMessage({ sitesScrollTo: Math.max(0, target) }, "*");
+      iframeRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      return;
+    }
     const overlay = overlayRef.current;
     if (!overlay) return;
     const rect = overlay.getBoundingClientRect();
@@ -280,7 +307,7 @@ export function CommentablePreview({
       top: Math.max(0, target - window.innerHeight / 2),
       behavior: "smooth",
     });
-  }, []);
+  }, [liveSrc, live.height, live.viewport]);
 
   function handleOverlayClick(e: React.MouseEvent) {
     if (!commentMode || !overlayRef.current) return;
@@ -731,6 +758,103 @@ export function CommentablePreview({
                 : "relative w-full overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all"
             }
           >
+            {liveSrc ? (
+              <>
+                {/* Live-Ansicht: echte Shop-Seite in eigenem Scrollfenster. */}
+                <iframe
+                  ref={iframeRef}
+                  title="Vorschau"
+                  src={liveSrc}
+                  className="block w-full"
+                  style={{ height: "max(520px, calc(100vh - 9rem))" }}
+                  sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
+                />
+                {/* Overlay im Fenster; die Pin-Ebene ist so hoch wie die Seite
+                    und wird mit der Scrollposition der Seite verschoben. */}
+                <div
+                  onClick={handleOverlayClick}
+                  onWheel={(e) => {
+                    if (commentMode) {
+                      iframeRef.current?.contentWindow?.postMessage({ sitesScrollBy: e.deltaY }, "*");
+                    }
+                  }}
+                  className="absolute inset-0 overflow-hidden"
+                  style={{
+                    pointerEvents: commentMode ? "auto" : "none",
+                    cursor: commentMode ? "crosshair" : "default",
+                  }}
+                >
+                  <div
+                    ref={overlayRef}
+                    className="absolute left-0 right-0 top-0"
+                    style={{
+                      height: live.height ? `${live.height}px` : "100%",
+                      transform: `translateY(${-live.scroll}px)`,
+                    }}
+                  >
+            {displayThreads.map((thread, i) => (
+              <button
+                key={thread.id}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedId(thread.id);
+                  setShowComments(true);
+                }}
+                className={`absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white shadow ${
+                  thread.status === "erledigt" ? "bg-green-600" : "bg-sdg-red"
+                } ${selectedId === thread.id ? "ring-2 ring-sdg-red ring-offset-1" : ""}`}
+                style={{
+                  left: `${thread.xPct}%`,
+                  top: `${thread.yPct}%`,
+                  pointerEvents: "auto",
+                }}
+                title={thread.body}
+              >
+                {i + 1}
+              </button>
+            ))}
+
+            {pending && (
+              <div
+                className="absolute z-10 w-64 -translate-x-1/2 rounded-lg border border-neutral-300 bg-white p-3 shadow-lg"
+                style={{
+                  left: `${pending.x}%`,
+                  top: `${pending.y}%`,
+                  pointerEvents: "auto",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <textarea
+                  autoFocus
+                  rows={3}
+                  value={pendingText}
+                  onChange={(e) => setPendingText(e.target.value)}
+                  placeholder="Dein Kommentar …"
+                  className="w-full resize-y rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <button
+                    onClick={() => setPending(null)}
+                    className="rounded px-2 py-1 text-xs text-neutral-500 hover:text-neutral-800"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={submitPending}
+                    disabled={busy || !pendingText.trim()}
+                    className="rounded bg-sdg-red px-3 py-1 text-xs font-medium text-white hover:bg-sdg-red-dark disabled:opacity-50"
+                  >
+                    Speichern
+                  </button>
+                </div>
+              </div>
+            )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
             <iframe
               ref={iframeRef}
               title="Vorschau"
@@ -811,6 +935,8 @@ export function CommentablePreview({
               </div>
             )}
           </div>
+              </>
+            )}
         </div>
       </div>
 

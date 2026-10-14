@@ -50,6 +50,7 @@ export function KiWorkspace({
   models,
   shopifyPreviewUrl = null,
   proxyBase = null,
+  liveSrc = null,
 }: {
   projectId: string;
   pageId: string;
@@ -62,10 +63,17 @@ export function KiWorkspace({
   shopifyPreviewUrl?: string | null;
   /** Shopify: Durchleitung für Live-Daten der Vorschau. */
   proxyBase?: string | null;
+  /** Shopify: Live-Ansicht der echten Shop-Seite (zeigt den aktuellen Theme-Stand). */
+  liveSrc?: string | null;
 }) {
   const isShopify = !!shopifyPreviewUrl;
   const router = useRouter();
   const [html, setHtml] = useState(initialHtml);
+  // Live-Ansicht neu laden, sobald sich der Entwurf ändert (oder auf Knopfdruck).
+  const [liveKey, setLiveKey] = useState(0);
+  useEffect(() => {
+    setLiveKey((k) => k + 1);
+  }, [html]);
   const [messages, setMessages] = useState<DraftMessage[]>(initialMessages);
   const [text, setText] = useState("");
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -165,6 +173,7 @@ export function KiWorkspace({
   async function syncPreview() {
     const res = await refreshDraftHtml(pageId, projectId);
     if (res.ok) setHtml(res.html);
+    setLiveKey((k) => k + 1);
     return res.ok;
   }
 
@@ -339,12 +348,22 @@ export function KiWorkspace({
                   : "h-full w-full overflow-hidden rounded-lg border border-neutral-200 bg-white"
               }
             >
-              <iframe
-                title="Entwurf-Vorschau"
-                srcDoc={previewSrcDoc(html, { allowScripts: isShopify, proxyBase })}
-                className="h-full min-h-[50vh] w-full bg-white"
-                sandbox={previewSandbox(isShopify)}
-              />
+              {liveSrc ? (
+                <iframe
+                  key={liveKey}
+                  title="Entwurf-Vorschau"
+                  src={`${liveSrc}?v=${liveKey}`}
+                  className="h-full min-h-[50vh] w-full bg-white"
+                  sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
+                />
+              ) : (
+                <iframe
+                  title="Entwurf-Vorschau"
+                  srcDoc={previewSrcDoc(html, { allowScripts: isShopify, proxyBase })}
+                  className="h-full min-h-[50vh] w-full bg-white"
+                  sandbox={previewSandbox(isShopify)}
+                />
+              )}
             </div>
           </div>
         </div>
