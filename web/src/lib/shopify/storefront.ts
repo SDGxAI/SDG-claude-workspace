@@ -177,7 +177,7 @@ async function fetchCss(url: string): Promise<string | null> {
 /**
  * Bereitet die Shop-Seite für die Anzeige in Sites vor:
  * - <base href> auf den Shop, damit Bilder/CSS aus Shopify geladen werden
- * - Skripte entfernen (laufen in der Vorschau ohnehin nicht; spart Platz)
+ * - Shopify-Vorschauleiste entfernen (Theme-Skripte bleiben erhalten)
  * - CSS, das sonst erst per JavaScript aktiviert würde, direkt aktivieren
  * - Stylesheets einbetten und Bildschirm-Einheiten (vh) in Pixel umrechnen
  * - „lazy“ nachgeladene Bilder direkt anzeigen
@@ -187,8 +187,15 @@ export async function preparePreviewHtml(html: string, shopDomain: string): Prom
   const $ = cheerio.load(html);
   const pageUrl = `https://${shopDomain}/`;
 
-  $("script").remove();
-  $('link[rel="modulepreload"], link[as="script"]').remove();
+  // Theme-Skripte bleiben erhalten (die Vorschau führt sie abgeschottet aus),
+  // nur die Shopify-Vorschauleiste wird entfernt.
+  $("script").each((_, el) => {
+    const node = $(el);
+    const src = node.attr("src") ?? "";
+    if (/preview_bar|previewbar/i.test(src) || /previewBarInjector|preview_bar_injector/i.test(node.text())) {
+      node.remove();
+    }
+  });
   $("base").remove();
 
   // CSS, das per onload-Trick nachgeladen wird, direkt aktiv schalten.
