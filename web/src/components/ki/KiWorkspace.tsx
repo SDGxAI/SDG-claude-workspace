@@ -10,7 +10,7 @@ import {
   refreshDraftHtml,
 } from "@/lib/actions/draft";
 import { uploadKiAsset } from "@/lib/actions/upload";
-import { withBlankLinks } from "@/lib/html/previewLinks";
+import { previewSandbox, previewSrcDoc } from "@/lib/html/previewLinks";
 import type { DraftMessage } from "@/types/database";
 
 export interface KiComment {
@@ -338,9 +338,9 @@ export function KiWorkspace({
             >
               <iframe
                 title="Entwurf-Vorschau"
-                srcDoc={withBlankLinks(html)}
+                srcDoc={previewSrcDoc(html, { allowScripts: isShopify })}
                 className="h-full min-h-[50vh] w-full bg-white"
-                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                sandbox={previewSandbox(isShopify)}
               />
             </div>
           </div>

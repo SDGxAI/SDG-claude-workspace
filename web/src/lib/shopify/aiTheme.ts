@@ -101,6 +101,7 @@ export function applyOp(doc: unknown, op: ThemeOp): boolean {
 /** Kurzüberblick der gerenderten Seite: Abschnitt-Schlüssel → sichtbarer Text. */
 export function pageOutline(html: string): string {
   const $ = cheerio.load(html);
+  $("script, style, noscript, template").remove();
   const lines: string[] = [];
   $('[id^="shopify-section-"]').each((_, el) => {
     if (lines.length >= 40) return;

@@ -196,6 +196,7 @@ export default async function ProjectDetailPage({
             canModerate={access.canEdit}
             currentUserEmail={currentUserEmail}
             versions={versions}
+            allowScripts={isShopify}
           />
         ) : (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-neutral-500">

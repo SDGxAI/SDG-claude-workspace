@@ -17,7 +17,7 @@ import {
   type VersionMeta,
 } from "@/lib/actions/versions";
 import { umsetzenComment } from "@/lib/actions/umsetzen";
-import { withBlankLinks } from "@/lib/html/previewLinks";
+import { previewSandbox, previewSrcDoc } from "@/lib/html/previewLinks";
 import type { PageVersionSource, StoredComment } from "@/types/database";
 
 /** Kurze, verständliche Bezeichnung, woher eine Version stammt. */
@@ -56,6 +56,8 @@ interface Props {
   canModerate: boolean;
   currentUserEmail: string;
   versions: VersionMeta[];
+  /** Shopify-Vorschau: Theme-Skripte ausführen (abgeschottet, ohne same-origin). */
+  allowScripts?: boolean;
 }
 
 function formatVersionTime(iso: string): string {
@@ -92,6 +94,7 @@ export function CommentablePreview({
   canModerate,
   currentUserEmail,
   versions,
+  allowScripts = false,
 }: Props) {
   const router = useRouter();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -242,6 +245,20 @@ export function CommentablePreview({
       observer?.disconnect();
     };
   }, [previewHtml, measure]);
+
+  // Vorschau mit Skripten (Shopify): Höhe meldet die Seite selbst per Nachricht.
+  useEffect(() => {
+    if (!allowScripts) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== iframeRef.current?.contentWindow) return;
+      const h = (e.data as { sitesPreviewHeight?: unknown } | null)?.sitesPreviewHeight;
+      if (typeof h === "number" && Number.isFinite(h)) {
+        setContentHeight(Math.min(Math.max(h, 400), 40000));
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [allowScripts]);
 
   // Nach Rückkehr aus einer Alt-Version die Live-Vorschau neu vermessen.
   useEffect(() => {
@@ -600,9 +617,9 @@ export function CommentablePreview({
                 <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
                   <iframe
                     title={`Version ${activeVersion.versionNo}`}
-                    srcDoc={withBlankLinks(versionHtml)}
+                    srcDoc={previewSrcDoc(versionHtml, { allowScripts })}
                     className="h-[70vh] w-full lg:h-[76vh]"
-                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                    sandbox={previewSandbox(allowScripts)}
                   />
                 </div>
               </div>
@@ -613,9 +630,9 @@ export function CommentablePreview({
                 <div className="overflow-hidden rounded-xl border border-sdg-red bg-white">
                   <iframe
                     title="Aktueller Stand"
-                    srcDoc={withBlankLinks(previewHtml)}
+                    srcDoc={previewSrcDoc(previewHtml, { allowScripts })}
                     className="h-[70vh] w-full lg:h-[76vh]"
-                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                    sandbox={previewSandbox(allowScripts)}
                   />
                 </div>
               </div>
@@ -624,9 +641,9 @@ export function CommentablePreview({
             <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
               <iframe
                 title={`Version ${activeVersion.versionNo}`}
-                srcDoc={withBlankLinks(versionHtml)}
+                srcDoc={previewSrcDoc(versionHtml, { allowScripts })}
                 className="h-[70vh] w-full lg:h-[76vh]"
-                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                sandbox={previewSandbox(allowScripts)}
               />
             </div>
           )}
@@ -714,11 +731,11 @@ export function CommentablePreview({
             <iframe
               ref={iframeRef}
               title="Vorschau"
-              srcDoc={withBlankLinks(previewHtml)}
+              srcDoc={previewSrcDoc(previewHtml, { allowScripts, fixedViewport: true })}
               scrolling="no"
               className="block w-full"
               style={{ height: contentHeight ? `${contentHeight}px` : "80vh" }}
-              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              sandbox={previewSandbox(allowScripts)}
             />
 
           {/* Overlay über der GESAMTEN Seitenhöhe: fängt Klicks nur im
