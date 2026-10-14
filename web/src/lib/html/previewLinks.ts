@@ -31,6 +31,26 @@ export function previewSandbox(allowScripts: boolean): string {
 }
 
 /**
+ * Erkennt Cookie-/Zustimmungs-Banner am Inhalt und blendet sie aus (nur in der
+ * Sites-Vorschau): schwebende Elemente (fixed/sticky) mit „Cookie“ und einem
+ * Zustimmungs-/Ablehnen-Text, auch in offenen Shadow-DOMs.
+ */
+const COOKIE_KILLER = `(function(){
+  var KW=/(cookie|consent|privacy|gdpr|dsgvo|pc__banner|cmp)/i, TXT=/cookie/i, ACT=/(zustimm|einwillig|akzept|accept|consent|ablehnen|decline|reject|einstellungen|preferences)/i;
+  function txt(el){var t=el.textContent||"";try{if(el.shadowRoot){t+=" "+el.shadowRoot.textContent}}catch(e){}return t}
+  function isFloating(el){try{var p=getComputedStyle(el).position;return p==="fixed"||p==="sticky"}catch(e){return false}}
+  function hide(el){try{el.style.setProperty("display","none","important");el.setAttribute("data-sites-hidden","cookie")}catch(e){}}
+  function check(el){if(!el||el.nodeType!==1||el.getAttribute("data-sites-hidden"))return;
+    var name=(el.id||"")+" "+(typeof el.className==="string"?el.className:"")+" "+el.tagName;
+    var t=txt(el);if(t.length>4000)return;
+    if(TXT.test(t)&&ACT.test(t)&&(isFloating(el)||KW.test(name))){hide(el);return}
+    if(el.shadowRoot&&KW.test(name)&&TXT.test(t)){hide(el)}}
+  function scan(){var b=document.body;if(!b)return;var kids=b.children;for(var i=0;i<kids.length;i++){var k=kids[i];check(k);if(k.getAttribute("data-sites-hidden"))continue;var g=k.children;for(var j=0;j<g.length&&j<40;j++){check(g[j])}}}
+  document.addEventListener("DOMContentLoaded",function(){scan();try{new MutationObserver(function(){scan()}).observe(document.body,{childList:true,subtree:false})}catch(e){}});
+  var n=0,t=setInterval(function(){scan();if(++n>40)clearInterval(t)},500);
+})();`;
+
+/**
  * Kleines Hilfsskript für Vorschauen mit JavaScript:
  * - Speicher/Cookies durch harmlose Platzhalter ersetzen (sonst brechen
  *   Theme-Skripte in der abgeschotteten Vorschau ab)
@@ -46,7 +66,8 @@ function bridgeScript(fixedViewport: boolean, proxyBase?: string): string {
   if(window.fetch){var of=window.fetch;window.fetch=function(i,o){try{if(typeof i==="string"||(window.URL&&i instanceof URL)){i=rw(i)}else if(i&&i.url){var n=rw(i.url);if(n!==i.url){i=new Request(n,i)}}}catch(e){}return of.call(this,i,o)}}
   if(window.XMLHttpRequest){var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){var a=Array.prototype.slice.call(arguments);a[1]=rw(u);return oo.apply(this,a)}}`
     : "";
-  return `(function(){
+  return `${COOKIE_KILLER}
+(function(){
   ${proxy}
   function mem(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}}
   ["localStorage","sessionStorage"].forEach(function(n){try{window[n].getItem("x")}catch(e){try{Object.defineProperty(window,n,{value:mem(),configurable:true})}catch(_){}}});
@@ -87,7 +108,8 @@ export function previewSrcDoc(
  * scrollen lassen (Sprung zu einem Kommentar, Mausrad im Kommentarmodus).
  */
 export function liveBridgeScript(proxyBase: string, pagePath = "/"): string {
-  return `(function(){
+  return `${COOKIE_KILLER}
+(function(){
   var P=${JSON.stringify(proxyBase)};var PAGE=${JSON.stringify(pagePath)};var H="";try{H=new URL(document.baseURI).host}catch(e){}
   var errs=[];
   function rep(t){t=String(t).slice(0,300);if(errs.indexOf(t)>=0||errs.length>=40)return;errs.push(t);try{parent.postMessage({sitesLiveError:t},"*")}catch(e){}}
