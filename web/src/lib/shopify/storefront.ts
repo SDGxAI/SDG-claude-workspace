@@ -67,6 +67,7 @@ export async function fetchThemePreviewHtml(
   conn: ShopifyConnection,
   themeId: string,
   path: string,
+  options: { raw?: boolean } = {},
 ): Promise<Ok<{ html: string }> | Fail> {
   const jar = new CookieJar();
   const base = `https://${conn.shop_domain}`;
@@ -122,6 +123,7 @@ export async function fetchThemePreviewHtml(
       };
     }
 
+    if (options.raw) return { ok: true, html };
     return { ok: true, html: await preparePreviewHtml(html, conn.shop_domain) };
   } catch {
     return { ok: false, error: `Der Shop ${conn.shop_domain} ist nicht erreichbar.` };
@@ -266,5 +268,29 @@ export async function preparePreviewHtml(html: string, shopDomain: string): Prom
     </style>`,
   );
 
+  return $.html();
+}
+
+/**
+ * Live-Ansicht: die Shop-Seite möglichst UNVERÄNDERT anzeigen (echtes
+ * Scrollfenster, eigene Bildschirmhöhe). Nur <base> auf den Shop, das
+ * Hilfsskript und das Ausblenden der Shopify-Vorschauleiste kommen dazu.
+ */
+export function prepareLiveHtml(html: string, shopDomain: string, bridge: string): string {
+  const $ = cheerio.load(html);
+  $("script").each((_, el) => {
+    const node = $(el);
+    const src = node.attr("src") ?? "";
+    if (/preview_bar|previewbar/i.test(src) || /previewBarInjector|preview_bar_injector/i.test(node.text())) {
+      node.remove();
+    }
+  });
+  $("base").remove();
+  const head = $("head");
+  head.prepend(`<script>${bridge.replace(/<\//g, "<\\/")}</script>`);
+  head.prepend(`<base href="https://${shopDomain}/" target="_blank">`);
+  head.append(
+    `<style id="sites-live-fix">#preview-bar-iframe,#PBarNextFrameWrapper,.shopify-preview-bar{display:none!important}</style>`,
+  );
   return $.html();
 }

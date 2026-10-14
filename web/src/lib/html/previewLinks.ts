@@ -79,3 +79,27 @@ export function previewSrcDoc(
   }
   return tag + linked;
 }
+
+/**
+ * Hilfsskript für die Live-Ansicht (echtes Scrollfenster): Live-Anfragen über
+ * Sites umleiten, Speicher-Platzhalter, und Scrollposition + Seitenhöhe an
+ * Sites melden, damit die Kommentar-Pins mitwandern. Sites kann umgekehrt
+ * scrollen lassen (Sprung zu einem Kommentar, Mausrad im Kommentarmodus).
+ */
+export function liveBridgeScript(proxyBase: string): string {
+  return `(function(){
+  var P=${JSON.stringify(proxyBase)};var H="";try{H=new URL(document.baseURI).host}catch(e){}
+  function rw(u){try{var x=new URL(String(u),document.baseURI);if(H&&x.host===H&&x.pathname.indexOf("/cdn/")!==0){return P+x.pathname+x.search}}catch(e){}return u}
+  if(window.fetch){var of=window.fetch;window.fetch=function(i,o){try{if(typeof i==="string"||(window.URL&&i instanceof URL)){i=rw(i)}else if(i&&i.url){var n=rw(i.url);if(n!==i.url){i=new Request(n,i)}}}catch(e){}return of.call(this,i,o)}}
+  if(window.XMLHttpRequest){var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){var a=Array.prototype.slice.call(arguments);a[1]=rw(u);return oo.apply(this,a)}}
+  function mem(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}}
+  ["localStorage","sessionStorage"].forEach(function(n){try{window[n].getItem("x")}catch(e){try{Object.defineProperty(window,n,{value:mem(),configurable:true})}catch(_){}}});
+  try{document.cookie}catch(e){try{var c="";Object.defineProperty(document,"cookie",{get:function(){return c},set:function(){},configurable:true})}catch(_){}}
+  var last="";
+  function send(){var d=document.documentElement,b=document.body;var h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0);var s=window.scrollY||(d?d.scrollTop:0)||0;var v=window.innerHeight;var k=h+"|"+s+"|"+v;if(k!==last){last=k;try{parent.postMessage({sitesLive:{height:h,scroll:s,viewport:v}},"*")}catch(e){}}}
+  window.addEventListener("scroll",send,{passive:true});window.addEventListener("resize",send);window.addEventListener("load",send);
+  document.addEventListener("DOMContentLoaded",function(){send();if(window.ResizeObserver){try{new ResizeObserver(send).observe(document.body||document.documentElement)}catch(e){}}});
+  setInterval(send,700);
+  window.addEventListener("message",function(e){var m=e.data||{};if(typeof m.sitesScrollBy==="number"){window.scrollBy(0,m.sitesScrollBy)}if(typeof m.sitesScrollTo==="number"){window.scrollTo({top:m.sitesScrollTo,behavior:"smooth"})}});
+})();`;
+}

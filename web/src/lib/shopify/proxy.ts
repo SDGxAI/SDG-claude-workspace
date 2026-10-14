@@ -48,6 +48,11 @@ export function proxyBaseUrl(projectId: string): string {
   return `${site}/api/shopify/proxy/${createProxyToken(projectId)}`;
 }
 
+/** Adresse der Live-Ansicht eines Shopify-Projekts (iframe-Quelle). */
+export function liveViewUrl(projectId: string): string {
+  return proxyBaseUrl(projectId).replace("/api/shopify/proxy/", "/api/shopify/view/");
+}
+
 /** Pfade, die nie durchgeleitet werden (Konto, Kasse, Admin). */
 export function isBlockedPath(path: string): boolean {
   return /^\/(admin|account|checkout|checkouts|services\/login|password|apps\/[^/]+\/admin)(\/|$)/i.test(
