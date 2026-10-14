@@ -51,7 +51,12 @@ export async function GET(request: NextRequest, ctx: Ctx) {
 
   const origin = request.nextUrl.origin;
   const proxyBase = `${origin}/api/shopify/proxy/${createProxyToken(projectId)}`;
-  const html = prepareLiveHtml(res.html, conn.shop_domain, liveBridgeScript(proxyBase));
+  const html = prepareLiveHtml(
+    res.html,
+    conn.shop_domain,
+    liveBridgeScript(proxyBase, project.shopify_path || "/"),
+    proxyBase,
+  );
   return new Response(html, {
     status: 200,
     headers: {

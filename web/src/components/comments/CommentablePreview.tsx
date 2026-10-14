@@ -203,6 +203,8 @@ export function CommentablePreview({
   const [contentHeight, setContentHeight] = useState(0);
   // Live-Ansicht (Shopify): Seitenhöhe, Scrollposition und Fensterhöhe der Seite.
   const [live, setLive] = useState({ height: 0, scroll: 0, viewport: 0 });
+  // Live-Ansicht: technische Hinweise (was in der Shop-Seite nicht geladen hat).
+  const [liveErrors, setLiveErrors] = useState<string[]>([]);
 
   const openCount = threads.filter((t) => t.status === "offen").length;
 
@@ -271,8 +273,16 @@ export function CommentablePreview({
   // Live-Ansicht: Seite meldet Höhe + Scrollposition (für mitwandernde Pins).
   useEffect(() => {
     if (!liveSrc) return;
+    setLiveErrors([]);
     const onMessage = (e: MessageEvent) => {
       if (e.source !== iframeRef.current?.contentWindow) return;
+      const errText = (e.data as { sitesLiveError?: unknown } | null)?.sitesLiveError;
+      if (typeof errText === "string") {
+        setLiveErrors((prev) =>
+          prev.includes(errText) || prev.length >= 40 ? prev : [...prev, errText],
+        );
+        return;
+      }
       const d = (e.data as { sitesLive?: { height?: unknown; scroll?: unknown; viewport?: unknown } } | null)
         ?.sitesLive;
       if (!d) return;
@@ -938,6 +948,18 @@ export function CommentablePreview({
               </>
             )}
         </div>
+          {liveSrc && liveErrors.length > 0 && (
+            <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <summary className="cursor-pointer font-medium">
+                ⚠️ {liveErrors.length} technische Hinweise zur Vorschau (für den Support)
+              </summary>
+              <ul className="mt-2 max-h-48 list-inside list-disc space-y-0.5 overflow-y-auto break-all">
+                {liveErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </details>
+          )}
       </div>
 
       {/* Kommentar-Liste: bleibt beim Scrollen der langen Seite sichtbar

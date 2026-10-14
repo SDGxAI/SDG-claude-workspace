@@ -101,6 +101,8 @@ async function handle(request: NextRequest, ctx: Ctx): Promise<Response> {
 
   const contentType = res.headers.get("content-type");
   if (contentType) headers["content-type"] = contentType;
+  // Theme-Dateien (Skripte/Module) dürfen kurz zwischengespeichert werden.
+  if (pathname.startsWith("/cdn/") && res.ok) headers["cache-control"] = "public, max-age=600";
   return new Response(method === "HEAD" ? null : res.body, { status: res.status, headers });
 }
 

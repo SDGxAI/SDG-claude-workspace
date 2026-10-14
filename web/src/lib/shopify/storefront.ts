@@ -273,22 +273,77 @@ export async function preparePreviewHtml(html: string, shopDomain: string): Prom
 
 /**
  * Live-Ansicht: die Shop-Seite möglichst UNVERÄNDERT anzeigen (echtes
- * Scrollfenster, eigene Bildschirmhöhe). Nur <base> auf den Shop, das
- * Hilfsskript und das Ausblenden der Shopify-Vorschauleiste kommen dazu.
+ * Scrollfenster, eigene Bildschirmhöhe). Dazu kommen nur:
+ * - <base> auf den Shop und das Hilfsskript
+ * - Skripte/Module vom Shop über die Sites-Durchleitung (die abgeschottete
+ *   Vorschau darf Module sonst evtl. nicht laden)
+ * - Ausblenden der Shopify-Vorschauleiste
  */
-export function prepareLiveHtml(html: string, shopDomain: string, bridge: string): string {
+export function prepareLiveHtml(
+  html: string,
+  shopDomain: string,
+  bridge: string,
+  proxyBase: string,
+): string {
   const $ = cheerio.load(html);
+  const shopRoot = `https://${shopDomain}/`;
+  const toProxy = (raw: string | undefined): string | undefined => {
+    if (!raw) return raw;
+    try {
+      const u = new URL(raw, shopRoot);
+      if (u.host !== shopDomain) return raw;
+      return `${proxyBase}${u.pathname}${u.search}`;
+    } catch {
+      return raw;
+    }
+  };
+  const shopUrlRe = new RegExp(`(?:https?:)?//${shopDomain.replace(/\./g, "\\.")}/`, "g");
+
   $("script").each((_, el) => {
     const node = $(el);
     const src = node.attr("src") ?? "";
     if (/preview_bar|previewbar/i.test(src) || /previewBarInjector|preview_bar_injector/i.test(node.text())) {
       node.remove();
+      return;
+    }
+    if (src) {
+      node.attr("src", toProxy(src) ?? src);
+      return;
+    }
+    const type = (node.attr("type") ?? "").toLowerCase();
+    if (type === "importmap") {
+      try {
+        const map = JSON.parse(node.text()) as {
+          imports?: Record<string, string>;
+          scopes?: Record<string, Record<string, string>>;
+        };
+        const fix = (rec?: Record<string, string>) => {
+          if (!rec) return rec;
+          return Object.fromEntries(Object.entries(rec).map(([k, v]) => [k, toProxy(v) ?? v]));
+        };
+        map.imports = fix(map.imports);
+        if (map.scopes) {
+          map.scopes = Object.fromEntries(
+            Object.entries(map.scopes).map(([scope, rec]) => [toProxy(scope) ?? scope, fix(rec)!]),
+          );
+        }
+        node.text(JSON.stringify(map));
+      } catch {
+        /* unverändert lassen */
+      }
+    } else if (type === "module") {
+      node.text(node.text().replace(shopUrlRe, `${proxyBase}/`));
     }
   });
+  $('link[rel="modulepreload"][href], link[rel="preload"][as="script"][href]').each((_, el) => {
+    const node = $(el);
+    node.attr("href", toProxy(node.attr("href")) ?? node.attr("href") ?? "");
+  });
+
   $("base").remove();
   const head = $("head");
   head.prepend(`<script>${bridge.replace(/<\//g, "<\\/")}</script>`);
-  head.prepend(`<base href="https://${shopDomain}/" target="_blank">`);
+  head.prepend(`<base href="${shopRoot}" target="_blank">`);
   head.append(
     `<style id="sites-live-fix">#preview-bar-iframe,#PBarNextFrameWrapper,.shopify-preview-bar{display:none!important}</style>`,
   );
