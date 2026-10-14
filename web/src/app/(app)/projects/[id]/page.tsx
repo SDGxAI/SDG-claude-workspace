@@ -10,6 +10,9 @@ import { ExportMenu } from "@/components/projects/ExportMenu";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
 import { IngestPanel } from "@/components/projects/IngestPanel";
 import { AnnounceButton } from "@/components/projects/AnnounceButton";
+import { ShopifyBar } from "@/components/projects/ShopifyBar";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { shopifyPreviewUrl } from "@/lib/shopify/paths";
 import {
   CommentablePreview,
   type CommentThread,
@@ -43,6 +46,18 @@ export default async function ProjectDetailPage({
       .maybeSingle(),
   ]);
   if (!project) notFound();
+
+  // Shopify-Projekt: Shopname/-adresse für Anzeige + Vorschau-Link (ohne Secrets).
+  const isShopify = project.source === "shopify";
+  let shopInfo: { name: string; domain: string } | null = null;
+  if (isShopify && project.shopify_connection_id) {
+    const { data: conn } = await createAdminClient()
+      .from("shopify_connections")
+      .select("name, shop_domain")
+      .eq("id", project.shopify_connection_id)
+      .maybeSingle();
+    if (conn) shopInfo = { name: conn.name, domain: conn.shop_domain };
+  }
 
   let previewHtml =
     "<p style=\"font-family:sans-serif;padding:2rem\">Keine Seite vorhanden.</p>";
@@ -120,7 +135,7 @@ export default async function ProjectDetailPage({
 
         <div className="flex items-center gap-2">
           {access.isAdmin && <AnnounceButton projectId={id} />}
-          {access.canEdit && page && <ExportMenu projectId={id} />}
+          {access.canEdit && page && !isShopify && <ExportMenu projectId={id} />}
           {access.isAdmin && (
             <DeleteProjectButton projectId={id} title={project.title} />
           )}
@@ -132,7 +147,7 @@ export default async function ProjectDetailPage({
               ✏️ Mit KI bearbeiten
             </Link>
           )}
-          {access.canEdit && (
+          {access.canEdit && !isShopify && (
             <Link
               href={`/projects/${id}/editor`}
               className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark"
@@ -143,7 +158,24 @@ export default async function ProjectDetailPage({
         </div>
       </div>
 
-      {access.canEdit && page && (
+      {isShopify && (
+        <div className="mx-auto max-w-6xl px-4">
+          <ShopifyBar
+            projectId={id}
+            shopName={shopInfo?.name ?? "Shop nicht mehr verbunden"}
+            themeName={project.shopify_theme_name ?? "?"}
+            path={project.shopify_path ?? "/"}
+            previewUrl={
+              shopInfo && project.shopify_theme_id
+                ? shopifyPreviewUrl(shopInfo.domain, project.shopify_theme_id, project.shopify_path ?? "/")
+                : null
+            }
+            canEdit={access.canEdit}
+          />
+        </div>
+      )}
+
+      {access.canEdit && page && !isShopify && (
         <div className="mx-auto max-w-6xl px-4">
           <IngestPanel
             projectId={id}

@@ -23,7 +23,7 @@ export default async function EditorPage({
   const supabase = await createClient();
   // Projekt und (erste) Seite sind unabhängig und laufen parallel.
   const [{ data: project }, { data: page }] = await Promise.all([
-    supabase.from("projects").select("id, title, brand").eq("id", id).single(),
+    supabase.from("projects").select("*").eq("id", id).single(),
     supabase
       .from("pages")
       .select("id, template_html, content_state, detected_elements")
@@ -34,6 +34,8 @@ export default async function EditorPage({
   ]);
   if (!project) notFound();
   if (!page) notFound();
+  // Shopify-Projekte werden über die KI direkt im Theme geändert, nicht hier.
+  if (project.source === "shopify") redirect(`/projects/${id}`);
 
   const contentState = page.content_state as ContentState;
   const detectedElements = page.detected_elements as DetectedElement[];

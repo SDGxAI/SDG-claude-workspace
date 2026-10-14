@@ -46,6 +46,11 @@ export function AppHeader({
               Nutzer &amp; Rechte
             </Link>
           )}
+          {isAdmin && (
+            <Link href="/admin/shopify" className="hover:text-sdg-red">
+              Shopify
+            </Link>
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-3 text-sm">

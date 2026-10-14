@@ -15,7 +15,14 @@ export type PageVersionSource =
   | "claude"
   | "umsetzen"
   | "import"
-  | "ki";
+  | "ki"
+  | "shopify";
+
+/** Woher die Seite eines Projekts stammt. */
+export type ProjectSource = "file" | "shopify";
+
+/** Dateiname → Inhalt von Shopify-Theme-Dateien (z. B. templates/index.json). */
+export type ShopifyFileMap = Record<string, string>;
 
 /** Eine Nachricht im KI-Bearbeiten-Chat (Meta-Ebene). */
 export interface DraftMessage {
@@ -130,6 +137,14 @@ export interface Database {
           ingest_token: string | null;
           created_at: string;
           updated_at: string;
+          // Shopify (Migration 0015) – optional, falls noch nicht eingespielt.
+          source?: ProjectSource;
+          shopify_connection_id?: string | null;
+          shopify_theme_id?: string | null;
+          shopify_theme_name?: string | null;
+          shopify_path?: string | null;
+          shopify_template?: string | null;
+          shopify_baseline?: ShopifyFileMap;
         };
         Insert: {
           id?: string;
@@ -138,6 +153,13 @@ export interface Database {
           status?: ProjectStatus;
           created_by?: string | null;
           ingest_token?: string | null;
+          source?: ProjectSource;
+          shopify_connection_id?: string | null;
+          shopify_theme_id?: string | null;
+          shopify_theme_name?: string | null;
+          shopify_path?: string | null;
+          shopify_template?: string | null;
+          shopify_baseline?: ShopifyFileMap;
           created_at?: string;
           updated_at?: string;
         };
@@ -172,6 +194,7 @@ export interface Database {
           original_filename: string;
           created_at: string;
           updated_at: string;
+          shopify_files?: ShopifyFileMap;
         };
         Insert: {
           id?: string;
@@ -180,6 +203,7 @@ export interface Database {
           detected_elements?: DetectedElement[];
           content_state?: ContentState;
           original_filename: string;
+          shopify_files?: ShopifyFileMap;
           created_at?: string;
           updated_at?: string;
         };
@@ -219,6 +243,7 @@ export interface Database {
           comments_snapshot: StoredComment[];
           created_by: string | null;
           created_at: string;
+          shopify_files?: ShopifyFileMap | null;
         };
         Insert: {
           id?: string;
@@ -232,6 +257,7 @@ export interface Database {
           comments_snapshot?: StoredComment[];
           created_by?: string | null;
           created_at?: string;
+          shopify_files?: ShopifyFileMap | null;
         };
         Update: Partial<
           Database["public"]["Tables"]["page_versions"]["Insert"]
@@ -271,6 +297,7 @@ export interface Database {
           messages: DraftMessage[];
           updated_by: string | null;
           updated_at: string;
+          shopify_files?: ShopifyFileMap | null;
         };
         Insert: {
           page_id: string;
@@ -278,8 +305,41 @@ export interface Database {
           messages?: DraftMessage[];
           updated_by?: string | null;
           updated_at?: string;
+          shopify_files?: ShopifyFileMap | null;
         };
         Update: Partial<Database["public"]["Tables"]["page_drafts"]["Insert"]>;
+        Relationships: [];
+      };
+      shopify_connections: {
+        Row: {
+          id: string;
+          name: string;
+          shop_domain: string;
+          client_id: string | null;
+          client_secret: string | null;
+          access_token: string | null;
+          storefront_password: string | null;
+          cached_token: string | null;
+          cached_token_expires_at: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          shop_domain: string;
+          client_id?: string | null;
+          client_secret?: string | null;
+          access_token?: string | null;
+          storefront_password?: string | null;
+          cached_token?: string | null;
+          cached_token_expires_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["shopify_connections"]["Insert"]
+        >;
         Relationships: [];
       };
       comments: {

@@ -5,11 +5,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
+import { getProjectAccess } from "@/lib/access";
+import {
+  isFail,
+  loadShopifyProject,
+  resolveState,
+  writeThemeState,
+} from "@/lib/shopify/project";
 import type {
   ContentState,
   Database,
   DetectedElement,
   PageVersionSource,
+  ShopifyFileMap,
   StoredComment,
 } from "@/types/database";
 
@@ -103,9 +111,11 @@ export async function archiveCurrentAsVersion(
 ): Promise<{ ok: true; versionNo: number } | { ok: false; error: string }> {
   const supabase = client ?? (await createClient());
 
+  // „*“, damit auch der Shopify-Stand (Migration 0015) mitkommt, ohne dass
+  // ältere Datenbanken ohne diese Spalte einen Fehler werfen.
   const { data: page } = await supabase
     .from("pages")
-    .select("template_html, detected_elements, content_state")
+    .select("*")
     .eq("id", pageId)
     .single();
   if (!page) return { ok: false, error: "Seite nicht gefunden." };
@@ -127,6 +137,9 @@ export async function archiveCurrentAsVersion(
     content_state: page.content_state as ContentState,
     comments_snapshot: commentsSnapshot,
     created_by: createdBy ?? null,
+    ...(page.shopify_files && Object.keys(page.shopify_files).length > 0
+      ? { shopify_files: page.shopify_files }
+      : {}),
   });
   if (error) {
     return { ok: false, error: "Version konnte nicht gespeichert werden." };
@@ -255,10 +268,31 @@ export async function restoreVersion(
 
   const { data: version } = await supabase
     .from("page_versions")
-    .select("version_no, template_html, detected_elements, content_state")
+    .select("*")
     .eq("id", versionId)
     .single();
   if (!version) return { ok: false, error: "Version nicht gefunden." };
+
+  // Shopify-Projekt: zuerst die Theme-Dateien im Shop auf den Stand der
+  // Version zurücksetzen (alles, was Sites je geändert hat).
+  const shop = await loadShopifyProject(projectId);
+  if (isFail(shop)) return shop;
+  let shopifyFiles: ShopifyFileMap | undefined;
+  if (shop) {
+    const access = await getProjectAccess(projectId);
+    if (!access?.canEdit) return { ok: false, error: "Keine Berechtigung." };
+    const { data: current } = await supabase
+      .from("pages")
+      .select("*")
+      .eq("id", pageId)
+      .single();
+    const currentFiles = (current?.shopify_files as ShopifyFileMap) ?? {};
+    const versionFiles = (version.shopify_files as ShopifyFileMap | null) ?? {};
+    const keys = new Set([...Object.keys(currentFiles), ...Object.keys(versionFiles)]);
+    shopifyFiles = resolveState(keys, versionFiles, shop.baseline);
+    const written = await writeThemeState(shop, shopifyFiles);
+    if (!written.ok) return written;
+  }
 
   // Aktuellen Stand sichern, bevor er überschrieben wird.
   await archiveCurrentAsVersion(
@@ -275,6 +309,7 @@ export async function restoreVersion(
       template_html: version.template_html,
       detected_elements: version.detected_elements,
       content_state: version.content_state,
+      ...(shopifyFiles ? { shopify_files: shopifyFiles } : {}),
     })
     .eq("id", pageId);
   if (error) {

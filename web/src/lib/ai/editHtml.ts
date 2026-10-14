@@ -4,7 +4,7 @@ export type EditHtmlResult =
   | { ok: true; html: string; summary?: string }
   | { ok: false; error: string };
 
-const MODEL =
+export const DEFAULT_AI_MODEL =
   process.env.ANTHROPIC_UMSETZEN_MODEL ||
   process.env.ANTHROPIC_TRANSLATE_MODEL ||
   "claude-haiku-4-5";
@@ -71,7 +71,7 @@ function applyEdits(
   return { html: result, applied };
 }
 
-async function callClaude(
+export async function callClaude(
   apiKey: string,
   system: string,
   userContent: string,
@@ -170,7 +170,7 @@ const ASSET_RULE =
  */
 export type Effort = "standard" | "mittel" | "hoch";
 
-function effortToBudget(effort?: Effort): number {
+export function effortToBudget(effort?: Effort): number {
   if (effort === "mittel") return 4000;
   if (effort === "hoch") return 10000;
   return 0;
@@ -182,7 +182,7 @@ export async function editHtmlWithAI(
   model?: string,
   effort?: Effort,
 ): Promise<EditHtmlResult> {
-  const useModel = model?.trim() || MODEL;
+  const useModel = model?.trim() || DEFAULT_AI_MODEL;
   const budget = effortToBudget(effort);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

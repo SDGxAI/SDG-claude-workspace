@@ -4,6 +4,8 @@ import { getProjectAccess } from "@/lib/access";
 import { getOrStartDraft } from "@/lib/actions/draft";
 import { listAnthropicModels } from "@/lib/ai/models";
 import { KiWorkspace, type KiComment } from "@/components/ki/KiWorkspace";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { shopifyPreviewUrl } from "@/lib/shopify/paths";
 
 export const dynamic = "force-dynamic";
 // Mehr Zeit für langsamere Modelle (z. B. Sonnet/Opus mit Denkstufe).
@@ -23,7 +25,7 @@ export default async function KiPage({
   const supabase = await createClient();
   const { data: project } = await supabase
     .from("projects")
-    .select("title")
+    .select("*")
     .eq("id", id)
     .single();
   if (!project) notFound();
@@ -62,6 +64,19 @@ export default async function KiPage({
 
   const models = await listAnthropicModels();
 
+  // Shopify-Projekt: Link zur echten Vorschau im Shop.
+  let previewUrl: string | null = null;
+  if (project.source === "shopify" && project.shopify_connection_id && project.shopify_theme_id) {
+    const { data: conn } = await createAdminClient()
+      .from("shopify_connections")
+      .select("shop_domain")
+      .eq("id", project.shopify_connection_id)
+      .maybeSingle();
+    if (conn) {
+      previewUrl = shopifyPreviewUrl(conn.shop_domain, project.shopify_theme_id, project.shopify_path ?? "/");
+    }
+  }
+
   return (
     <KiWorkspace
       projectId={id}
@@ -71,6 +86,7 @@ export default async function KiPage({
       initialMessages={draftRes.draft.messages}
       openComments={openComments}
       models={models}
+      shopifyPreviewUrl={previewUrl}
     />
   );
 }

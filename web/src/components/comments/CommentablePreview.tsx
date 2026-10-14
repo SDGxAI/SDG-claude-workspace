@@ -28,6 +28,7 @@ const VERSION_SOURCE_LABEL: Record<PageVersionSource, string> = {
   umsetzen: "KI-Umsetzung",
   import: "Import",
   ki: "KI-Bearbeitung",
+  shopify: "Aus Shopify",
 };
 
 export interface CommentThread {

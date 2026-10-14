@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseHtmlTemplate } from "@/lib/html/parse";
 import { archiveCurrentAsVersion } from "@/lib/actions/versions";
-import type { Database, PageVersionSource } from "@/types/database";
+import type { Database, PageVersionSource, ShopifyFileMap } from "@/types/database";
 
 export type IngestResult =
   | { ok: true; versionNo: number | null }
@@ -25,6 +25,8 @@ export async function ingestHtmlIntoProject(
     filename?: string;
     source: PageVersionSource;
     label?: string | null;
+    /** Nur Shopify-Projekte: Stand der von Sites geänderten Theme-Dateien. */
+    shopifyFiles?: ShopifyFileMap;
   },
 ): Promise<IngestResult> {
   if (!input.html.trim() || !/<[a-z][\s\S]*>/i.test(input.html)) {
@@ -57,6 +59,7 @@ export async function ingestHtmlIntoProject(
       detected_elements: parsed.detectedElements,
       content_state: parsed.contentState,
       original_filename: (input.filename ?? "claude-update.html").slice(0, 200),
+      ...(input.shopifyFiles ? { shopify_files: input.shopifyFiles } : {}),
     })
     .eq("id", input.pageId);
 

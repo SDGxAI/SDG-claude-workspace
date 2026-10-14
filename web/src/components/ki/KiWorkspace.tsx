@@ -48,6 +48,7 @@ export function KiWorkspace({
   initialMessages,
   openComments,
   models,
+  shopifyPreviewUrl = null,
 }: {
   projectId: string;
   pageId: string;
@@ -56,7 +57,10 @@ export function KiWorkspace({
   initialMessages: DraftMessage[];
   openComments: KiComment[];
   models: ModelOption[];
+  /** Gesetzt bei Shopify-Projekten: Link zur echten Shopify-Vorschau. */
+  shopifyPreviewUrl?: string | null;
 }) {
+  const isShopify = !!shopifyPreviewUrl;
   const router = useRouter();
   const [html, setHtml] = useState(initialHtml);
   const [messages, setMessages] = useState<DraftMessage[]>(initialMessages);
@@ -225,7 +229,9 @@ export function KiWorkspace({
   async function discard() {
     if (
       !window.confirm(
-        "Entwurf verwerfen? Alle Änderungen in diesem KI-Bearbeiten-Verlauf gehen verloren (die gespeicherten Versionen bleiben unberührt).",
+        isShopify
+          ? "Entwurf verwerfen? Die Änderungen aus diesem Verlauf werden auch im Shopify-Theme wieder zurückgesetzt (gespeicherte Versionen bleiben unberührt)."
+          : "Entwurf verwerfen? Alle Änderungen in diesem KI-Bearbeiten-Verlauf gehen verloren (die gespeicherten Versionen bleiben unberührt).",
       )
     )
       return;
@@ -256,6 +262,16 @@ export function KiWorkspace({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {shopifyPreviewUrl && (
+            <a
+              href={shopifyPreviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:border-sdg-red hover:text-sdg-red"
+            >
+              Vorschau in Shopify ↗
+            </a>
+          )}
           <button
             onClick={discard}
             disabled={committing || busy}
@@ -334,12 +350,24 @@ export function KiWorkspace({
         <div className="flex min-h-0 w-full flex-col border-t border-neutral-200 bg-white lg:w-[26rem] lg:border-l lg:border-t-0">
           {/* Verlauf */}
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-            <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
-              Schreib der KI, was geändert werden soll – so oft du willst. Du
-              kannst auch offene Kommentare unten auswählen, Bilder hochladen
-              oder einen Screenshot direkt einfügen (Strg/⌘+V). Nichts wird
-              gespeichert, bis du oben auf „Als neue Version speichern“ klickst.
-            </p>
+            {isShopify ? (
+              <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
+                Schreib der KI, was im Shopify-Theme geändert werden soll – so
+                oft du willst. Jede Änderung landet <strong>sofort im
+                Vorschau-Theme</strong> (oben „Vorschau in Shopify ↗“).
+                „Als neue Version speichern“ hält den Stand als Version fest,
+                „Verwerfen“ setzt das Theme wieder zurück. Bilder kannst du
+                hochladen oder per Strg/⌘+V einfügen – sie werden in die
+                Shopify-Dateien übernommen.
+              </p>
+            ) : (
+              <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
+                Schreib der KI, was geändert werden soll – so oft du willst. Du
+                kannst auch offene Kommentare unten auswählen, Bilder hochladen
+                oder einen Screenshot direkt einfügen (Strg/⌘+V). Nichts wird
+                gespeichert, bis du oben auf „Als neue Version speichern“ klickst.
+              </p>
+            )}
             {messages.map((m, i) => (
               <div
                 key={i}
