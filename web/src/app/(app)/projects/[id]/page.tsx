@@ -13,6 +13,7 @@ import { AnnounceButton } from "@/components/projects/AnnounceButton";
 import { ShopifyBar } from "@/components/projects/ShopifyBar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { shopifyPreviewUrl } from "@/lib/shopify/paths";
+import { proxyBaseUrl } from "@/lib/shopify/proxy";
 import {
   CommentablePreview,
   type CommentThread,
@@ -197,6 +198,7 @@ export default async function ProjectDetailPage({
             currentUserEmail={currentUserEmail}
             versions={versions}
             allowScripts={isShopify}
+            proxyBase={isShopify ? proxyBaseUrl(id) : null}
           />
         ) : (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-neutral-500">

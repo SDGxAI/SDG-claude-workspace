@@ -6,6 +6,7 @@ import { listAnthropicModels } from "@/lib/ai/models";
 import { KiWorkspace, type KiComment } from "@/components/ki/KiWorkspace";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { shopifyPreviewUrl } from "@/lib/shopify/paths";
+import { proxyBaseUrl } from "@/lib/shopify/proxy";
 
 export const dynamic = "force-dynamic";
 // Mehr Zeit für langsamere Modelle (z. B. Sonnet/Opus mit Denkstufe).
@@ -87,6 +88,7 @@ export default async function KiPage({
       openComments={openComments}
       models={models}
       shopifyPreviewUrl={previewUrl}
+      proxyBase={previewUrl ? proxyBaseUrl(id) : null}
     />
   );
 }

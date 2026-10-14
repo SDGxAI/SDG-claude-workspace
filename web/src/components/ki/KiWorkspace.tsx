@@ -49,6 +49,7 @@ export function KiWorkspace({
   openComments,
   models,
   shopifyPreviewUrl = null,
+  proxyBase = null,
 }: {
   projectId: string;
   pageId: string;
@@ -59,6 +60,8 @@ export function KiWorkspace({
   models: ModelOption[];
   /** Gesetzt bei Shopify-Projekten: Link zur echten Shopify-Vorschau. */
   shopifyPreviewUrl?: string | null;
+  /** Shopify: Durchleitung für Live-Daten der Vorschau. */
+  proxyBase?: string | null;
 }) {
   const isShopify = !!shopifyPreviewUrl;
   const router = useRouter();
@@ -338,7 +341,7 @@ export function KiWorkspace({
             >
               <iframe
                 title="Entwurf-Vorschau"
-                srcDoc={previewSrcDoc(html, { allowScripts: isShopify })}
+                srcDoc={previewSrcDoc(html, { allowScripts: isShopify, proxyBase })}
                 className="h-full min-h-[50vh] w-full bg-white"
                 sandbox={previewSandbox(isShopify)}
               />

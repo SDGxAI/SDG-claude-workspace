@@ -58,6 +58,8 @@ interface Props {
   versions: VersionMeta[];
   /** Shopify-Vorschau: Theme-Skripte ausführen (abgeschottet, ohne same-origin). */
   allowScripts?: boolean;
+  /** Shopify: Durchleitung für Live-Daten (Preise, Produktlisten …). */
+  proxyBase?: string | null;
 }
 
 function formatVersionTime(iso: string): string {
@@ -95,6 +97,7 @@ export function CommentablePreview({
   currentUserEmail,
   versions,
   allowScripts = false,
+  proxyBase = null,
 }: Props) {
   const router = useRouter();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -617,7 +620,7 @@ export function CommentablePreview({
                 <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
                   <iframe
                     title={`Version ${activeVersion.versionNo}`}
-                    srcDoc={previewSrcDoc(versionHtml, { allowScripts })}
+                    srcDoc={previewSrcDoc(versionHtml, { allowScripts, proxyBase })}
                     className="h-[70vh] w-full lg:h-[76vh]"
                     sandbox={previewSandbox(allowScripts)}
                   />
@@ -630,7 +633,7 @@ export function CommentablePreview({
                 <div className="overflow-hidden rounded-xl border border-sdg-red bg-white">
                   <iframe
                     title="Aktueller Stand"
-                    srcDoc={previewSrcDoc(previewHtml, { allowScripts })}
+                    srcDoc={previewSrcDoc(previewHtml, { allowScripts, proxyBase })}
                     className="h-[70vh] w-full lg:h-[76vh]"
                     sandbox={previewSandbox(allowScripts)}
                   />
@@ -641,7 +644,7 @@ export function CommentablePreview({
             <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
               <iframe
                 title={`Version ${activeVersion.versionNo}`}
-                srcDoc={previewSrcDoc(versionHtml, { allowScripts })}
+                srcDoc={previewSrcDoc(versionHtml, { allowScripts, proxyBase })}
                 className="h-[70vh] w-full lg:h-[76vh]"
                 sandbox={previewSandbox(allowScripts)}
               />
@@ -731,7 +734,7 @@ export function CommentablePreview({
             <iframe
               ref={iframeRef}
               title="Vorschau"
-              srcDoc={previewSrcDoc(previewHtml, { allowScripts, fixedViewport: true })}
+              srcDoc={previewSrcDoc(previewHtml, { allowScripts, fixedViewport: true, proxyBase })}
               scrolling="no"
               className="block w-full"
               style={{ height: contentHeight ? `${contentHeight}px` : "80vh" }}
