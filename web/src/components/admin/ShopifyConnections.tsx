@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   deleteShopifyConnection,
   saveShopifyConnection,
+  startShopifyAuthorization,
   testShopifyConnection,
   type ShopifyConnectionInfo,
 } from "@/lib/actions/shopify";
@@ -24,7 +25,9 @@ function ConnectionForm({
   const router = useRouter();
   const [name, setName] = useState(existing?.name ?? "");
   const [domain, setDomain] = useState(existing?.shopDomain ?? "");
-  const [authType, setAuthType] = useState<"client" | "token">(existing?.authType ?? "client");
+  const [authType, setAuthType] = useState<"client" | "token">(
+    existing?.authType === "token" ? "token" : "client",
+  );
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [token, setToken] = useState("");
@@ -53,6 +56,26 @@ function ConnectionForm({
     setMsg({ kind: "ok", text: `Verbunden mit „${res.shopName}“.` });
     router.refresh();
     onDone();
+  }
+
+  async function authorize() {
+    setBusy(true);
+    setMsg(null);
+    const res = await startShopifyAuthorization({
+      id: existing?.id,
+      name,
+      shopDomain: domain,
+      clientId,
+      clientSecret,
+      storefrontPassword: password,
+    });
+    if (!res.ok) {
+      setBusy(false);
+      setMsg({ kind: "error", text: res.error });
+      return;
+    }
+    // Weiter zu Shopify: dort Installation bestätigen, danach geht es zurück.
+    window.location.href = res.url;
   }
 
   const editing = !!existing;
@@ -164,11 +187,26 @@ function ConnectionForm({
         </p>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        {authType === "client" && (
+          <button
+            type="button"
+            onClick={authorize}
+            disabled={busy || !domain.trim()}
+            className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
+            title="Öffnet Shopify: dort die Installation bestätigen, danach geht es automatisch zurück"
+          >
+            {busy ? "Bitte warten …" : "Über Shopify freigeben ↗"}
+          </button>
+        )}
         <button
           type="submit"
           disabled={busy}
-          className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
+          className={
+            authType === "client"
+              ? "rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:border-sdg-red hover:text-sdg-red disabled:opacity-50"
+              : "rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
+          }
         >
           {busy ? "Verbindung wird geprüft …" : editing ? "Speichern & prüfen" : "Shop verbinden"}
         </button>
@@ -220,7 +258,11 @@ function ConnectionRow({ c }: { c: ShopifyConnectionInfo }) {
         <span className="font-medium text-neutral-900">{c.name}</span>
         <span className="text-sm text-neutral-500">{c.shopDomain}</span>
         <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-          {c.authType === "client" ? "Dev-Dashboard-App" : "Zugriffstoken"}
+          {c.authType === "oauth"
+            ? "Über Shopify freigegeben"
+            : c.authType === "client"
+              ? "Dev-Dashboard-App"
+              : "Zugriffstoken"}
         </span>
         {c.hasPassword && (
           <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
@@ -268,8 +310,9 @@ export function ShopifyConnections({ connections }: { connections: ShopifyConnec
       <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-5">
         <h2 className="font-medium text-neutral-900">Shop verbinden</h2>
         <p className="mb-4 mt-1 text-sm text-neutral-500">
-          Die Verbindung wird vor dem Speichern getestet. Zugangsdaten bleiben auf dem Server und
-          werden nie im Browser angezeigt.
+          Empfohlen: <strong>„Über Shopify freigeben“</strong> – Shopify zeigt dir die Berechtigungen,
+          du bestätigst die Installation und landest wieder hier. Zugangsdaten bleiben auf dem Server
+          und werden nie im Browser angezeigt.
         </p>
         <ConnectionForm key={formKey} onDone={() => setFormKey((k) => k + 1)} />
       </section>
