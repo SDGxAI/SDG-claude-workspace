@@ -38,8 +38,16 @@ export function previewSandbox(allowScripts: boolean): string {
  *   ganze Seite – Skripte sollen trotzdem mit einem normalen Bildschirm rechnen)
  * - die Seitenhöhe per postMessage an Sites melden
  */
-function bridgeScript(fixedViewport: boolean): string {
+function bridgeScript(fixedViewport: boolean, proxyBase?: string): string {
+  // Live-Anfragen an den Shop (Preise, Produktlisten …) über Sites umleiten.
+  const proxy = proxyBase
+    ? `var P=${JSON.stringify(proxyBase)};var H="";try{H=new URL(document.baseURI).host}catch(e){}
+  function rw(u){try{var x=new URL(String(u),document.baseURI);if(H&&x.host===H&&x.pathname.indexOf("/cdn/")!==0){return P+x.pathname+x.search}}catch(e){}return u}
+  if(window.fetch){var of=window.fetch;window.fetch=function(i,o){try{if(typeof i==="string"||(window.URL&&i instanceof URL)){i=rw(i)}else if(i&&i.url){var n=rw(i.url);if(n!==i.url){i=new Request(n,i)}}}catch(e){}return of.call(this,i,o)}}
+  if(window.XMLHttpRequest){var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){var a=Array.prototype.slice.call(arguments);a[1]=rw(u);return oo.apply(this,a)}}`
+    : "";
   return `(function(){
+  ${proxy}
   function mem(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}}
   ["localStorage","sessionStorage"].forEach(function(n){try{window[n].getItem("x")}catch(e){try{Object.defineProperty(window,n,{value:mem(),configurable:true})}catch(_){}}});
   try{document.cookie}catch(e){try{var c="";Object.defineProperty(document,"cookie",{get:function(){return c},set:function(){},configurable:true})}catch(_){}}
@@ -60,11 +68,11 @@ function bridgeScript(fixedViewport: boolean): string {
 /** srcDoc für eine Vorschau (Links im neuen Tab; bei Skripten mit Hilfsskript). */
 export function previewSrcDoc(
   html: string,
-  opts: { allowScripts?: boolean; fixedViewport?: boolean } = {},
+  opts: { allowScripts?: boolean; fixedViewport?: boolean; proxyBase?: string | null } = {},
 ): string {
   const linked = withBlankLinks(html);
   if (!opts.allowScripts) return linked;
-  const tag = `<script>${bridgeScript(!!opts.fixedViewport)}</script>`;
+  const tag = `<script>${bridgeScript(!!opts.fixedViewport, opts.proxyBase ?? undefined).replace(/<\//g, "<\\/")}</script>`;
   if (/<head[^>]*>/i.test(linked)) {
     // Direkt nach <head> (und einem evtl. <base>), vor allen Theme-Skripten.
     return linked.replace(/<head[^>]*>(\s*<base\b[^>]*>)?/i, (m) => `${m}${tag}`);
