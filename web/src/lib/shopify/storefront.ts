@@ -130,6 +130,24 @@ export async function fetchThemePreviewHtml(
   }
 }
 
+/**
+ * Cookie-Banner und Vorschauleiste in der Sites-Vorschau ausblenden. Die
+ * abgeschottete Vorschau kann sich keine Cookie-Zustimmung merken – der Banner
+ * würde sonst bei jedem Laden die Seite verdecken. Im echten Shop bleibt er.
+ */
+const COOKIE_BANNER_CSS = [
+  "#preview-bar-iframe", "#PBarNextFrameWrapper", ".shopify-preview-bar",
+  // Shopify-eigener Cookie-Banner
+  "#shopify-pc__banner", "#shopify-pc__prefs", ".shopify-pc__banner__dialog", ".shopify-pc__prefs__dialog",
+  // verbreitete Consent-Tools
+  "#onetrust-consent-sdk", "#onetrust-banner-sdk", "#CybotCookiebotDialog", "#CybotCookiebotDialogBodyUnderlay",
+  "#usercentrics-root", "#usercentrics-cmp-ui", "#cmpbox", "#cmpbox2", ".cmpboxBG",
+  "#pandectes-banner", ".pd-cp-ui", ".isense-cc-window", "#cookiescript_injected", "#cookiescript_injected_wrapper",
+  ".cc-window", ".cc-banner", ".cc-revoke", "#cookie-bar", "#cookie-banner", ".cookie-banner", "#cookie-consent",
+  ".cookie-consent", ".cookies-banner", "#cookie-notice", ".cookie-notice", "#gdpr-cookie-consent",
+  ".gdpr-cookie-banner", "#shopify-section-cookie-banner", "[aria-label='cookieconsent']",
+].join(",") + "{display:none!important}body{overflow-y:auto!important}";
+
 /** Angenommene Fensterhöhe der Vorschau: 1vh = 9px (≈ 900px Bildschirm). */
 const VH_PX = 9;
 
@@ -265,6 +283,7 @@ export async function preparePreviewHtml(html: string, shopDomain: string): Prom
       #preview-bar-iframe, #PBarNextFrameWrapper, .shopify-preview-bar {
         display: none !important;
       }
+      ${COOKIE_BANNER_CSS}
     </style>`,
   );
 
@@ -344,8 +363,6 @@ export function prepareLiveHtml(
   const head = $("head");
   head.prepend(`<script>${bridge.replace(/<\//g, "<\\/")}</script>`);
   head.prepend(`<base href="${shopRoot}" target="_blank">`);
-  head.append(
-    `<style id="sites-live-fix">#preview-bar-iframe,#PBarNextFrameWrapper,.shopify-preview-bar{display:none!important}</style>`,
-  );
+  head.append(`<style id="sites-live-fix">${COOKIE_BANNER_CSS}</style>`);
   return $.html();
 }
