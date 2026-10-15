@@ -144,9 +144,10 @@ export function CommentablePreview({
   // Seitenwechsel im Shop: offenen Kommentar-Entwurf/Auswahl zurücksetzen.
   useEffect(() => {
     setPending(null);
-    setSelectedId(null);
   }, [livePath]);
   const [nav, setNav] = useState<{ path: string; at: number } | null>(null);
+  // Kommentar, zu dem nach einem Seitenwechsel gescrollt werden soll.
+  const [pendingJump, setPendingJump] = useState<string | null>(null);
   const navigateTo = useCallback((path: string) => setNav({ path, at: Date.now() }), []);
   const liveFrameSrc = liveSrc
     ? nav
@@ -154,29 +155,18 @@ export function CommentablePreview({
       : liveSrc
     : null;
 
-  // Live-Ansicht: nur Kommentare der gerade angezeigten Shop-Seite.
-  const pageThreads = liveSrc
-    ? threads.filter((t) => samePath(t.pagePath || mainPath, livePath))
-    : threads;
-  // Offene Kommentare auf anderen Seiten des Shops (zum Hinspringen).
-  const otherPages = liveSrc
-    ? Object.entries(
-        threads
-          .filter((t) => t.status === "offen" && !samePath(t.pagePath || mainPath, livePath))
-          .reduce<Record<string, number>>((acc, t) => {
-            const p = t.pagePath || mainPath;
-            acc[p] = (acc[p] ?? 0) + 1;
-            return acc;
-          }, {}),
-      )
-    : [];
-
-  // In der aktuellen Ansicht nur offene Kommentare zeigen (erledigte sind
-  // in den alten Versionen weiter nachvollziehbar).
+  // Kommentarspalte: IMMER alle Kommentare (auch von anderen Shop-Seiten).
+  // Erledigte sind standardmäßig ausgeblendet (in alten Versionen sichtbar).
   const displayThreads = showDone
-    ? pageThreads
-    : pageThreads.filter((t) => t.status !== "erledigt");
-  const doneCount = pageThreads.filter((t) => t.status === "erledigt").length;
+    ? threads
+    : threads.filter((t) => t.status !== "erledigt");
+  const doneCount = threads.filter((t) => t.status === "erledigt").length;
+  // Nummerierung wie in der Liste – auch für die Pins.
+  const numberOf = new Map(displayThreads.map((t, i) => [t.id, i + 1]));
+  // Pins: in der Live-Ansicht nur die der gerade angezeigten Shop-Seite.
+  const pinThreads = liveSrc
+    ? displayThreads.filter((t) => samePath(t.pagePath || mainPath, livePath))
+    : displayThreads;
 
   const activeVersion = versions.find((v) => v.id === activeVersionId) ?? null;
 
@@ -346,6 +336,14 @@ export function CommentablePreview({
   /** Springt (in der ganzen Seite) zu der Stelle, an der ein Kommentar sitzt. */
   const scrollToThread = useCallback((thread: CommentThread) => {
     setSelectedId(thread.id);
+    if (liveSrc && !samePath(thread.pagePath || mainPath, livePath)) {
+      // Kommentar auf einer anderen Shop-Seite: dorthin wechseln (in Sites),
+      // danach zur Stelle scrollen (siehe Effekt unten).
+      setPendingJump(thread.id);
+      navigateTo(thread.pagePath || mainPath);
+      iframeRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      return;
+    }
     if (liveSrc) {
       // Live-Ansicht: im Shop-Fenster zur Stelle scrollen.
       const target = (thread.yPct / 100) * live.height - live.viewport / 2;
@@ -362,7 +360,25 @@ export function CommentablePreview({
       top: Math.max(0, target - window.innerHeight / 2),
       behavior: "smooth",
     });
-  }, [liveSrc, live.height, live.viewport]);
+  }, [liveSrc, live.height, live.viewport, livePath, mainPath, navigateTo]);
+
+  // Nach dem Seitenwechsel zur Stelle des angeklickten Kommentars scrollen.
+  useEffect(() => {
+    if (!pendingJump || !liveSrc || live.height <= 0) return;
+    const thread = threads.find((t) => t.id === pendingJump);
+    if (!thread) {
+      setPendingJump(null);
+      return;
+    }
+    if (!samePath(thread.pagePath || mainPath, livePath)) return;
+    const timer = setTimeout(() => {
+      const target = (thread.yPct / 100) * live.height - live.viewport / 2;
+      iframeRef.current?.contentWindow?.postMessage({ sitesScrollTo: Math.max(0, target) }, "*");
+      setSelectedId(thread.id);
+      setPendingJump(null);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [pendingJump, liveSrc, livePath, live.height, live.viewport, threads, mainPath]);
 
   function handleOverlayClick(e: React.MouseEvent) {
     if (!commentMode || !overlayRef.current) return;
@@ -826,21 +842,6 @@ export function CommentablePreview({
                   ↩ Zur Projektseite
                 </button>
               )}
-              {otherPages.length > 0 && (
-                <span className="flex flex-wrap items-center gap-2">
-                  Offene Kommentare auf anderen Seiten:
-                  {otherPages.map(([p, n]) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => navigateTo(p)}
-                      className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 hover:bg-amber-200"
-                    >
-                      {p} ({n})
-                    </button>
-                  ))}
-                </span>
-              )}
             </div>
           )}
           <div
@@ -884,7 +885,7 @@ export function CommentablePreview({
                       transform: `translateY(${-live.scroll}px)`,
                     }}
                   >
-            {displayThreads.map((thread, i) => (
+            {pinThreads.map((thread) => (
               <button
                 key={thread.id}
                 type="button"
@@ -903,7 +904,7 @@ export function CommentablePreview({
                 }}
                 title={thread.body}
               >
-                {i + 1}
+                {numberOf.get(thread.id)}
               </button>
             ))}
 
@@ -968,7 +969,7 @@ export function CommentablePreview({
               cursor: commentMode ? "crosshair" : "default",
             }}
           >
-            {displayThreads.map((thread, i) => (
+            {pinThreads.map((thread) => (
               <button
                 key={thread.id}
                 type="button"
@@ -987,7 +988,7 @@ export function CommentablePreview({
                 }}
                 title={thread.body}
               >
-                {i + 1}
+                {numberOf.get(thread.id)}
               </button>
             ))}
 
@@ -1098,6 +1099,22 @@ export function CommentablePreview({
                     <span className="truncate text-xs text-neutral-500">
                       {thread.authorEmail}
                     </span>
+                    {liveSrc && (
+                      <span
+                        className={`truncate rounded px-1.5 py-0.5 text-[10px] ${
+                          samePath(thread.pagePath || mainPath, livePath)
+                            ? "bg-neutral-100 text-neutral-500"
+                            : "bg-blue-50 text-blue-700"
+                        }`}
+                        title={
+                          samePath(thread.pagePath || mainPath, livePath)
+                            ? "Auf dieser Seite"
+                            : "Klicken, um zu dieser Seite zu wechseln"
+                        }
+                      >
+                        📍 {thread.pagePath || mainPath}
+                      </span>
+                    )}
                     <span
                       className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium ${
                         thread.status === "erledigt"
