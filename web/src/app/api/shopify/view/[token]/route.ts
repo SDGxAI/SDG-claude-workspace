@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { loadConnection } from "@/lib/shopify/client";
 import { fetchThemePreviewHtml, prepareLiveHtml } from "@/lib/shopify/storefront";
 import { liveBridgeScript } from "@/lib/html/previewLinks";
-import { createProxyToken, verifyProxyToken } from "@/lib/shopify/proxy";
+import { createProxyToken, isBlockedPath, verifyProxyToken } from "@/lib/shopify/proxy";
+import { normalizeShopPath } from "@/lib/shopify/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +45,17 @@ export async function GET(request: NextRequest, ctx: Ctx) {
   const conn = await loadConnection(project.shopify_connection_id);
   if (!conn) return page(404, "Der Shop ist nicht mehr verbunden.");
 
-  const res = await fetchThemePreviewHtml(conn, project.shopify_theme_id, project.shopify_path || "/", {
-    raw: true,
-  });
+  // Navigation im Shop: ?path=/collections/… (sonst Hauptseite des Projekts).
+  const requested = request.nextUrl.searchParams.get("path");
+  let path = project.shopify_path || "/";
+  if (requested) {
+    const [rawPath, rawQuery] = requested.split("?");
+    const clean = normalizeShopPath(rawPath);
+    if (isBlockedPath(clean)) return page(403, "Diese Seite kann in der Vorschau nicht geöffnet werden.");
+    path = rawQuery ? `${clean}?${rawQuery}` : clean;
+  }
+
+  const res = await fetchThemePreviewHtml(conn, project.shopify_theme_id, path, { raw: true });
   if (!res.ok) return page(502, res.error);
 
   const origin = request.nextUrl.origin;
@@ -54,7 +63,7 @@ export async function GET(request: NextRequest, ctx: Ctx) {
   const html = prepareLiveHtml(
     res.html,
     conn.shop_domain,
-    liveBridgeScript(proxyBase, project.shopify_path || "/"),
+    liveBridgeScript(proxyBase, path, `${origin}${request.nextUrl.pathname}`),
     proxyBase,
   );
   return new Response(html, {

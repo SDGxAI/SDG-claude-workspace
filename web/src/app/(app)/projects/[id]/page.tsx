@@ -79,7 +79,7 @@ export default async function ProjectDetailPage({
       await Promise.all([
         supabase
           .from("comments")
-          .select("id, parent_id, author_id, body, x_pct, y_pct, status, created_at")
+          .select("*")
           .eq("page_id", page.id)
           .order("created_at", { ascending: true }),
         supabase.from("profiles").select("id, email"),
@@ -109,6 +109,7 @@ export default async function ProjectDetailPage({
       status: c.status,
       createdAt: c.created_at,
       authorEmail: emailById.get(c.author_id ?? "") ?? "Unbekannt",
+      pagePath: c.page_path ?? null,
       replies: (repliesByParent.get(c.id) ?? []).map((r) => ({
         id: r.id,
         body: r.body,
@@ -199,6 +200,7 @@ export default async function ProjectDetailPage({
             versions={versions}
             allowScripts={isShopify}
             proxyBase={isShopify ? proxyBaseUrl(id) : null}
+            mainPath={project.shopify_path ?? "/"}
             liveSrc={
               isShopify
                 ? `${liveViewUrl(id)}?v=${encodeURIComponent(page.updated_at ?? "")}`

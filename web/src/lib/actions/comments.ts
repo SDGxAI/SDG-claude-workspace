@@ -15,6 +15,8 @@ export async function addComment(input: {
   body: string;
   xPct: number;
   yPct: number;
+  /** Shopify-Live-Ansicht: Seite im Shop (leer = Hauptseite des Projekts). */
+  pagePath?: string | null;
 }): Promise<CommentActionResult> {
   const body = input.body.trim();
   if (!body) return { ok: false, error: "Kommentar darf nicht leer sein." };
@@ -31,9 +33,15 @@ export async function addComment(input: {
     body,
     x_pct: clampPct(input.xPct),
     y_pct: clampPct(input.yPct),
+    ...(input.pagePath ? { page_path: input.pagePath.slice(0, 500) } : {}),
   });
   if (error) {
-    return { ok: false, error: "Kommentar konnte nicht gespeichert werden." };
+    return {
+      ok: false,
+      error: input.pagePath
+        ? "Kommentar konnte nicht gespeichert werden. (Ist die SQL-Datei 0016_comment_paths.sql in Supabase ausgeführt?)"
+        : "Kommentar konnte nicht gespeichert werden.",
+    };
   }
 
   revalidatePath(`/projects/${input.projectId}`);

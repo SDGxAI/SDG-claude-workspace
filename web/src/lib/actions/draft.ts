@@ -10,6 +10,8 @@ import { ingestHtmlIntoProject } from "@/lib/ingest/apply";
 import { createNotification } from "@/lib/actions/notifications";
 import {
   applyThemeInstruction,
+  contextForPath,
+  fetchProjectPreview,
   isFail,
   loadShopifyProject,
   resolveState,
@@ -105,6 +107,8 @@ export async function sendDraftInstruction(
   assetUrls: string[] = [],
   model?: string,
   effort?: Effort,
+  /** Shopify: Seite im Shop, die gerade angezeigt wird (leer = Projektseite). */
+  pagePath?: string | null,
 ): Promise<DraftResult> {
   const access = await getProjectAccess(projectId);
   if (!access?.canEdit) return { ok: false, error: "Keine Berechtigung." };
@@ -122,12 +126,14 @@ export async function sendDraftInstruction(
 
   // Ausgewählte Kommentare laden.
   let commentLines: string[] = [];
+  let commentPaths: string[] = [];
   if (commentIds.length > 0) {
     const { data: comments } = await supabase
       .from("comments")
-      .select("id, body")
+      .select("*")
       .in("id", commentIds);
     commentLines = (comments ?? []).map((c) => `- ${c.body}`);
+    commentPaths = [...new Set((comments ?? []).map((c) => c.page_path).filter((p): p is string => !!p))];
   }
 
   const parts: string[] = [];
@@ -166,13 +172,23 @@ export async function sendDraftInstruction(
     const working =
       (draft.shopify_files as ShopifyFileMap | null) ??
       ((page?.shopify_files as ShopifyFileMap) ?? {});
-    const res = await applyThemeInstruction(shop, {
-      pageHtml: draft.html,
+    // Welche Shop-Seite? Die gerade angezeigte, sonst die der gewählten
+    // Kommentare (wenn alle auf derselben Unterseite liegen).
+    const targetPath = pagePath || (commentPaths.length === 1 ? commentPaths[0] : null);
+    const target = await contextForPath(shop, targetPath);
+    if (!target.ok) return target;
+    const res = await applyThemeInstruction(target.ctx, {
+      pageHtml: target.pageHtml ?? draft.html,
       instruction,
       model,
       effort,
     });
     if (!res.ok) return res;
+    // Entwurf zeigt immer den Stand der Projektseite.
+    if (target.pageHtml !== null && Object.keys(res.changed).length > 0) {
+      const main = await fetchProjectPreview(shop);
+      res.html = main.ok ? main.html : null;
+    }
     shopifyFiles = { ...working, ...res.changed };
     const nothing = Object.keys(res.changed).length === 0;
     edited = {

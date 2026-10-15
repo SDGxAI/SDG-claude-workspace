@@ -824,3 +824,10 @@ alter table page_versions drop constraint if exists page_versions_source_check;
 alter table page_versions
   add constraint page_versions_source_check
   check (source in ('manual', 'editor', 'claude', 'umsetzen', 'import', 'ki', 'shopify'));
+
+
+-- =====================================================================
+-- 0016_comment_paths.sql  (Kommentare auf Shop-Unterseiten)
+-- =====================================================================
+
+alter table comments add column if not exists page_path text;

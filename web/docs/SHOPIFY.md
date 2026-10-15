@@ -36,6 +36,10 @@ Zugangsdaten liegen nur in der Datenbank-Tabelle `shopify_connections`
 - **Versionen:** Vor jeder ersten Änderung einer Datei merkt sich Sites das
   Original. Wiederherstellen schreibt die Theme-Dateien auf den Stand der Version
   zurück; „Verwerfen“ im KI-Chat setzt die Entwurfs-Änderungen zurück.
+- **Navigation im Shop:** In der Live-Ansicht bleiben Klicks auf Kategorien,
+  Produkte, Suche usw. im Sites-Fenster (Warenkorb/Kasse/Konto öffnen extern).
+  Kommentare merken sich die Shop-Seite (`comments.page_path`, Migration 0016);
+  „Umsetzen“ und der KI-Chat ändern die Vorlage der jeweiligen Seite.
 - **Vorschau in Shopify ↗** öffnet das echte Vorschau-Theme im Browser.
 - **Aus Shopify neu laden** holt den aktuellen Stand, z. B. nach Änderungen im
   Shopify-Theme-Editor.

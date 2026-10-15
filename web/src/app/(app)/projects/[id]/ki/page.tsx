@@ -49,7 +49,7 @@ export default async function KiPage({
   const [{ data: comments }, { data: profiles }] = await Promise.all([
     supabase
       .from("comments")
-      .select("id, author_id, body, status, parent_id, created_at")
+      .select("*")
       .eq("page_id", page.id)
       .is("parent_id", null)
       .eq("status", "offen")
@@ -61,6 +61,7 @@ export default async function KiPage({
     id: c.id,
     body: c.body,
     authorEmail: emailById.get(c.author_id ?? "") ?? "Unbekannt",
+    pagePath: c.page_path ?? null,
   }));
 
   const models = await listAnthropicModels();
