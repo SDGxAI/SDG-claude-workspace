@@ -45,6 +45,14 @@ export interface CommentThread {
     createdAt: string;
     authorEmail: string;
   }[];
+  /** Shopify: Seite im Shop, auf der kommentiert wurde (leer = Hauptseite). */
+  pagePath?: string | null;
+}
+
+/** Shop-Pfade vergleichbar machen („/collections/x/“ = „/collections/x“). */
+function samePath(a: string, b: string): boolean {
+  const norm = (p: string) => (p.length > 1 ? p.replace(/\/+(?=\?|$)/, "") : p);
+  return norm(a) === norm(b);
 }
 
 interface Props {
@@ -62,6 +70,8 @@ interface Props {
   proxyBase?: string | null;
   /** Shopify: Live-Ansicht der echten Shop-Seite (iframe-Adresse). */
   liveSrc?: string | null;
+  /** Shopify: Hauptseite des Projekts im Shop (z. B. „/“). */
+  mainPath?: string;
 }
 
 function formatVersionTime(iso: string): string {
@@ -101,6 +111,7 @@ export function CommentablePreview({
   allowScripts = false,
   proxyBase = null,
   liveSrc = null,
+  mainPath = "/",
 }: Props) {
   const router = useRouter();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -127,13 +138,45 @@ export function CommentablePreview({
   // Erledigte Kommentare sind in der aktuellen Version standardmäßig
   // ausgeblendet (nur offene). Über den Schalter kurz einblendbar.
   const [showDone, setShowDone] = useState(false);
+  // Shopify-Live-Ansicht: aktuell angezeigte Shop-Seite (Navigation im Fenster)
+  // und eine von Sites angestoßene Navigation (Sprung zu Kommentaren).
+  const [livePath, setLivePath] = useState(mainPath);
+  // Seitenwechsel im Shop: offenen Kommentar-Entwurf/Auswahl zurücksetzen.
+  useEffect(() => {
+    setPending(null);
+    setSelectedId(null);
+  }, [livePath]);
+  const [nav, setNav] = useState<{ path: string; at: number } | null>(null);
+  const navigateTo = useCallback((path: string) => setNav({ path, at: Date.now() }), []);
+  const liveFrameSrc = liveSrc
+    ? nav
+      ? `${liveSrc}${liveSrc.includes("?") ? "&" : "?"}path=${encodeURIComponent(nav.path)}&n=${nav.at}`
+      : liveSrc
+    : null;
+
+  // Live-Ansicht: nur Kommentare der gerade angezeigten Shop-Seite.
+  const pageThreads = liveSrc
+    ? threads.filter((t) => samePath(t.pagePath || mainPath, livePath))
+    : threads;
+  // Offene Kommentare auf anderen Seiten des Shops (zum Hinspringen).
+  const otherPages = liveSrc
+    ? Object.entries(
+        threads
+          .filter((t) => t.status === "offen" && !samePath(t.pagePath || mainPath, livePath))
+          .reduce<Record<string, number>>((acc, t) => {
+            const p = t.pagePath || mainPath;
+            acc[p] = (acc[p] ?? 0) + 1;
+            return acc;
+          }, {}),
+      )
+    : [];
 
   // In der aktuellen Ansicht nur offene Kommentare zeigen (erledigte sind
   // in den alten Versionen weiter nachvollziehbar).
   const displayThreads = showDone
-    ? threads
-    : threads.filter((t) => t.status !== "erledigt");
-  const doneCount = threads.filter((t) => t.status === "erledigt").length;
+    ? pageThreads
+    : pageThreads.filter((t) => t.status !== "erledigt");
+  const doneCount = pageThreads.filter((t) => t.status === "erledigt").length;
 
   const activeVersion = versions.find((v) => v.id === activeVersionId) ?? null;
 
@@ -288,6 +331,8 @@ export function CommentablePreview({
       if (!d) return;
       const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
       setLive({ height: num(d.height), scroll: num(d.scroll), viewport: num(d.viewport) });
+      const p = (d as { path?: unknown }).path;
+      if (typeof p === "string") setLivePath(p);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -337,8 +382,13 @@ export function CommentablePreview({
       body: pendingText,
       xPct: pending.x,
       yPct: pending.y,
+      ...(liveSrc && !samePath(livePath, mainPath) ? { pagePath: livePath } : {}),
     });
     setBusy(false);
+    if (!result.ok) {
+      window.alert(result.error);
+      return;
+    }
     if (result.ok) {
       setPending(null);
       setPendingText("");
@@ -761,6 +811,38 @@ export function CommentablePreview({
         {/* Vorschau mit Pin-Overlay – so hoch wie die echte Seite, man scrollt
             die ganze Seite (kein innerer Scrollbalken). */}
         <div className="min-w-0 lg:flex-1">
+          {liveSrc && (
+            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
+              <span>
+                📍 Seite im Shop: <strong className="text-neutral-800">{livePath}</strong>
+                {samePath(livePath, mainPath) ? " (Projektseite)" : ""}
+              </span>
+              {!samePath(livePath, mainPath) && (
+                <button
+                  type="button"
+                  onClick={() => navigateTo(mainPath)}
+                  className="text-sdg-red hover:underline"
+                >
+                  ↩ Zur Projektseite
+                </button>
+              )}
+              {otherPages.length > 0 && (
+                <span className="flex flex-wrap items-center gap-2">
+                  Offene Kommentare auf anderen Seiten:
+                  {otherPages.map(([p, n]) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => navigateTo(p)}
+                      className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 hover:bg-amber-200"
+                    >
+                      {p} ({n})
+                    </button>
+                  ))}
+                </span>
+              )}
+            </div>
+          )}
           <div
             className={
               view === "mobile"
@@ -774,7 +856,7 @@ export function CommentablePreview({
                 <iframe
                   ref={iframeRef}
                   title="Vorschau"
-                  src={liveSrc}
+                  src={liveFrameSrc ?? liveSrc}
                   className="block w-full"
                   style={{ height: "max(520px, calc(100vh - 9rem))" }}
                   sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"

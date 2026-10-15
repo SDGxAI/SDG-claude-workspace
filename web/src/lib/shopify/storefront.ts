@@ -87,7 +87,12 @@ export async function fetchThemePreviewHtml(
       }, false); // nur das Cookie wird gebraucht, keine Weiterleitung
     }
 
-    const target = `${base}${normalizeShopPath(path)}?preview_theme_id=${numericId}&_fd=0`;
+    // Pfad darf eine Suchanfrage enthalten (z. B. /search?q=… oder Filter).
+    const [rawPath, rawQuery] = path.split("?");
+    const query = new URLSearchParams(rawQuery ?? "");
+    query.set("preview_theme_id", numericId);
+    query.set("_fd", "0");
+    const target = `${base}${normalizeShopPath(rawPath)}?${query.toString()}`;
     const { res, finalUrl } = await request(jar, target);
 
     if (new URL(finalUrl).pathname.startsWith("/password")) {
@@ -99,7 +104,7 @@ export async function fetchThemePreviewHtml(
       };
     }
     if (res.status === 404) {
-      return { ok: false, error: `Die Seite „${normalizeShopPath(path)}“ gibt es in diesem Shop nicht (404).` };
+      return { ok: false, error: `Die Seite „${normalizeShopPath(rawPath)}“ gibt es in diesem Shop nicht (404).` };
     }
     if (res.status === 429 || res.status === 430) {
       return { ok: false, error: "Shopify bremst gerade die Abrufe (zu viele Anfragen). Bitte in einer Minute erneut versuchen." };

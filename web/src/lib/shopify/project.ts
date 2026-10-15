@@ -2,7 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadConnection, type Fail, type ShopifyConnection } from "@/lib/shopify/client";
 import { editShopifyThemeWithAI } from "@/lib/shopify/aiTheme";
-import { createShopImage, upsertThemeFiles } from "@/lib/shopify/themes";
+import { createShopImage, listThemeFiles, upsertThemeFiles } from "@/lib/shopify/themes";
+import { guessTemplateForPath } from "@/lib/shopify/paths";
 import { fetchThemePreviewHtml } from "@/lib/shopify/storefront";
 import type { Effort } from "@/lib/ai/editHtml";
 import type { ShopifyFileMap } from "@/types/database";
@@ -164,4 +165,71 @@ export async function writeThemeState(
 ): Promise<{ ok: true } | Fail> {
   const res = await upsertThemeFiles(ctx.conn, ctx.themeId, files);
   return res.ok ? { ok: true } : res;
+}
+
+/** Shop-Pfade vergleichen („/a/“ = „/a“). */
+export function sameShopPath(a: string, b: string): boolean {
+  const norm = (p: string) => (p.length > 1 ? p.replace(/\/+(?=\?|$)/, "") : p);
+  return norm(a) === norm(b);
+}
+
+const PAGE_TYPE_TEMPLATE: Record<string, string> = {
+  home: "index",
+  index: "index",
+  collection: "collection",
+  product: "product",
+  page: "page",
+  blog: "blog",
+  article: "article",
+  search: "search",
+  cart: "cart",
+  collections: "list-collections",
+  "list-collections": "list-collections",
+  captcha: "captcha",
+  "404": "404",
+};
+
+/**
+ * Welche Vorlage (templates/*.json) rendert diese Shop-Seite? Erst aus dem
+ * HTML (Template-Klasse/-Attribut bzw. Seitentyp), sonst anhand des Pfads.
+ */
+export function detectTemplate(html: string, path: string, templates: string[]): string | null {
+  const has = (name: string) => templates.includes(`templates/${name}.json`);
+  const candidates: string[] = [];
+  for (const m of html.matchAll(/data-template=["']([\w.-]+)["']/g)) candidates.push(m[1]);
+  for (const m of html.matchAll(/\btemplate-([\w-]+(?:\.[\w-]+)?)\b/g)) candidates.push(m[1]);
+  for (const c of candidates) {
+    if (has(c)) return `templates/${c}.json`;
+    const dotted = c.replace("-", ".");
+    if (has(dotted)) return `templates/${dotted}.json`;
+  }
+  const pageType = /"pageType"\s*:\s*"([\w-]+)"/.exec(html)?.[1];
+  const mapped = pageType ? PAGE_TYPE_TEMPLATE[pageType] : undefined;
+  if (mapped && has(mapped)) return `templates/${mapped}.json`;
+  return guessTemplateForPath(path.split("?")[0], templates);
+}
+
+/**
+ * Kontext für eine andere Seite des Shops (z. B. eine Kategorie): passende
+ * Vorlage ermitteln und die Seite für den KI-Überblick laden. Für die
+ * Hauptseite des Projekts bleibt alles wie gehabt (pageHtml = null).
+ */
+export async function contextForPath(
+  ctx: ShopifyProjectContext,
+  path: string | null | undefined,
+): Promise<{ ok: true; ctx: ShopifyProjectContext; pageHtml: string | null } | Fail> {
+  if (!path || sameShopPath(path, ctx.path)) return { ok: true, ctx, pageHtml: null };
+  const preview = await fetchThemePreviewHtml(ctx.conn, ctx.themeId, path, { raw: true });
+  if (!preview.ok) return preview;
+  const listed = await listThemeFiles(ctx.conn, ctx.themeId, ["templates/*.json"]);
+  if (!listed.ok) return listed;
+  const template = detectTemplate(
+    preview.html,
+    path,
+    listed.files.map((f) => f.filename),
+  );
+  if (!template) {
+    return { ok: false, error: `Für die Seite „${path}“ wurde keine passende Theme-Vorlage gefunden.` };
+  }
+  return { ok: true, ctx: { ...ctx, path, template }, pageHtml: preview.html };
 }

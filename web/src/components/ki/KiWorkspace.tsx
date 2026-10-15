@@ -17,6 +17,8 @@ export interface KiComment {
   id: string;
   body: string;
   authorEmail: string;
+  /** Shopify: Seite im Shop, auf der kommentiert wurde (leer = Projektseite). */
+  pagePath?: string | null;
 }
 
 export interface ModelOption {
@@ -74,6 +76,17 @@ export function KiWorkspace({
   useEffect(() => {
     setLiveKey((k) => k + 1);
   }, [html]);
+  // Shopify: gerade angezeigte Seite im Shop (Navigation im Vorschaufenster).
+  const [livePath, setLivePath] = useState<string | null>(null);
+  useEffect(() => {
+    if (!liveSrc) return;
+    const onMessage = (e: MessageEvent) => {
+      const p = (e.data as { sitesLive?: { path?: unknown } } | null)?.sitesLive?.path;
+      if (typeof p === "string") setLivePath(p);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [liveSrc]);
   const [messages, setMessages] = useState<DraftMessage[]>(initialMessages);
   const [text, setText] = useState("");
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -190,9 +203,11 @@ export function KiWorkspace({
         assets,
         model,
         effort,
+        livePath,
       );
       if (res.ok) {
         setHtml(res.draft.html);
+        setLiveKey((k) => k + 1);
         setMessages(res.draft.messages);
         setText("");
         setApplied((prev) => new Set([...prev, ...ids]));
@@ -314,6 +329,11 @@ export function KiWorkspace({
             >
               🔄 Vorschau aktualisieren
             </button>
+            {liveSrc && livePath && (
+              <span className="text-xs text-neutral-500" title="Änderungen per KI gelten für diese Seite des Shops">
+                📍 {livePath}
+              </span>
+            )}
             <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 bg-white">
               {(
                 [
@@ -352,7 +372,7 @@ export function KiWorkspace({
                 <iframe
                   key={liveKey}
                   title="Entwurf-Vorschau"
-                  src={`${liveSrc}?v=${liveKey}`}
+                  src={`${liveSrc}?v=${liveKey}${livePath ? `&path=${encodeURIComponent(livePath)}` : ""}`}
                   className="h-full min-h-[50vh] w-full bg-white"
                   sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
                 />
@@ -434,6 +454,7 @@ export function KiWorkspace({
                         </span>
                         <span className="block text-[10px] text-neutral-400">
                           {c.authorEmail}
+                          {c.pagePath ? ` · Seite ${c.pagePath}` : ""}
                         </span>
                       </span>
                     </label>

@@ -8,6 +8,8 @@ import { editHtmlWithAI } from "@/lib/ai/editHtml";
 import { ingestHtmlIntoProject } from "@/lib/ingest/apply";
 import {
   applyThemeInstruction,
+  contextForPath,
+  fetchProjectPreview,
   isFail,
   loadShopifyProject,
 } from "@/lib/shopify/project";
@@ -35,7 +37,7 @@ export async function umsetzenComment(
 
   const { data: comment } = await supabase
     .from("comments")
-    .select("body")
+    .select("*")
     .eq("id", commentId)
     .single();
   if (!comment) return { ok: false, error: "Kommentar nicht gefunden." };
@@ -51,8 +53,11 @@ export async function umsetzenComment(
   const shop = await loadShopifyProject(projectId);
   if (isFail(shop)) return shop;
   if (shop) {
-    const res = await applyThemeInstruction(shop, {
-      pageHtml: page.template_html,
+    // Kommentar auf einer anderen Shop-Seite (z. B. Kategorie) → deren Vorlage.
+    const target = await contextForPath(shop, comment.page_path);
+    if (!target.ok) return target;
+    const res = await applyThemeInstruction(target.ctx, {
+      pageHtml: target.pageHtml ?? page.template_html,
       instruction: comment.body,
     });
     if (!res.ok) return res;
@@ -62,10 +67,16 @@ export async function umsetzenComment(
         error: res.summary || "Die KI hat keine passende Stelle im Theme gefunden.",
       };
     }
+    // Version = Stand der Projektseite (bei Unterseiten frisch nachladen).
+    let mainHtml = page.template_html;
+    if (target.pageHtml !== null) {
+      const main = await fetchProjectPreview(shop);
+      if (main.ok) mainHtml = main.html;
+    }
     const result = await ingestHtmlIntoProject(supabase, {
       pageId,
       projectId,
-      html: res.html ?? page.template_html,
+      html: target.pageHtml === null ? (res.html ?? page.template_html) : mainHtml,
       filename: "shopify-vorschau.html",
       source: "umsetzen",
       label: `KI-Umsetzung: ${comment.body.slice(0, 80)}`,

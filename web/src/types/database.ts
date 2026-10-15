@@ -353,6 +353,8 @@ export interface Database {
           y_pct: number;
           status: CommentStatus;
           created_at: string;
+          /** Shopify: Seite im Shop, auf der kommentiert wurde (NULL = Hauptseite). */
+          page_path?: string | null;
         };
         Insert: {
           id?: string;
@@ -364,6 +366,7 @@ export interface Database {
           y_pct: number;
           status?: CommentStatus;
           created_at?: string;
+          page_path?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["comments"]["Insert"]>;
         Relationships: [];

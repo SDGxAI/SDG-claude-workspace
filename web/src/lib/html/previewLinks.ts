@@ -107,10 +107,29 @@ export function previewSrcDoc(
  * Sites melden, damit die Kommentar-Pins mitwandern. Sites kann umgekehrt
  * scrollen lassen (Sprung zu einem Kommentar, Mausrad im Kommentarmodus).
  */
-export function liveBridgeScript(proxyBase: string, pagePath = "/"): string {
+export function liveBridgeScript(proxyBase: string, pagePath = "/", viewBase = ""): string {
   return `${COOKIE_KILLER}
 (function(){
-  var P=${JSON.stringify(proxyBase)};var PAGE=${JSON.stringify(pagePath)};var H="";try{H=new URL(document.baseURI).host}catch(e){}
+  var P=${JSON.stringify(proxyBase)};var PAGE=${JSON.stringify(pagePath)};var V=${JSON.stringify(viewBase)};var H="";try{H=new URL(document.baseURI).host}catch(e){}
+  // Navigation im Shop bleibt in Sites (statt neuem Tab); Kasse/Konto nicht.
+  var BLOCK=/^\\/(cart|checkout|checkouts|account|admin|password|services\\/login|apps\\/)/i;
+  function go(p){location.href=V+"?path="+encodeURIComponent(p)}
+  if(V){
+    document.addEventListener("click",function(e){
+      if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+      var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;
+      var raw=(a.getAttribute("href")||"").trim();
+      if(raw.charAt(0)==="#"){e.preventDefault();var id=raw.slice(1);var el=id?document.getElementById(id):null;if(el){el.scrollIntoView({behavior:"smooth"})}return}
+      if(/^(mailto|tel|javascript):/i.test(raw))return;
+      var x;try{x=new URL(raw,document.baseURI)}catch(_){return}
+      if(x.host!==H||x.pathname.indexOf("/cdn/")===0||BLOCK.test(x.pathname))return;
+      e.preventDefault();go(x.pathname+x.search)},true);
+    document.addEventListener("submit",function(e){
+      var f=e.target;if(!f||f.tagName!=="FORM")return;if((f.getAttribute("method")||"get").toLowerCase()!=="get")return;
+      var x;try{x=new URL(f.getAttribute("action")||PAGE,document.baseURI)}catch(_){return}
+      if(x.host!==H||BLOCK.test(x.pathname))return;
+      e.preventDefault();var q=new URLSearchParams(new FormData(f)).toString();go(x.pathname+(q?"?"+q:""))},true);
+  }
   var errs=[];
   function rep(t){t=String(t).slice(0,300);if(errs.indexOf(t)>=0||errs.length>=40)return;errs.push(t);try{parent.postMessage({sitesLiveError:t},"*")}catch(e){}}
   function short(u){try{var x=new URL(String(u),document.baseURI);return x.pathname+x.search}catch(e){return String(u)}}
@@ -125,7 +144,7 @@ export function liveBridgeScript(proxyBase: string, pagePath = "/"): string {
   window.addEventListener("error",function(e){var t=e.target;if(t&&t!==window&&(t.src||t.href)){rep("Nicht geladen: "+short(t.src||t.href))}else{rep("Skriptfehler: "+(e.message||"?")+(e.filename?" ("+String(e.filename).split("/").pop()+":"+e.lineno+")":""))}},true);
   window.addEventListener("unhandledrejection",function(e){var r=e.reason;rep("Fehler: "+((r&&r.message)||r))});
   var last="";
-  function send(){var d=document.documentElement,b=document.body;var h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0);var s=window.scrollY||(d?d.scrollTop:0)||0;var v=window.innerHeight;var k=h+"|"+s+"|"+v;if(k!==last){last=k;try{parent.postMessage({sitesLive:{height:h,scroll:s,viewport:v}},"*")}catch(e){}}}
+  function send(){var d=document.documentElement,b=document.body;var h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0);var s=window.scrollY||(d?d.scrollTop:0)||0;var v=window.innerHeight;var k=h+"|"+s+"|"+v;if(k!==last){last=k;try{parent.postMessage({sitesLive:{height:h,scroll:s,viewport:v,path:PAGE}},"*")}catch(e){}}}
   window.addEventListener("scroll",send,{passive:true});window.addEventListener("resize",send);window.addEventListener("load",send);
   document.addEventListener("DOMContentLoaded",function(){send();if(window.ResizeObserver){try{new ResizeObserver(send).observe(document.body||document.documentElement)}catch(e){}}});
   setInterval(send,700);
