@@ -59,18 +59,48 @@ export async function getOrStartDraft(
   if (!access?.canEdit) return { ok: false, error: "Keine Berechtigung." };
 
   const supabase = await createClient();
-  const { data: existing } = await supabase
-    .from("page_drafts")
-    .select("html, messages")
-    .eq("page_id", pageId)
-    .maybeSingle();
+  const [{ data: existing }, { data: pageRow }] = await Promise.all([
+    supabase.from("page_drafts").select("*").eq("page_id", pageId).maybeSingle(),
+    supabase.from("pages").select("updated_at").eq("id", pageId).maybeSingle(),
+  ]);
 
   if (existing) {
+    const messages = (existing.messages as DraftMessage[]) ?? [];
+    // Wurde die Seite seit dem Anlegen des Entwurfs anderweitig geändert
+    // (Claude-Schnittstelle, Wiederherstellen, Editor, Umsetzen …), ist der
+    // Entwurf veraltet → auf den aktuellen Stand setzen, Chatverlauf bleibt.
+    // Ausnahme: Shopify-Entwürfe mit bereits ins Theme geschriebenen
+    // Änderungen bleiben unangetastet.
+    const stale =
+      !!pageRow?.updated_at &&
+      new Date(pageRow.updated_at).getTime() > new Date(existing.updated_at).getTime();
+    const shopifyWork =
+      !!existing.shopify_files && Object.keys(existing.shopify_files).length > 0;
+    if (stale && !shopifyWork) {
+      const freshHtml = await renderCurrentHtml(pageId);
+      if (freshHtml !== null) {
+        const now = new Date().toISOString();
+        const nextMessages: DraftMessage[] = [
+          ...messages,
+          {
+            role: "assistant",
+            content:
+              "Die Seite wurde zwischenzeitlich aktualisiert (z. B. über die Claude-Schnittstelle). Der Entwurf zeigt jetzt den neuesten Stand.",
+            at: now,
+          },
+        ];
+        await supabase
+          .from("page_drafts")
+          .update({ html: freshHtml, messages: nextMessages, updated_at: now })
+          .eq("page_id", pageId);
+        return { ok: true, draft: { html: freshHtml, messages: nextMessages } };
+      }
+    }
     return {
       ok: true,
       draft: {
         html: existing.html,
-        messages: (existing.messages as DraftMessage[]) ?? [],
+        messages,
       },
     };
   }
