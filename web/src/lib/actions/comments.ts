@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/actions/notifications";
+import { notifyAdminsOfComment } from "@/lib/commentAlerts";
 import type { CommentStatus } from "@/types/database";
 
 export type CommentActionResult = { ok: true } | { ok: false; error: string };
@@ -27,14 +28,18 @@ export async function addComment(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Nicht angemeldet." };
 
-  const { error } = await supabase.from("comments").insert({
-    page_id: input.pageId,
-    author_id: user.id,
-    body,
-    x_pct: clampPct(input.xPct),
-    y_pct: clampPct(input.yPct),
-    ...(input.pagePath ? { page_path: input.pagePath.slice(0, 500) } : {}),
-  });
+  const { data: inserted, error } = await supabase
+    .from("comments")
+    .insert({
+      page_id: input.pageId,
+      author_id: user.id,
+      body,
+      x_pct: clampPct(input.xPct),
+      y_pct: clampPct(input.yPct),
+      ...(input.pagePath ? { page_path: input.pagePath.slice(0, 500) } : {}),
+    })
+    .select("id")
+    .single();
   if (error) {
     return {
       ok: false,
@@ -43,6 +48,15 @@ export async function addComment(input: {
         : "Kommentar konnte nicht gespeichert werden.",
     };
   }
+
+  // Admins per Glocke + (gebündelter) E-Mail informieren.
+  await notifyAdminsOfComment({
+    projectId: input.projectId,
+    authorId: user.id,
+    commentId: inserted?.id ?? null,
+    body,
+    isReply: false,
+  });
 
   revalidatePath(`/projects/${input.projectId}`);
   return { ok: true };
@@ -66,17 +80,29 @@ export async function addReply(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Nicht angemeldet." };
 
-  const { error } = await supabase.from("comments").insert({
-    page_id: input.pageId,
-    parent_id: input.parentId,
-    author_id: user.id,
-    body,
-    x_pct: clampPct(input.xPct),
-    y_pct: clampPct(input.yPct),
-  });
+  const { data: inserted, error } = await supabase
+    .from("comments")
+    .insert({
+      page_id: input.pageId,
+      parent_id: input.parentId,
+      author_id: user.id,
+      body,
+      x_pct: clampPct(input.xPct),
+      y_pct: clampPct(input.yPct),
+    })
+    .select("id")
+    .single();
   if (error) {
     return { ok: false, error: "Antwort konnte nicht gespeichert werden." };
   }
+
+  await notifyAdminsOfComment({
+    projectId: input.projectId,
+    authorId: user.id,
+    commentId: inserted?.id ?? null,
+    body,
+    isReply: true,
+  });
 
   revalidatePath(`/projects/${input.projectId}`);
   return { ok: true };
