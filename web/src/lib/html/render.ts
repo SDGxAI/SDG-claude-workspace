@@ -46,8 +46,30 @@ export function renderHtml(
     $(`[data-edit-id="${id}"]`).text(value);
   }
 
+  const imageDefaults = new Map(
+    detectedElements.filter((el) => el.kind === "image").map((el) => [el.id, el.default]),
+  );
   for (const [id, value] of Object.entries(contentState.images)) {
-    $(`[data-edit-id="${id}"]`).attr("src", value);
+    const el = $(`[data-edit-id="${id}"]`);
+    el.attr("src", value);
+    // Ersetztes Bild: srcset/sizes und <picture>-Quellen entfernen – sonst
+    // zeigt der Browser weiter das ursprüngliche Bild.
+    if (imageDefaults.has(id) && imageDefaults.get(id) !== value) {
+      el.removeAttr("srcset").removeAttr("sizes").removeAttr("data-srcset");
+      el.closest("picture").find("source").remove();
+    }
+  }
+
+  // Ecken der Bilder (eckig / abgerundet / rund).
+  for (const [id, radius] of Object.entries(contentState.imageRadius ?? {})) {
+    if (!radius) continue;
+    const el = $(`[data-edit-id="${id}"]`);
+    if (!el.length) continue;
+    const style = (el.attr("style") ?? "").replace(/border-radius\s*:[^;]*;?/gi, "").trim();
+    el.attr(
+      "style",
+      `${style}${style && !style.endsWith(";") ? ";" : ""}border-radius:${radius} !important;`,
+    );
   }
 
   for (const [id, value] of Object.entries(contentState.links ?? {})) {

@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseHtmlTemplate } from "@/lib/html/parse";
 import { archiveCurrentAsVersion } from "@/lib/actions/versions";
+import { externalizeInlineImages, hasLargeInlineImages } from "@/lib/images/externalize";
 import type { Database, PageVersionSource, ShopifyFileMap } from "@/types/database";
 
 export type IngestResult =
@@ -33,9 +34,16 @@ export async function ingestHtmlIntoProject(
     return { ok: false, error: "Kein gültiges HTML übergeben." };
   }
 
+  // Eingebettete Bilder auslagern (hält die Seite klein und schnell).
+  let html = input.html;
+  if (hasLargeInlineImages(html)) {
+    const ext = await externalizeInlineImages(input.projectId, [html]);
+    html = ext.replace(html);
+  }
+
   let parsed;
   try {
-    parsed = parseHtmlTemplate(input.html);
+    parsed = parseHtmlTemplate(html);
   } catch {
     return { ok: false, error: "Das HTML konnte nicht analysiert werden." };
   }

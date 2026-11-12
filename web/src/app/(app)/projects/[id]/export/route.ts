@@ -95,7 +95,17 @@ export async function GET(
         ext: EXT_BY_MIME[mime] ?? "png",
       };
     }
-    return null; // http(s)- oder relative Pfade unverändert lassen
+    // Ausgelagerte Bilder aus dem Sites-Bilderspeicher wieder einbetten.
+    const kiAsset = /\/storage\/v1\/object\/public\/ki-assets\/([^?#]+)/.exec(value);
+    if (kiAsset) {
+      const path = decodeURIComponent(kiAsset[1]);
+      const { data } = await supabase.storage.from("ki-assets").download(path);
+      if (!data) return null;
+      const ext = extFromPath(path);
+      const mime = data.type || `image/${ext === "jpg" ? "jpeg" : ext}`;
+      return { bytes: new Uint8Array(await data.arrayBuffer()), mime, ext };
+    }
+    return null; // sonstige http(s)- oder relative Pfade unverändert lassen
   }
 
   if (format === "html") {

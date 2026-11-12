@@ -76,6 +76,8 @@ export interface ContentState {
   i18n?: Record<string, Record<string, string>>;
   /** Selbst hinzugefügte Buttons/Links. */
   customButtons?: CustomButton[];
+  /** Ecken je Bild (data-edit-id → CSS border-radius, z. B. "0px", "16px", "50%"). */
+  imageRadius?: Record<string, string>;
 }
 
 export interface Database {

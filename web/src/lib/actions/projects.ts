@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseHtmlTemplate } from "@/lib/html/parse";
+import { externalizeInlineImages, hasLargeInlineImages } from "@/lib/images/externalize";
 import { SDG_BRANDS } from "@/lib/brands";
 import type { ProjectStatus } from "@/types/database";
 
@@ -95,6 +96,18 @@ export async function createProject(input: {
       ok: false,
       error: `Das Projekt konnte nicht gespeichert werden${projectError?.message ? ` (${projectError.message})` : ""}.`,
     };
+  }
+
+  // Eingebettete Bilder auslagern (hält die Seite klein und schnell).
+  if (hasLargeInlineImages(input.html)) {
+    const ext = await externalizeInlineImages(project.id, [input.html]);
+    if (ext.uploaded > 0) {
+      try {
+        parsed = parseHtmlTemplate(ext.replace(input.html));
+      } catch {
+        /* erste Analyse beibehalten */
+      }
+    }
   }
 
   const { error: pageError } = await supabase.from("pages").insert({
