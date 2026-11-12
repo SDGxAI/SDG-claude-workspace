@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { slimDownPage } from "@/lib/images/externalize";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
 import { extractI18nKeyOrder } from "@/lib/html/i18n";
@@ -19,6 +20,20 @@ export default async function EditorPage({
   const access = await getProjectAccess(id);
   if (!access) redirect("/login");
   if (!access.role) redirect("/projects");
+
+  // Seiten mit eingebetteten Bildern einmalig verschlanken (schneller,
+  // und der Editor bleibt unter der Größengrenze des Hostings).
+  {
+    const supabaseFirst = await createClient();
+    const { data: firstPage } = await supabaseFirst
+      .from("pages")
+      .select("id")
+      .eq("project_id", id)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle();
+    if (firstPage) await slimDownPage(firstPage.id, id);
+  }
 
   const supabase = await createClient();
   // Projekt und (erste) Seite sind unabhängig und laufen parallel.

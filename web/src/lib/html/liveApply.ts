@@ -17,7 +17,24 @@ export function applyText(doc: Document, id: string, value: string) {
  */
 export function applyImage(doc: Document, id: string, value: string) {
   const el = doc.querySelector(`[data-edit-id="${cssEscape(id)}"]`);
-  if (el) el.setAttribute("src", value);
+  if (!el) return;
+  if (el.getAttribute("src") !== value) {
+    // Neues Bild: srcset/sizes und <picture>-Quellen entfernen, sonst zeigt
+    // der Browser weiter das alte Bild.
+    el.removeAttribute("srcset");
+    el.removeAttribute("sizes");
+    el.removeAttribute("data-srcset");
+    el.closest("picture")?.querySelectorAll("source").forEach((s) => s.remove());
+  }
+  el.setAttribute("src", value);
+}
+
+/** Ecken eines Bildes live setzen ("" = wie im Original). */
+export function applyImageRadius(doc: Document, id: string, radius: string) {
+  const el = doc.querySelector(`[data-edit-id="${cssEscape(id)}"]`) as HTMLElement | null;
+  if (!el) return;
+  el.style.removeProperty("border-radius");
+  if (radius) el.style.setProperty("border-radius", radius, "important");
 }
 
 /**

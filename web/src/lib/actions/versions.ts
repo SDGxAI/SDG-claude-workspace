@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import { getProjectAccess } from "@/lib/access";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  externalizeInlineImages,
+  hasLargeInlineImages,
+  replaceInJson,
+} from "@/lib/images/externalize";
 import {
   isFail,
   loadShopifyProject,
@@ -216,10 +222,39 @@ export async function getVersionHtml(
   const supabase = await createClient();
   const { data: version } = await supabase
     .from("page_versions")
-    .select("template_html, detected_elements, content_state, comments_snapshot")
+    .select("template_html, detected_elements, content_state, comments_snapshot, page_id")
     .eq("id", versionId)
     .single();
   if (!version) return { ok: false, error: "Version nicht gefunden." };
+
+  // Alte Versionen mit eingebetteten Bildern beim ersten Ansehen verschlanken.
+  if (hasLargeInlineImages(version.template_html)) {
+    const { data: pg } = await supabase
+      .from("pages")
+      .select("project_id")
+      .eq("id", version.page_id)
+      .maybeSingle();
+    if (pg) {
+      const ext = await externalizeInlineImages(pg.project_id, [
+        version.template_html,
+        JSON.stringify(version.content_state),
+        JSON.stringify(version.detected_elements),
+      ]);
+      if (ext.uploaded > 0) {
+        version.template_html = ext.replace(version.template_html);
+        version.content_state = replaceInJson(version.content_state, ext.replace);
+        version.detected_elements = replaceInJson(version.detected_elements, ext.replace);
+        await createAdminClient()
+          .from("page_versions")
+          .update({
+            template_html: version.template_html,
+            content_state: version.content_state,
+            detected_elements: version.detected_elements,
+          })
+          .eq("id", versionId);
+      }
+    }
+  }
 
   const contentState = version.content_state as ContentState;
   const resolvedImages = await resolveImages(supabase, contentState.images);

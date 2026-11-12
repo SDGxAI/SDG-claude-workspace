@@ -514,6 +514,15 @@ export function KiWorkspace({
               placeholder={'Was soll geändert werden? (z. B. „Ersetze das Hero-Bild durch …", „mach die Überschrift kürzer")'}
               className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red"
             />
+            {!isShopify && (
+              <p className="mt-1 text-[11px] text-neutral-400">
+                Hinweis: Bilder mit echten Menschen bitte nicht über die KI einbauen, sondern unter{" "}
+                <Link href={`/projects/${projectId}/editor`} className="text-sdg-red hover:underline">
+                  „Bearbeiten“ → Bilder
+                </Link>{" "}
+                selbst ersetzen (dort auch Ecken eckig/abgerundet).
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <label className="cursor-pointer rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:border-sdg-red hover:text-sdg-red">

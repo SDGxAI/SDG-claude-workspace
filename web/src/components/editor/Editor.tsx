@@ -12,6 +12,7 @@ import Link from "next/link";
 import {
   applyColor,
   applyImage,
+  applyImageRadius,
   applyText,
   applyLink,
   applyWrapLink,
@@ -98,6 +99,16 @@ function Panel({
     </section>
   );
 }
+
+/** Auswahl für die Ecken eines Bildes ("" = wie im Original). */
+const IMAGE_RADIUS_OPTIONS: [string, string][] = [
+  ["", "Original"],
+  ["0px", "Eckig"],
+  ["8px", "Leicht"],
+  ["16px", "Mittel"],
+  ["32px", "Stark"],
+  ["50%", "Rund"],
+];
 
 export function Editor({
   projectId,
@@ -253,6 +264,9 @@ export function Editor({
       for (const [id, v] of Object.entries(state.images)) {
         applyImage(doc, id, resolveImg(v));
       }
+      for (const el of images) {
+        applyImageRadius(doc, el.id, state.imageRadius?.[el.id] ?? "");
+      }
       for (const [id, v] of Object.entries(state.links ?? {})) {
         applyLink(doc, id, v);
       }
@@ -261,7 +275,7 @@ export function Editor({
       }
       applyCustomButtons(doc, state.customButtons ?? []);
     },
-    [getDoc, resolveImg, lang, texts],
+    [getDoc, resolveImg, lang, texts, images],
   );
 
   // Beim Laden der Vorschau und beim Sprachwechsel die aktuelle Sprache
@@ -444,6 +458,15 @@ export function Editor({
       },
       `i18n:${lang}:${key}`,
     );
+  }
+
+  function handleImageRadius(id: string, radius: string) {
+    const next = { ...(content.imageRadius ?? {}) };
+    if (radius) next[id] = radius;
+    else delete next[id];
+    const doc = getDoc();
+    if (doc) applyImageRadius(doc, id, radius);
+    commit({ ...content, imageRadius: next }, null);
   }
 
   async function handleImageChange(id: string, file: File) {
@@ -724,6 +747,29 @@ export function Editor({
                               }}
                             />
                           </label>
+                          {canEdit && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className="mr-0.5 text-[10px] text-neutral-400">Ecken:</span>
+                              {IMAGE_RADIUS_OPTIONS.map(([value, label]) => {
+                                const active = (content.imageRadius?.[el.id] ?? "") === value;
+                                return (
+                                  <button
+                                    key={label}
+                                    type="button"
+                                    onClick={() => handleImageRadius(el.id, value)}
+                                    className={`rounded border px-1.5 py-0.5 text-[10px] transition-colors ${
+                                      active
+                                        ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
+                                        : "border-neutral-200 text-neutral-500 hover:border-sdg-red hover:text-sdg-red"
+                                    }`}
+                                    title={value ? `border-radius: ${value}` : "Wie im Original"}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

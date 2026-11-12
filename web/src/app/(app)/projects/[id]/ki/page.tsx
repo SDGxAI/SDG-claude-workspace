@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { slimDownPage } from "@/lib/images/externalize";
 import { getProjectAccess } from "@/lib/access";
 import { getOrStartDraft } from "@/lib/actions/draft";
 import { listAnthropicModels } from "@/lib/ai/models";
@@ -40,6 +41,8 @@ export default async function KiPage({
     .maybeSingle();
   if (!page) notFound();
 
+  // Eingebettete Bilder einmalig auslagern (schnellere KI-Bearbeitung).
+  await slimDownPage(page.id, id);
   const draftRes = await getOrStartDraft(page.id, id);
   if (!draftRes.ok) {
     redirect(`/projects/${id}`);
