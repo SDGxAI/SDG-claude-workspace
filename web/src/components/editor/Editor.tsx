@@ -21,7 +21,9 @@ import {
   applyI18nValue,
 } from "@/lib/html/liveApply";
 import { savePageContent } from "@/lib/actions/pages";
-import { uploadProjectImage } from "@/lib/actions/upload";
+import { finishProjectImageUpload, prepareProjectImageUpload } from "@/lib/actions/upload";
+import { prepareImageForUpload } from "@/lib/images/prepareUpload";
+import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import { translatePageContent } from "@/lib/actions/translate";
 import type { ContentState, DetectedElement } from "@/types/database";
 
@@ -128,6 +130,7 @@ export function Editor({
   const [future, setFuture] = useState<ContentState[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadErrorId, setUploadErrorId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   // Anklicken in der Vorschau: bestehendes Element verlinken.
@@ -471,20 +474,37 @@ export function Editor({
 
   async function handleImageChange(id: string, file: File) {
     setUploadError(null);
+    setUploadErrorId(null);
     setUploadingId(id);
-    const formData = new FormData();
-    formData.append("file", file);
-    const result = await uploadProjectImage(projectId, formData);
-    setUploadingId(null);
-    if (!result.ok) {
-      setUploadError(result.error);
-      return;
+    const fail = (text: string) => {
+      setUploadError(text);
+      setUploadErrorId(id);
+    };
+    try {
+      // Große Fotos vorher verkleinern, dann DIREKT in den Speicher hochladen
+      // (am Server vorbei – keine 4,5-MB-Grenze des Hostings).
+      const prepared = await prepareImageForUpload(file);
+      const prep = await prepareProjectImageUpload(projectId, prepared.type, prepared.size);
+      if (!prep.ok) return fail(prep.error);
+      const { error } = await createBrowserSupabase()
+        .storage.from(prep.bucket)
+        .uploadToSignedUrl(prep.path, prep.token, prepared, { contentType: prepared.type });
+      if (error) return fail(`Upload fehlgeschlagen: ${error.message}`);
+      const result = await finishProjectImageUpload(projectId, prep.path);
+      if (!result.ok) return fail(result.error);
+      urlByRef.current.set(result.ref, result.url);
+      const doc = getDoc();
+      if (doc) applyImage(doc, id, result.url);
+      commit({ ...content, images: { ...content.images, [id]: result.ref } }, null);
+    } catch (err) {
+      fail(
+        `Das Bild konnte nicht hochgeladen werden${err instanceof Error && err.message ? ` (${err.message})` : ""}. Bitte erneut versuchen.`,
+      );
+    } finally {
+      setUploadingId(null);
     }
-    urlByRef.current.set(result.ref, result.url);
-    const doc = getDoc();
-    if (doc) applyImage(doc, id, result.url);
-    commit({ ...content, images: { ...content.images, [id]: result.ref } }, null);
   }
+
 
   async function handleTranslate() {
     setTranslateMsg(null);
@@ -701,7 +721,7 @@ export function Editor({
               open={openSection === "bilder"}
               onToggle={toggleSection}
             >
-              {uploadError && (
+              {uploadError && !uploadErrorId && (
                 <p className="mb-2 rounded bg-sdg-red-light px-2 py-1 text-xs text-sdg-red-dark">
                   {uploadError}
                 </p>
@@ -769,6 +789,11 @@ export function Editor({
                                 );
                               })}
                             </div>
+                          )}
+                          {uploadErrorId === el.id && uploadError && (
+                            <p className="mt-1 rounded bg-sdg-red-light px-2 py-1 text-[11px] text-sdg-red-dark">
+                              {uploadError}
+                            </p>
                           )}
                         </div>
                       </div>
