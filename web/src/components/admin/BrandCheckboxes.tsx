@@ -1,6 +1,6 @@
 "use client";
 
-/** Mehrfach-Auswahl der Marken (mit „Alle"-Schnellwahl). */
+/** Mehrfach-Auswahl der Marken als Knöpfe (mit „Alle"-Schnellwahl). */
 export function BrandCheckboxes({
   brands,
   selected,
@@ -12,36 +12,40 @@ export function BrandCheckboxes({
   onChange: (next: string[]) => void;
   disabled?: boolean;
 }) {
-  function toggle(brand: string) {
-    if (selected.includes(brand)) onChange(selected.filter((b) => b !== brand));
-    else onChange([...selected, brand]);
-  }
   const allSelected = brands.length > 0 && brands.every((b) => selected.includes(b));
+  const toggle = (brand: string) =>
+    onChange(selected.includes(brand) ? selected.filter((b) => b !== brand) : [...selected, brand]);
 
   return (
     <div>
+      <div className="flex flex-wrap gap-2">
+        {brands.map((brand) => {
+          const on = selected.includes(brand);
+          return (
+            <button
+              key={brand}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(brand)}
+              disabled={disabled}
+              className={`rounded-full border px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+                on ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
+              }`}
+            >
+              {on ? "✓ " : ""}
+              {brand}
+            </button>
+          );
+        })}
+      </div>
       <button
         type="button"
         onClick={() => onChange(allSelected ? [] : [...brands])}
         disabled={disabled}
-        className="mb-2 text-xs font-medium text-sdg-red hover:text-sdg-red-dark disabled:opacity-50"
+        className="mt-2.5 text-xs font-semibold text-sdg-red hover:text-sdg-red-dark disabled:opacity-50"
       >
-        {allSelected ? "Alle abwählen" : "Alle auswählen"}
+        {allSelected ? "Alle abwählen" : "Alle Marken auswählen"}
       </button>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        {brands.map((brand) => (
-          <label key={brand} className="flex items-center gap-1.5 text-sm text-neutral-700">
-            <input
-              type="checkbox"
-              checked={selected.includes(brand)}
-              onChange={() => toggle(brand)}
-              disabled={disabled}
-              className="accent-sdg-red"
-            />
-            {brand}
-          </label>
-        ))}
-      </div>
     </div>
   );
 }

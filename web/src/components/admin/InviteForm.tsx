@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { inviteUser, type UserRole } from "@/lib/actions/invite";
 import { BrandCheckboxes } from "@/components/admin/BrandCheckboxes";
 
-export function InviteForm({ brands }: { brands: string[] }) {
+export function InviteForm({ brands, onDone }: { brands: string[]; onDone?: () => void }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UserRole>("reviewer");
@@ -50,6 +50,7 @@ export function InviteForm({ brands }: { brands: string[] }) {
       setSelected([]);
       setRole("reviewer");
       router.refresh();
+      if (result.emailed) onDone?.();
     } else {
       setMessage({ kind: "error", text: result.error });
     }
@@ -57,25 +58,42 @@ export function InviteForm({ brands }: { brands: string[] }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-neutral-700">E-Mail-Adresse</span>
         <input
           type="email"
           required
+          autoFocus
           placeholder="name@simba-dickie.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20 sm:max-w-xs"
+          className="w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 outline-none transition focus:border-sdg-red focus:ring-4 focus:ring-sdg-red/10"
         />
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as UserRole)}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-sdg-red sm:max-w-[14rem]"
-        >
-          <option value="reviewer">Reviewer (kommentieren)</option>
-          <option value="editor">Editor (bearbeiten)</option>
-          <option value="admin">Admin (alles)</option>
-        </select>
+      </label>
+      <div>
+        <span className="mb-1.5 block text-sm font-medium text-neutral-700">Rolle</span>
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              ["reviewer", "Reviewer", "kommentieren"],
+              ["editor", "Editor", "bearbeiten"],
+              ["admin", "Admin", "alles"],
+            ] as const
+          ).map(([value, label, hint]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setRole(value)}
+              className={`rounded-2xl border-2 px-3 py-2.5 text-left transition ${
+                role === value ? "border-sdg-red bg-sdg-red-light/50" : "border-neutral-200 hover:border-neutral-300"
+              }`}
+            >
+              <div className="text-sm font-semibold text-neutral-900">{label}</div>
+              <div className="text-xs text-neutral-500">{hint}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {role === "admin" ? (
@@ -84,7 +102,7 @@ export function InviteForm({ brands }: { brands: string[] }) {
         </p>
       ) : (
         <div>
-          <p className="mb-1 text-sm font-medium text-neutral-700">Berechtigt für Marken</p>
+          <p className="mb-2 text-sm font-medium text-neutral-700">Berechtigt für Marken</p>
           <BrandCheckboxes
             brands={brands}
             selected={selected}
@@ -94,15 +112,10 @@ export function InviteForm({ brands }: { brands: string[] }) {
         </div>
       )}
 
-      <p className="text-xs text-neutral-400">
-        Die Person bekommt eine E-Mail und trägt beim Einrichten des Zugangs
-        selbst ihren Vornamen und ihr Passwort ein.
-      </p>
-
       <button
         type="submit"
         disabled={loading}
-        className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
+        className="w-full rounded-full bg-sdg-red px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
       >
         {loading ? "Wird verschickt …" : "Person einladen"}
       </button>

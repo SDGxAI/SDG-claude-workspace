@@ -30,11 +30,11 @@ export function NameEditor({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="text-sm text-neutral-500 hover:text-sdg-red"
+        className="text-left text-sm text-neutral-500 hover:text-sdg-red"
         title="Namen bearbeiten"
       >
         {currentName ? (
-          <span className="font-medium text-neutral-700">{currentName}</span>
+          <span className="font-semibold text-neutral-900">{currentName}</span>
         ) : (
           <span className="italic">Name hinzufügen</span>
         )}
@@ -50,7 +50,7 @@ export function NameEditor({
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && save()}
         placeholder="Name"
-        className="w-40 rounded border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
+        className="w-40 rounded-lg border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-sdg-red"
       />
       <button
         type="button"
