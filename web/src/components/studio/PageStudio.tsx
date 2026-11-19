@@ -63,9 +63,12 @@ const CORNERS: [string, string | null][] = [
   ["Rund", "9999px"],
 ];
 
+const PANEL_KEY = "sdg-sites-leiste";
+
 /** Hilfs-Styles in der Seite (nur in der Ansicht, werden nie gespeichert). */
 const FRAME_CSS = `
 html[data-sites-mode="comment"] *,html[data-sites-mode="pick"] *{cursor:crosshair!important}
+html[data-sites-mode="comment"] *{user-select:none!important;-webkit-user-select:none!important}
 [data-sites-hover]{outline:2px solid rgba(227,6,19,.55)!important;outline-offset:2px!important;cursor:pointer}
 [contenteditable]{outline:2px solid #e30613!important;outline-offset:2px!important;cursor:text!important}
 [data-sites-flash]{animation:sites-flash 1.6s ease-out 1}
@@ -134,6 +137,23 @@ export function PageStudio(props: Props) {
   const [old, setOld] = useState<{ meta: VersionMeta; html: string; threads: Thread[] } | null>(null);
   const [mode, setMode] = useState<Mode>("view");
   const [mobile, setMobile] = useState(false);
+  // Rechte Leiste (KI + Kommentare) ein-/ausblenden, für mehr Platz beim Ansehen.
+  const [panel, setPanel] = useState(true);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(PANEL_KEY) === "0") setPanel(false);
+    } catch {
+      /* ohne Speicher: eingeblendet */
+    }
+  }, []);
+  function togglePanel(next = !panel) {
+    setPanel(next);
+    try {
+      window.localStorage.setItem(PANEL_KEY, next ? "1" : "0");
+    } catch {
+      /* egal */
+    }
+  }
   const [layer, setLayer] = useState<ShadowRoot | HTMLElement | null>(null);
   const [pos, setPos] = useState<Record<string, Pt>>({});
   const [selected, setSelected] = useState<string | null>(null);
@@ -196,7 +216,10 @@ export function PageStudio(props: Props) {
 
   useEffect(() => {
     const p = page();
-    if (p) p.d.documentElement.setAttribute("data-sites-mode", mode);
+    if (p) {
+      p.d.documentElement.setAttribute("data-sites-mode", mode);
+      p.d.querySelectorAll("[data-sites-hover]").forEach((el) => el.removeAttribute("data-sites-hover"));
+    }
     if (mode !== "edit") editing.current?.el.blur();
     if (mode !== "edit") setPic(null);
     if (mode !== "comment") setDraft(null);
@@ -300,7 +323,8 @@ export function PageStudio(props: Props) {
       if (!p) return;
       p.d.querySelector("[data-sites-hover]")?.removeAttribute("data-sites-hover");
       const { mode: m, readOnly } = live.current;
-      if (m === "view" || readOnly) return;
+      // Beim Kommentieren nichts hervorheben – man wählt ja nichts aus.
+      if (m === "view" || m === "comment" || readOnly) return;
       const t = e.target as Element;
       const el =
         m === "edit"
@@ -627,6 +651,17 @@ export function PageStudio(props: Props) {
               ↻
             </button>
           )}
+          <button
+            onClick={() => togglePanel()}
+            className={`${tool(false)} hidden lg:inline-flex lg:items-center lg:gap-1.5`}
+            title={panel ? "Seitenleiste ausblenden – mehr Platz für die Seite" : "Kommentare und KI wieder einblenden"}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M15 4v16" />
+            </svg>
+            {panel ? "Ausblenden" : `Kommentare (${threads.filter((t) => t.status === "offen").length})`}
+          </button>
 
           {showVersions && (
             <div className="absolute left-2 top-full z-30 mt-1 max-h-[60vh] w-[26rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-neutral-200 bg-white p-2 shadow-xl">
@@ -693,6 +728,7 @@ export function PageStudio(props: Props) {
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelected(t.id);
+                    togglePanel(true); // Pin angeklickt → Kommentar zeigen
                   }}
                   title={t.body}
                   style={pinStyle(pos[t.id], t.status === "erledigt" ? "#16a34a" : "#e30613", selected === t.id)}
@@ -762,7 +798,7 @@ export function PageStudio(props: Props) {
         </div>
       )}
 
-      <StudioSidebar
+      {panel && <StudioSidebar
         projectId={projectId}
         pageId={pageId}
         threads={threads}
@@ -785,7 +821,7 @@ export function PageStudio(props: Props) {
         onPick={() => (target ? setTarget(null) : toggle("pick"))}
         onAi={runAi}
         onUndo={undo}
-      />
+      />}
     </div>
   );
 }

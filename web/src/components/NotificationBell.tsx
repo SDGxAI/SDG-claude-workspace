@@ -19,7 +19,16 @@ function formatTime(iso: string): string {
 }
 
 /** Glocke mit Anzahl ungelesener Mitteilungen + Dropdown (einzeln/alle löschbar). */
-export function NotificationBell({ items, variant = "icon" }: { items: NotificationItem[]; variant?: "icon" | "row" }) {
+export function NotificationBell({
+  items,
+  variant = "icon",
+  compact = false,
+}: {
+  items: NotificationItem[];
+  variant?: "icon" | "row";
+  /** Nur Symbol (eingeklappte Seitenleiste). */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [list, setList] = useState(items);
   const ref = useRef<HTMLDivElement>(null);
@@ -60,19 +69,23 @@ export function NotificationBell({ items, variant = "icon" }: { items: Notificat
       {variant === "row" ? (
         <button
           onClick={toggle}
-          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium transition ${
+          title="Mitteilungen"
+          className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium transition ${
             open ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600 hover:bg-white/70 hover:text-neutral-900"
           }`}
         >
           <svg className="h-[18px] w-[18px] text-neutral-400 group-hover:text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />
           </svg>
-          <span className="flex-1 text-left">Mitteilungen</span>
-          {unread > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-sdg-red px-1.5 text-[11px] font-bold text-white">
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
+          {!compact && <span className="flex-1 text-left">Mitteilungen</span>}
+          {unread > 0 &&
+            (compact ? (
+              <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-sdg-red" />
+            ) : (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-sdg-red px-1.5 text-[11px] font-bold text-white">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            ))}
         </button>
       ) : (
         <button
