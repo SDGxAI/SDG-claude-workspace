@@ -287,12 +287,12 @@ export function BriefingForm({ brands }: { brands: string[] }) {
           <p className="font-semibold text-amber-900">⚠️ Bitte keine Fotos oder Videos hochladen, auf denen Kinder zu sehen sind.</p>
           <p className="mt-1 text-sm text-amber-900/80">
             Aufnahmen mit Kindern – und sehr große Dateien über {formatBytes(BRIEFING_MAX_BYTES)} – schickst du uns bitte als
-            Transferlink (z. B. WeTransfer):
+            Transferlink aus unserem internen Transfer-Tool:
           </p>
           <input
             value={kidsLink}
             onChange={(e) => setKidsLink(e.target.value)}
-            placeholder="Transferlink einfügen, z. B. https://we.tl/…"
+            placeholder="Transferlink hier einfügen"
             className={`${input} mt-3 border-amber-200`}
           />
         </div>
