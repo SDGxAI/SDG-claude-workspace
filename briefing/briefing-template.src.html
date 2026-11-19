@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Landingpage-Briefing SDG</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F4F4F5;
+  --sheet:#FFFFFF;
+  --ink:#171717;
+  --ink-2:#4B4B52;
+  --ink-3:#6B6B73;
+  --rule:#D9D9DE;
+  --rule-soft:#ECECEF;
+  --red:#E30613;
+  --red-dark:#B8050F;
+  --red-soft:#FCE8E9;
+  --green:#2E7D32;
+  --green-soft:#E6F2E7;
+  --amber:#9A6A00;
+  --amber-soft:#FBF1D9;
+  --blue:#1F4E8C;
+  --blue-soft:#E4ECF6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#111113;--sheet:#1B1B1E;--ink:#EDEDEF;--ink-2:#B4B4BB;--ink-3:#8E8E96;
+    --rule:#2E2E33;--rule-soft:#25252A;
+    --red:#FF5A63;--red-dark:#FF8088;--red-soft:#3A1A1D;
+    --green:#7CC47F;--green-soft:#1A2A1B;--amber:#E2B654;--amber-soft:#2E2614;
+    --blue:#86AEE6;--blue-soft:#18232F;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#111113;--sheet:#1B1B1E;--ink:#EDEDEF;--ink-2:#B4B4BB;--ink-3:#8E8E96;
+  --rule:#2E2E33;--rule-soft:#25252A;
+  --red:#FF5A63;--red-dark:#FF8088;--red-soft:#3A1A1D;
+  --green:#7CC47F;--green-soft:#1A2A1B;--amber:#E2B654;--amber-soft:#2E2614;
+  --blue:#86AEE6;--blue-soft:#18232F;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:Inter,system-ui,-apple-system,sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.brandbar{background:#E30613;display:flex;justify-content:center}
+.brandbar img{display:block;height:44px;width:auto;max-width:100%}
+.page{max-width:1080px;margin:0 auto;padding:clamp(28px,5vw,56px) 16px 96px}
+@media(min-width:700px){.page{padding-left:32px;padding-right:32px}}
+.mono,.eyebrow,.sec-head .num,.sec-head .note,thead th,.tag,.kpi .lbl,.step-n{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--red)}
+h1{font-weight:800;letter-spacing:-.025em;font-size:clamp(30px,5vw,48px);line-height:1.05;margin:.35em 0 0;text-wrap:balance}
+.deck{color:var(--ink-2);font-size:clamp(16px,2vw,18.5px);max-width:64ch;margin:16px 0 0}
+h2{font-weight:700;letter-spacing:-.015em;font-size:clamp(20px,2.6vw,26px);line-height:1.2;margin:0;text-wrap:balance}
+h3{font-weight:650;font-size:15.5px;margin:0}
+p{margin:0}
+section{margin-top:clamp(44px,6vw,72px)}
+.hero{display:grid;gap:28px;align-items:end}
+@media(min-width:880px){.hero{grid-template-columns:1.05fr 1fr}}
+.hero figure{margin:0;border:1px solid var(--rule);background:var(--sheet)}
+.hero figure img{display:block;width:100%;height:auto;aspect-ratio:1024/688;object-fit:cover}
+.hero figcaption{font-size:11.5px;color:var(--ink-3);padding:8px 12px;font-family:"IBM Plex Mono",monospace}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:22px;font-size:13px;color:var(--ink-3)}
+.meta b{color:var(--ink);font-weight:600}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:34px}
+.kpi{background:var(--sheet);padding:18px 20px 20px}
+.kpi .lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.kpi .val{font-weight:800;font-size:clamp(26px,3.6vw,34px);line-height:1.05;margin-top:10px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .val.red{color:var(--red)}
+.kpi .sub{font-size:13.5px;color:var(--ink-2);margin-top:7px;line-height:1.45}
+
+.sec-head{display:flex;align-items:baseline;gap:14px;padding-bottom:12px;border-bottom:2px solid var(--ink);margin-bottom:22px;flex-wrap:wrap}
+.sec-head .num{font-size:12px;font-weight:600;color:var(--red);letter-spacing:.08em}
+.sec-head .note{margin-left:auto;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.intro{max-width:70ch;color:var(--ink-2);margin:-6px 0 20px;font-size:15px}
+
+/* Ablauf */
+.flow{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:f}
+@media(min-width:880px){.flow{grid-template-columns:repeat(6,1fr);gap:0}}
+.flow li{position:relative;background:var(--sheet);border:1px solid var(--rule);padding:16px 16px 18px}
+@media(min-width:880px){
+  .flow li{border-right:0}
+  .flow li:last-child{border-right:1px solid var(--rule)}
+  .flow li:not(:last-child)::after{content:"";position:absolute;right:-7px;top:24px;width:12px;height:12px;background:var(--sheet);border-top:1px solid var(--rule);border-right:1px solid var(--rule);transform:rotate(45deg);z-index:1}
+}
+.flow .step-n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--red-soft);color:var(--red);font-size:11px;font-weight:600}
+.flow li.you .step-n{background:var(--red);color:#fff}
+.flow h3{margin-top:10px;font-size:14.5px}
+.flow p{font-size:13px;color:var(--ink-2);margin-top:4px;line-height:1.45}
+.flow .who{display:block;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-top:8px}
+
+/* Tabellen */
+.tw{overflow-x:auto;border:1px solid var(--rule);background:var(--sheet);-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:720px}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+thead th{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--sheet)}
+tbody tr:last-child td{border-bottom:0}
+td.f{font-weight:600;font-size:14.5px;line-height:1.35;width:22%}
+td.f .tag{margin-top:6px}
+td.w{font-size:14px;color:var(--ink-2);width:40%}
+td.x{font-size:14px;width:38%}
+td.x .ph{color:var(--ink-3);font-style:italic}
+.tag{display:inline-block;font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:3px;vertical-align:1px;white-space:nowrap}
+.tag.muss{background:var(--red-soft);color:var(--red-dark)}
+.tag.kann{background:var(--rule-soft);color:var(--ink-3)}
+.tag.ok{background:var(--green-soft);color:var(--green)}
+.tag.frage{background:var(--amber-soft);color:var(--amber)}
+
+/* Module */
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.mod{background:var(--sheet);border:1px solid var(--rule);padding:16px 16px 18px;display:flex;flex-direction:column;gap:8px}
+.mod .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mod h3{font-size:14.5px}
+.mod p{font-size:13px;color:var(--ink-2);line-height:1.45}
+.mod .need{font-size:12px;color:var(--ink-3);border-top:1px dashed var(--rule);padding-top:8px;margin-top:auto}
+.mod .need b{color:var(--ink-2);font-weight:600}
+.wire{height:46px;border:1px solid var(--rule-soft);background:var(--ground);display:grid;gap:4px;padding:6px}
+.wire i{display:block;background:var(--rule);border-radius:2px}
+
+/* Checkliste */
+.check{display:grid;gap:12px}
+@media(min-width:760px){.check{grid-template-columns:1fr 1fr}}
+.box{background:var(--sheet);border:1px solid var(--rule);padding:18px 20px 20px}
+.box h3{margin-bottom:12px}
+ul.cl{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+ul.cl li{position:relative;padding-left:28px;font-size:14px;line-height:1.45}
+ul.cl li::before{content:"";position:absolute;left:0;top:2px;width:16px;height:16px;border:1.5px solid var(--ink-3);border-radius:3px}
+ul.cl li small{display:block;color:var(--ink-3);font-size:12.5px}
+
+.callout{border:1px solid var(--rule);border-top:3px solid var(--red);background:var(--sheet);padding:16px 20px;margin-top:22px}
+.callout .h{font-weight:650;font-size:14.5px;margin-bottom:5px;display:block}
+.callout p,.callout li{font-size:14.5px;color:var(--ink-2)}
+.callout.amber{border-top-color:var(--amber)}
+.callout ol{margin:6px 0 0;padding-left:1.2em;display:grid;gap:5px}
+
+.foot{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink-3);line-height:1.6}
+.printbtn{display:inline-flex;align-items:center;gap:8px;margin-top:22px;min-height:44px;padding:0 18px;border:0;border-radius:8px;background:var(--red);color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}
+.printbtn:hover{background:var(--red-dark)}
+
+@media print{
+  @page{size:A4;margin:14mm 12mm}
+  :root{--ground:#fff}
+  body{font-size:10.5pt;background:#fff}
+  .page{max-width:none;padding:0}
+  .brandbar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .printbtn{display:none}
+  .tw{overflow:visible}
+  table{min-width:0}
+  tr,.mod,.box,.flow li,.callout,.kpi{break-inside:avoid}
+  .sec-head{break-after:avoid}
+  section{margin-top:28px}
+  .hero{grid-template-columns:1.05fr 1fr}
+  .flow{grid-template-columns:repeat(6,1fr);gap:0}
+  .mods{grid-template-columns:repeat(3,1fr)}
+  .check{grid-template-columns:1fr 1fr}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="brandbar"><img src="__LOGO__" alt="SIMBA DICKIE GROUP"></div>
+<div class="page">
+
+<header class="hero">
+  <div>
+    <div class="eyebrow">Sites · Marken-Landingpages</div>
+    <h1>Muster-Briefing für eine Marken-Landingpage</h1>
+    <p class="deck">Alles, was ich brauche, um eine Landingpage ohne Rückfragen-Schleifen zu bauen. Jedes Feld ist mit einem Beispiel ausgefüllt, nämlich der Early-Access-Seite <b>Bloom Spirit</b> von Schipper.</p>
+    <div class="meta">
+      <span>Ausfüllen: <b>Marken-Team</b></span>
+      <span>Umsetzung: <b>Claude in Sites</b></span>
+      <span>Stand: <b>19.11.2026</b></span>
+    </div>
+    <button class="printbtn" type="button" onclick="window.print()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Als PDF speichern
+    </button>
+  </div>
+  <figure>
+    <img src="__COVER__" alt="Schreibtisch mit Website-Skizze, Farbmustern, Spielzeugautos und Malen-nach-Zahlen-Leinwand">
+    <figcaption>Bild: mit Higgsfield generiert</figcaption>
+  </figure>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><div class="lbl">Abschnitte</div><div class="val">13</div><div class="sub">von Projekt und Ziel bis Freigabe</div></div>
+  <div class="kpi"><div class="lbl">Pflichtfelder</div><div class="val red">24</div><div class="sub">Ohne diese Felder fange ich nicht an</div></div>
+  <div class="kpi"><div class="lbl">Ausfüllzeit</div><div class="val">ca. 45 Min.</div><div class="sub">wenn Assets und Texte schon vorliegen</div></div>
+  <div class="kpi"><div class="lbl">Erster Entwurf</div><div class="val">1–2 Tage</div><div class="sub">nach vollständigem Briefing, direkt in Sites</div></div>
+</div>
+
+<section>
+  <div class="sec-head"><span class="num">00</span><h2>So läuft es ab</h2><span class="note">vom Briefing bis live</span></div>
+  <ol class="flow">
+    <li class="you"><span class="step-n">1</span><h3>Briefing ausfüllen</h3><p>Diese Vorlage, mit Assets und Links.</p><span class="who">Marke</span></li>
+    <li><span class="step-n">2</span><h3>Vollständigkeits-Check</h3><p>Ich prüfe Pflichtfelder und Assets und melde Lücken gesammelt.</p><span class="who">Claude</span></li>
+    <li><span class="step-n">3</span><h3>Entwurf</h3><p>Erste Version als Projekt in Sites, Status „Entwurf“.</p><span class="who">Claude</span></li>
+    <li class="you"><span class="step-n">4</span><h3>Review</h3><p>Kommentare direkt auf der Seite, maximal 2 Runden.</p><span class="who">Marke · Reviewer</span></li>
+    <li><span class="step-n">5</span><h3>Recht &amp; EmpCo</h3><p>Pflichtangaben, Green Claims und Preise prüfen.</p><span class="who">Claude · Legal</span></li>
+    <li class="you"><span class="step-n">6</span><h3>Freigabe &amp; live</h3><p>Status „Live“, Export oder Shopify-Theme.</p><span class="who">Marke</span></li>
+  </ol>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">01</span><h2>Projekt &amp; Ansprechpartner</h2></div>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Marke<br><span class="tag muss">Pflicht</span></td><td class="w">Eine Marke aus der SDG-Liste. Davon hängen Design, Rechte in Sites und Reviewer ab.</td><td class="x">Schipper</td></tr>
+      <tr><td class="f">Projektname<br><span class="tag muss">Pflicht</span></td><td class="w">Kurz und eindeutig. So heißt das Projekt in Sites.</td><td class="x">Bloom Spirit – Early Access</td></tr>
+      <tr><td class="f">Ansprechpartner<br><span class="tag muss">Pflicht</span></td><td class="w">Eine Person, die Fragen beantwortet und entscheidet. Dazu den Vertreter.</td><td class="x"><span class="ph">[Name, Rolle, Vertretung]</span></td></tr>
+      <tr><td class="f">Freigabe durch<br><span class="tag muss">Pflicht</span></td><td class="w">Wer gibt final frei? Diese Person bekommt in Sites die Rolle Reviewer.</td><td class="x"><span class="ph">[Name]</span>, Brand Management Schipper</td></tr>
+      <tr><td class="f">Art der Seite<br><span class="tag muss">Pflicht</span></td><td class="w">Produkt-Launch, Early Access / Pre-Order, Kampagne, Gewinnspiel, Marken-Seite oder Jubiläum.</td><td class="x">Early Access für eine Limited Edition, danach Produktseite</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">02</span><h2>Ziel &amp; Erfolgsmessung</h2><span class="note">bestimmt den Aufbau</span></div>
+  <p class="intro">Eine Seite, ein Hauptziel. Ich ordne jeden Abschnitt danach, was den Besucher zu diesem einen Klick bringt.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Hauptziel<br><span class="tag muss">Pflicht</span></td><td class="w">Genau eins: Kauf, Registrierung / Lead, Händler finden, Awareness, Gewinnspiel-Teilnahme.</td><td class="x">Registrierung für den Early Access (Newsletter-Opt-in)</td></tr>
+      <tr><td class="f">Nebenziel</td><td class="w">Was passiert, wenn das Hauptziel nicht klappt?</td><td class="x">Besuch im Schipper-Shop („Entdecke mehr“)</td></tr>
+      <tr><td class="f">KPI &amp; Zielwert<br><span class="tag muss">Pflicht</span></td><td class="w">Woran messen wir den Erfolg? Zum Beispiel eine Conversion Rate von 2–3 % oder X Anmeldungen bis zu einem Datum.</td><td class="x"><span class="ph">[z. B. 5.000 Anmeldungen bis 13.08.]</span></td></tr>
+      <tr><td class="f">Traffic-Quellen</td><td class="w">Woher kommen die Besucher? Das bestimmt Tonalität, Mobile-Fokus und die Länge der Seite.</td><td class="x">Instagram, Newsletter-Bestand, Schipper-Shop-Banner</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">03</span><h2>Zielgruppe</h2></div>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Wer kauft?<br><span class="tag muss">Pflicht</span></td><td class="w">Käufer und Nutzer sind bei Spielzeug oft verschieden, zum Beispiel Eltern, Großeltern, Sammler oder Hobby-Erwachsene.</td><td class="x">Erwachsene Hobby-Malerinnen und -Maler, 30–65, Sammler</td></tr>
+      <tr><td class="f">Alter der Nutzer</td><td class="w">Altersempfehlung des Produkts. Wichtig für Bildsprache und Warnhinweise.</td><td class="x">Erwachsene (14+)</td></tr>
+      <tr><td class="f">Was treibt sie an?</td><td class="w">Motiv und größte Sorge vor dem Kauf. Daraus mache ich USPs und FAQ.</td><td class="x">Exklusivität, Entspannung. Sorge: „Ist es schwer?“, „Kommt es rechtzeitig?“</td></tr>
+      <tr><td class="f">Märkte &amp; Sprachen<br><span class="tag muss">Pflicht</span></td><td class="w">Länder und Sprachen. Texte in allen Sprachen liefern oder Übersetzung durch mich freigeben.</td><td class="x">DE, EN, FR</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">04</span><h2>Produkt / Angebot</h2><span class="note">harte Fakten</span></div>
+  <p class="intro">Alles, was auf der Seite als Fakt steht, muss von euch kommen. Ich erfinde keine Maße, Preise oder Stückzahlen.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Produktname &amp; Art.-Nr.<br><span class="tag muss">Pflicht</span></td><td class="w">Offizieller Name, Artikelnummer und EAN für Shop-Verlinkung und Tracking.</td><td class="x">Bloom Spirit, <span class="ph">[Art.-Nr. / EAN]</span></td></tr>
+      <tr><td class="f">Preis<br><span class="tag muss">Pflicht</span></td><td class="w">UVP inkl. MwSt., Grundpreis falls nötig. Rabatte mit Bedingung und Zeitraum.</td><td class="x"><span class="ph">[UVP]</span>, 10 % Early-Access-Rabatt</td></tr>
+      <tr><td class="f">Verfügbarkeit<br><span class="tag muss">Pflicht</span></td><td class="w">Launch-Datum, Stückzahl, Limit pro Person, Lieferzeit. Gibt es eine Nachproduktion?</td><td class="x">Early Access 13.08., Launch 14.08., 3.000 Stück weltweit, keine Nachproduktion</td></tr>
+      <tr><td class="f">USPs (3–5)<br><span class="tag muss">Pflicht</span></td><td class="w">Die stärksten Gründe zum Kauf, nach Wichtigkeit sortiert. Jeder USP muss belegbar sein.</td><td class="x">Limitiert und nummeriert · Made in Germany · erstes Motiv der Exclusive Collection</td></tr>
+      <tr><td class="f">Technische Daten</td><td class="w">Maße, Material, Lieferumfang, Schwierigkeitsgrad, Batterien, Akkulaufzeit, Maßstab.</td><td class="x"><span class="ph">[Format, Anzahl Farben, Pinsel, Echtheitszertifikat]</span></td></tr>
+      <tr><td class="f">Story</td><td class="w">Warum gibt es dieses Produkt? Ein bis drei Sätze. Die Story macht aus einer Produktseite eine Landingpage.</td><td class="x">„Manche Motive entstehen – und man weiß sofort: Das ist etwas Besonderes.“</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">05</span><h2>Botschaft &amp; Tonalität</h2></div>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Kernbotschaft<br><span class="tag muss">Pflicht</span></td><td class="w">Ein Satz, den der Besucher nach 5 Sekunden verstanden haben muss. Daraus wird die Hero-Headline.</td><td class="x">Nur 3.000 Exemplare: Sichere dir als Erster Zugang.</td></tr>
+      <tr><td class="f">Tonalität<br><span class="tag muss">Pflicht</span></td><td class="w">Du oder Sie, verspielt oder edel, laut oder ruhig. Gerne zwei bis drei Adjektive.</td><td class="x">Du · hochwertig · ruhig · exklusiv</td></tr>
+      <tr><td class="f">Do / Don't</td><td class="w">Wörter, die wir nutzen, und Wörter, die wir nicht nutzen. Dazu Themen, die tabu sind.</td><td class="x">Do: „Sammlerstück“. Don't: „billig“, „Schnäppchen“</td></tr>
+      <tr><td class="f">Pflichttexte</td><td class="w">Claims, Slogans oder Formulierungen, die exakt so stehen müssen.</td><td class="x">„Schipper Exclusive Collection“</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">06</span><h2>Seitenaufbau: Module wählen</h2><span class="note">ankreuzen: Muss / Kann / Nein</span></div>
+  <p class="intro">Diese Bausteine kann ich bauen. Markiert, welche ihr wollt. Unten steht jeweils, was ich für das Modul brauche. Die Markierung zeigt die Wahl bei Bloom Spirit.</p>
+  <div class="mods">
+    <div class="mod"><div class="top"><h3>Hero</h3><span class="tag muss">Muss</span></div><div class="wire" style="grid-template-columns:1fr 1fr"><i></i><i></i></div><p>Headline, Unterzeile, Haupt-Button, Key Visual.</p><div class="need"><b>Brauche:</b> Key Visual quer und hoch, Headline</div></div>
+    <div class="mod"><div class="top"><h3>Countdown</h3><span class="tag muss">Muss</span></div><div class="wire" style="grid-template-columns:repeat(4,1fr)"><i></i><i></i><i></i><i></i></div><p>Zeit bis Launch oder Aktionsende.</p><div class="need"><b>Brauche:</b> Datum, Uhrzeit, Zeitzone</div></div>
+    <div class="mod"><div class="top"><h3>Anmeldeformular</h3><span class="tag muss">Muss</span></div><div class="wire" style="grid-template-rows:1fr 1fr"><i></i><i></i></div><p>Newsletter, Early Access oder Gewinnspiel, mit Double-Opt-in.</p><div class="need"><b>Brauche:</b> Tool (z. B. Brevo), Liste, Danke-Text</div></div>
+    <div class="mod"><div class="top"><h3>USP-Leiste</h3><span class="tag muss">Muss</span></div><div class="wire" style="grid-template-columns:repeat(3,1fr)"><i></i><i></i><i></i></div><p>3–5 Vorteile mit Icon.</p><div class="need"><b>Brauche:</b> USPs aus Abschnitt 04</div></div>
+    <div class="mod"><div class="top"><h3>Story</h3><span class="tag muss">Muss</span></div><div class="wire" style="grid-template-columns:2fr 1fr"><i></i><i></i></div><p>Hintergrund, Entstehung, Mensch hinter dem Produkt.</p><div class="need"><b>Brauche:</b> Story-Text, 1–2 Bilder</div></div>
+    <div class="mod"><div class="top"><h3>Video</h3><span class="tag kann">Kann</span></div><div class="wire"><i></i></div><p>Produkt- oder Behind-the-Scenes-Video.</p><div class="need"><b>Brauche:</b> MP4 oder YouTube-Link, Poster-Bild</div></div>
+    <div class="mod"><div class="top"><h3>Galerie</h3><span class="tag kann">Kann</span></div><div class="wire" style="grid-template-columns:repeat(4,1fr)"><i></i><i></i><i></i><i></i></div><p>Produkt- und Stimmungsbilder.</p><div class="need"><b>Brauche:</b> 4–8 Bilder</div></div>
+    <div class="mod"><div class="top"><h3>Produktdetails</h3><span class="tag kann">Kann</span></div><div class="wire" style="grid-template-columns:1fr 1fr"><i></i><i></i></div><p>Maße, Lieferumfang, technische Daten.</p><div class="need"><b>Brauche:</b> Daten aus Abschnitt 04</div></div>
+    <div class="mod"><div class="top"><h3>Verfügbarkeit live</h3><span class="tag kann">Kann</span></div><div class="wire" style="grid-template-columns:3fr 1fr"><i></i><i></i></div><p>„850 von 3.000 noch verfügbar“ als Sticky-Leiste.</p><div class="need"><b>Brauche:</b> Lagerbestand aus Shopify</div></div>
+    <div class="mod"><div class="top"><h3>FAQ</h3><span class="tag muss">Muss</span></div><div class="wire" style="grid-template-rows:1fr 1fr 1fr"><i></i><i></i><i></i></div><p>Die 5 wichtigsten Fragen, bevor jemand nachfragen muss.</p><div class="need"><b>Brauche:</b> Fragen und Antworten (oder Freigabe meiner Vorschläge)</div></div>
+    <div class="mod"><div class="top"><h3>Social Proof</h3><span class="tag kann">Kann</span></div><div class="wire" style="grid-template-columns:repeat(3,1fr)"><i></i><i></i><i></i></div><p>Bewertungen, Presse, Auszeichnungen, Siegel.</p><div class="need"><b>Brauche:</b> Echte Zitate mit Quelle, Siegel-Dateien</div></div>
+    <div class="mod"><div class="top"><h3>Händler-Finder / Shop</h3><span class="tag kann">Kann</span></div><div class="wire" style="grid-template-columns:repeat(4,1fr)"><i></i><i></i><i></i><i></i></div><p>Shop-Links, Amazon, Händler-Logos.</p><div class="need"><b>Brauche:</b> Links und Freigabe der Händler</div></div>
+    <div class="mod"><div class="top"><h3>Cross-Selling</h3><span class="tag kann">Kann</span></div><div class="wire" style="grid-template-columns:repeat(3,1fr)"><i></i><i></i><i></i></div><p>Weitere Produkte oder Sortiment der Marke.</p><div class="need"><b>Brauche:</b> Produkt-Links oder Shopify-Kollektion</div></div>
+    <div class="mod"><div class="top"><h3>Social Links</h3><span class="tag kann">Kann</span></div><div class="wire" style="grid-template-columns:repeat(5,1fr)"><i></i><i></i><i></i><i></i><i></i></div><p>Instagram, TikTok, YouTube, Facebook.</p><div class="need"><b>Brauche:</b> Profil-URLs</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">07</span><h2>Call-to-Action &amp; Links</h2></div>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Haupt-Button<br><span class="tag muss">Pflicht</span></td><td class="w">Button-Text und Ziel. Ein Verb, das sagt, was passiert.</td><td class="x">„Early Access sichern“ → Anmeldeformular</td></tr>
+      <tr><td class="f">Zweit-Button</td><td class="w">Für alle, die noch nicht so weit sind.</td><td class="x">„Zum Schipper Shop“ → <span class="ph">[Shop-URL]</span></td></tr>
+      <tr><td class="f">Alle Ziel-URLs<br><span class="tag muss">Pflicht</span></td><td class="w">Vollständige Links, gerne mit UTM-Parametern. Platzhalter-Links gehen nicht live.</td><td class="x"><span class="ph">[Shop, Produktseite, Datenschutz, Impressum, Social]</span></td></tr>
+      <tr><td class="f">Nach der Aktion</td><td class="w">Was zeigt die Seite nach Countdown oder Ausverkauf? Wird umgeleitet?</td><td class="x">Ab 14.08. Produktseite, nach Ausverkauf Hinweis „Ausverkauft“ und Newsletter</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">08</span><h2>Assets &amp; Brand</h2><span class="note">als Checkliste</span></div>
+  <div class="check">
+    <div class="box">
+      <h3>Marke <span class="tag muss">Pflicht</span></h3>
+      <ul class="cl">
+        <li>Logo als SVG<small>dazu PNG transparent, hell und dunkel</small></li>
+        <li>Brand Guidelines<small>Farben als HEX, Schriften (Webfont-Lizenz?), Abstände</small></li>
+        <li>Siegel &amp; Icons<small>z. B. Made in Germany, Altersfreigabe, Auszeichnungen</small></li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Bilder <span class="tag muss">Pflicht</span></h3>
+      <ul class="cl">
+        <li>Key Visual quer (min. 2400 px) und hoch (min. 1200 × 1600 px)<small>Hero für Desktop und Mobile</small></li>
+        <li>Produkt freigestellt<small>PNG oder WebP, transparenter Hintergrund</small></li>
+        <li>Stimmungsbilder / Lifestyle<small>4–8 Stück, mit Nutzungsrechten für Web</small></li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Bewegtbild <span class="tag kann">Kann</span></h3>
+      <ul class="cl">
+        <li>Video als MP4 (H.264) oder YouTube-Link<small>max. 60 Sek. für die Seite, Poster-Bild dazu</small></li>
+        <li>Untertitel-Datei<small>für Autoplay ohne Ton</small></li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Mit Higgsfield erzeugen? <span class="tag frage">Entscheiden</span></h3>
+      <ul class="cl">
+        <li>Fehlende Stimmungsbilder generieren<small>Freigabe nötig, kein Ersatz für echte Produktfotos</small></li>
+        <li>Hintergründe oder Bildformate erweitern<small>z. B. Querformat aus Hochformat</small></li>
+        <li>Kurzes Hero-Video aus einem Produktbild</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout amber">
+    <span class="h">Ablage</span>
+    <p>Alle Dateien in einen Ordner (Dropbox oder Teams) mit dem Projektnamen und den Link hier eintragen: <span class="ph mono">[Link zum Asset-Ordner]</span>. Bitte Original-Dateien, keine Screenshots oder PowerPoint-Exporte.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">09</span><h2>Texte &amp; SEO</h2></div>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Wer schreibt?<br><span class="tag muss">Pflicht</span></td><td class="w">Fertige Texte von euch oder Entwurf von mir mit Freigabe durch euch.</td><td class="x">Entwurf von Claude, Freigabe durch Marke</td></tr>
+      <tr><td class="f">Fokus-Keyword</td><td class="w">Wonach sucht die Zielgruppe? Abstimmen mit RANKUS Media.</td><td class="x">„Malen nach Zahlen limitiert“</td></tr>
+      <tr><td class="f">Meta-Title &amp; Description</td><td class="w">Title bis 60 Zeichen, Description bis 155 Zeichen. Schreibe ich, wenn nichts kommt.</td><td class="x">Bloom Spirit – Early Access | Schipper Exclusive Collection</td></tr>
+      <tr><td class="f">URL / Domain<br><span class="tag muss">Pflicht</span></td><td class="w">Wo läuft die Seite? Eigene Domain, Unterseite im Shop oder Sites-Export.</td><td class="x"><span class="ph">[schipper.de/bloom-spirit]</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">10</span><h2>Recht &amp; Compliance</h2><span class="note">vor Go-live prüfen</span></div>
+  <div class="tw"><table>
+    <thead><tr><th>Thema</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Impressum &amp; Datenschutz<br><span class="tag muss">Pflicht</span></td><td class="w">Links auf die gültigen Seiten der Marke. Bei Formularen: Datenschutztext zur Einwilligung.</td><td class="x">Links zum Schipper-Impressum und zur Datenschutzerklärung</td></tr>
+      <tr><td class="f">Umweltaussagen (EmpCo)<br><span class="tag muss">Pflicht</span></td><td class="w">Begriffe wie „nachhaltig“ oder „umweltfreundlich“ nur mit Nachweis. Ich prüfe alle Texte nach EU 2024/825.</td><td class="x">Keine Umweltaussagen geplant</td></tr>
+      <tr><td class="f">Preisangaben</td><td class="w">Bei Streichpreisen den niedrigsten Preis der letzten 30 Tage nennen, Endpreise inkl. MwSt.</td><td class="x">Rabatt nur über Code, keine Streichpreise</td></tr>
+      <tr><td class="f">Warnhinweise</td><td class="w">Spielzeug-Warnhinweise (z. B. „Nicht für Kinder unter 3 Jahren“) wie auf der Verpackung.</td><td class="x"><span class="ph">[laut Verpackung]</span></td></tr>
+      <tr><td class="f">Lizenzen</td><td class="w">Bei Lizenzmarken (z. B. Marvel, Disney) die Freigabe des Lizenzgebers einplanen. Die dauert oft 1–2 Wochen.</td><td class="x">Nicht nötig, eigenes Motiv</td></tr>
+      <tr><td class="f">Gewinnspiel</td><td class="w">Teilnahmebedingungen, Laufzeit, Gewinne, Veranstalter.</td><td class="x">Kein Gewinnspiel</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">11</span><h2>Technik &amp; Tracking</h2></div>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Plattform<br><span class="tag muss">Pflicht</span></td><td class="w">Shopify-Theme (welcher Shop?) oder eigenständige HTML-Seite aus Sites.</td><td class="x">Eigenständige HTML-Seite, später Shopify</td></tr>
+      <tr><td class="f">Formular-Anbindung</td><td class="w">Newsletter-Tool, Liste und Double-Opt-in-Vorlage.</td><td class="x">Brevo, Liste „Early Access Bloom Spirit“</td></tr>
+      <tr><td class="f">Tracking</td><td class="w">GA4, Meta Pixel, TikTok Pixel, Conversion-Events. Nur mit Cookie-Banner.</td><td class="x"><span class="ph">[GA4-ID, Pixel-ID]</span>, Event „Anmeldung“</td></tr>
+      <tr><td class="f">Live-Daten</td><td class="w">Bestand, Preise oder Countdown-Ende aus Shopify?</td><td class="x">Nein, erst auf der Produktseite</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">12</span><h2>Zeitplan &amp; Freigabe</h2></div>
+  <div class="tw"><table>
+    <thead><tr><th>Meilenstein</th><th>Was passiert</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Briefing vollständig<br><span class="tag muss">Pflicht</span></td><td class="w">Alle Pflichtfelder und Assets da</td><td class="x"><span class="ph">[Datum]</span></td></tr>
+      <tr><td class="f">Erster Entwurf</td><td class="w">1–2 Werktage nach vollständigem Briefing</td><td class="x"><span class="ph">[Datum]</span></td></tr>
+      <tr><td class="f">Feedback-Runden</td><td class="w">Maximal 2, Kommentare gesammelt in Sites</td><td class="x"><span class="ph">[Datum 1 / Datum 2]</span></td></tr>
+      <tr><td class="f">Go-live<br><span class="tag muss">Pflicht</span></td><td class="w">Fester Termin mit Uhrzeit</td><td class="x">Early Access: 13.08., Launch: 14.08.</td></tr>
+      <tr><td class="f">Laufzeit-Ende</td><td class="w">Wann geht die Seite offline oder wird umgebaut?</td><td class="x"><span class="ph">[nach Ausverkauf]</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout">
+    <span class="h">Die 5 häufigsten Gründe, warum eine Seite später fertig wird</span>
+    <ol>
+      <li>Key Visual fehlt oder ist zu klein. Deshalb gibt es keinen sauberen Hero auf Mobile.</li>
+      <li>Kein festes Hauptziel. Dann hat die Seite drei gleich starke Buttons.</li>
+      <li>Preis, Stückzahl oder Datum ändern sich nach dem Entwurf.</li>
+      <li>Links und Tracking-IDs kommen erst am Go-live-Tag.</li>
+      <li>Mehr als eine Person gibt Feedback, und das Feedback widerspricht sich.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="num">13</span><h2>Inspiration &amp; Referenzen</h2><span class="note">optional, hilft viel</span></div>
+  <div class="tw"><table>
+    <thead><tr><th>Feld</th><th>Was ich brauche &amp; warum</th><th>Beispiel · Bloom Spirit</th></tr></thead>
+    <tbody>
+      <tr><td class="f">Gefällt uns</td><td class="w">2–3 Links zu Seiten, die euch gefallen. Dazu ein Satz, was genau gefällt.</td><td class="x"><span class="ph">[URL + „ruhige Bildsprache, große Fotos“]</span></td></tr>
+      <tr><td class="f">Gefällt uns nicht</td><td class="w">Genauso wichtig. Das spart eine ganze Feedback-Runde.</td><td class="x"><span class="ph">[URL + „zu laut, zu viele Pop-ups“]</span></td></tr>
+      <tr><td class="f">Bestehende Seiten</td><td class="w">Frühere Landingpages der Marke, an die wir anknüpfen.</td><td class="x">50 Jahre AquaPlay, Malen nach Zahlen Foto-Generator</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<p class="foot">
+  Muster-Briefing für Marken-Landingpages der SIMBA DICKIE GROUP · Version 1, 19.11.2026<br>
+  Beispielwerte stammen von der Seite „Bloom Spirit – Early Access“ (Schipper). Felder in <i>[eckigen Klammern]</i> waren dort nicht hinterlegt und müssen von der Marke ergänzt werden.
+</p>
+
+</div>
+</body>
+</html>
