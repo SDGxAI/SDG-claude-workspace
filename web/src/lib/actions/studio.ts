@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getProjectAccess } from "@/lib/access";
+import { getCurrentProfile as getCurrentProfileSafe } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { askClaude, parseJson } from "@/lib/ai/claude";
+import { askClaude, defaultModel, listModels, parseJson } from "@/lib/ai/claude";
 import {
   aiView,
   appendCss,
@@ -309,4 +310,12 @@ export async function saveAnchors(
         .eq("page_id", page.id),
     ),
   );
+}
+
+/** KI-Modelle für die Auswahl – wird erst geladen, wenn die Seite schon steht. */
+export async function getAiModels(): Promise<{ models: { id: string; label: string }[]; defaultModel: string }> {
+  const access = await getCurrentProfileSafe();
+  if (!access) return { models: [], defaultModel: "" };
+  const [models, model] = await Promise.all([listModels(), defaultModel()]);
+  return { models, defaultModel: model };
 }

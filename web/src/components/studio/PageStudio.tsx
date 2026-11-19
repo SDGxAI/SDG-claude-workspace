@@ -121,8 +121,6 @@ interface Props {
   canComment: boolean;
   canEdit: boolean;
   currentUserEmail: string;
-  models: { id: string; label: string }[];
-  defaultModel: string;
 }
 
 export function PageStudio(props: Props) {
@@ -842,8 +840,6 @@ export function PageStudio(props: Props) {
         canComment={canComment}
         canEdit={canEdit}
         currentUserEmail={props.currentUserEmail}
-        models={props.models}
-        defaultModel={props.defaultModel}
         aiBusy={aiBusy}
         log={log}
         target={target}

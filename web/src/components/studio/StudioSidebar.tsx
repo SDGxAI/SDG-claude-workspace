@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getAiModels } from "@/lib/actions/studio";
 import {
   addReply,
   deleteComment,
@@ -37,8 +38,6 @@ interface Props {
   canComment: boolean;
   canEdit: boolean;
   currentUserEmail: string;
-  models: { id: string; label: string }[];
-  defaultModel: string;
   aiBusy: string | null;
   log: AiLogEntry[];
   target: { sid: string; label: string } | null;
@@ -54,17 +53,33 @@ const when = (iso: string) =>
 
 export function StudioSidebar(p: Props) {
   const router = useRouter();
-  const [model, setModel] = useState(p.defaultModel);
+  const [models, setModels] = useState<{ id: string; label: string }[]>([]);
+  const [model, setModel] = useState("");
   const [text, setText] = useState("");
   const [reply, setReply] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const list = useRef<HTMLDivElement>(null);
 
+  // Modellliste erst nach dem Laden der Seite holen (nicht im Ladeweg).
   useEffect(() => {
-    const saved = window.localStorage.getItem(MODEL_KEY);
-    if (saved && p.models.some((m) => m.id === saved)) setModel(saved);
-  }, [p.models]);
+    if (!p.canEdit) return;
+    let alive = true;
+    void getAiModels().then((r) => {
+      if (!alive) return;
+      setModels(r.models);
+      let saved: string | null = null;
+      try {
+        saved = window.localStorage.getItem(MODEL_KEY);
+      } catch {
+        /* ohne Speicher */
+      }
+      setModel(saved && r.models.some((m) => m.id === saved) ? saved : r.defaultModel);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [p.canEdit]);
 
   // Angeklickter Pin → zugehörige Karte in den Blick holen.
   useEffect(() => {
@@ -97,17 +112,21 @@ export function StudioSidebar(p: Props) {
         <div className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-neutral-900">✨ Mit KI ändern</span>
-            {p.models.length > 0 && (
+            {models.length > 0 && (
               <select
                 value={model}
                 onChange={(e) => {
                   setModel(e.target.value);
-                  window.localStorage.setItem(MODEL_KEY, e.target.value);
+                  try {
+                    window.localStorage.setItem(MODEL_KEY, e.target.value);
+                  } catch {
+                    /* egal */
+                  }
                 }}
                 className="max-w-[11rem] rounded-md border border-neutral-200 bg-white px-1.5 py-1 text-[11px] text-neutral-600"
                 title="KI-Modell (schnellere Modelle antworten in wenigen Sekunden)"
               >
-                {p.models.map((m) => (
+                {models.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.label}
                   </option>
