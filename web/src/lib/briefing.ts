@@ -1,7 +1,13 @@
 import type { BriefingAiText, BriefingStatus } from "@/types/database";
 
-/** Größte Datei, die direkt hochgeladen werden kann (größer → Transferlink). */
-export const BRIEFING_MAX_BYTES = 50 * 1024 * 1024;
+/**
+ * Größte Datei, die direkt hochgeladen werden kann (größer → Transferlink).
+ * Standard 50 MB (Grenze des kostenlosen Supabase-Tarifs). Nach einem
+ * Tarif-Wechsel in Vercel NEXT_PUBLIC_BRIEFING_MAX_MB setzen (z. B. 500) und
+ * neu veröffentlichen – passend zur Upload-Grenze in Supabase.
+ */
+export const BRIEFING_MAX_BYTES =
+  (Number(process.env.NEXT_PUBLIC_BRIEFING_MAX_MB) > 0 ? Number(process.env.NEXT_PUBLIC_BRIEFING_MAX_MB) : 50) * 1024 * 1024;
 
 export const BRIEFING_STATUS: Record<BriefingStatus, { label: string; className: string }> = {
   neu: { label: "Neu", className: "bg-sky-50 text-sky-700" },
@@ -11,7 +17,8 @@ export const BRIEFING_STATUS: Record<BriefingStatus, { label: string; className:
 
 export function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
-  return `${(n / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
+  const mb = n / 1024 / 1024;
+  return `${(Number.isInteger(mb) ? String(mb) : mb.toFixed(1)).replace(".", ",")} MB`;
 }
 
 /** KI-Text als einfacher Fließtext (zum Kopieren, z. B. in Claude). */

@@ -59,8 +59,8 @@ export interface BriefingInput {
   title: string;
   goLive?: string;
   productInfo: string;
-  productUrl?: string;
-  keywords?: string;
+  /** „Was ist dir wichtig?“ – gewählte Punkte und/oder eigene Worte. */
+  important?: string;
   ownText?: string;
   wantsAiText: boolean;
   files: BriefingFile[];
@@ -96,16 +96,12 @@ export async function submitBriefing(input: BriefingInput): Promise<{ ok: true; 
   if (input.kidsTransferLink?.trim() && !kidsLink) return { ok: false, error: "Der Transferlink ist keine gültige Adresse." };
   const goLive = /^\d{4}-\d{2}-\d{2}$/.test(input.goLive ?? "") ? input.goLive! : null;
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("briefings")
-    .insert({
+  const important = text(input.important, 1000);
+  const row = {
       brand: input.brand,
       title,
       go_live: goLive,
       product_info: productInfo,
-      product_url: cleanUrl(input.productUrl),
-      keywords: text(input.keywords, 500),
       own_text: ownText,
       wants_ai_text: input.wantsAiText,
       files,
@@ -113,9 +109,21 @@ export async function submitBriefing(input: BriefingInput): Promise<{ ok: true; 
       inspiration_urls: (input.inspirationUrls ?? []).map(cleanUrl).filter((u): u is string => !!u).slice(0, 5),
       inspiration_note: text(input.inspirationNote, 1000),
       created_by: me.id,
-    })
+  };
+  const supabase = await createClient();
+  let { data, error } = await supabase
+    .from("briefings")
+    .insert({ ...row, important })
     .select("id")
     .single();
+  // Spalte „important“ fehlt noch (ältere SQL-Datei) → Angabe in die Produktinfos.
+  if (error && important && /important/i.test(error.message)) {
+    ({ data, error } = await supabase
+      .from("briefings")
+      .insert({ ...row, product_info: `${productInfo}\n\nWas mir wichtig ist: ${important}` })
+      .select("id")
+      .single());
+  }
   if (error || !data) {
     return {
       ok: false,
@@ -248,8 +256,7 @@ export async function generateBriefingText(id: string): Promise<{ ok: true; text
     system: TEXT_SYSTEM,
     user:
       `Marke: ${b.brand}\nProdukt / Aktion: ${b.title}\n` +
-      (b.product_url ? `Produktseite: ${b.product_url}\n` : "") +
-      (b.keywords ? `Wichtige Suchbegriffe: ${b.keywords}\n` : "") +
+      (b.important ? `Was der Marke wichtig ist: ${b.important}\n` : "") +
       `\nProduktinfos:\n${b.product_info}\n` +
       (b.own_text ? `\nVorhandener Text der Marke (Inhalte übernehmen, sprachlich optimieren):\n${b.own_text}\n` : "") +
       (b.inspiration_note ? `\nWas der Marke an ihren Vorbildern gefällt: ${b.inspiration_note}\n` : ""),

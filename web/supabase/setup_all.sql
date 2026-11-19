@@ -848,8 +848,7 @@ create table if not exists briefings (
   title text not null,
   go_live date,
   product_info text not null,
-  product_url text,
-  keywords text,
+  important text,
   own_text text,
   wants_ai_text boolean not null default true,
   files jsonb not null default '[]'::jsonb,
@@ -862,6 +861,8 @@ create table if not exists briefings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table briefings add column if not exists important text;
 
 create index if not exists briefings_created_idx on briefings (created_at desc);
 
