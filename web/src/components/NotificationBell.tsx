@@ -19,7 +19,7 @@ function formatTime(iso: string): string {
 }
 
 /** Glocke mit Anzahl ungelesener Mitteilungen + Dropdown (einzeln/alle löschbar). */
-export function NotificationBell({ items }: { items: NotificationItem[] }) {
+export function NotificationBell({ items, variant = "icon" }: { items: NotificationItem[]; variant?: "icon" | "row" }) {
   const [open, setOpen] = useState(false);
   const [list, setList] = useState(items);
   const ref = useRef<HTMLDivElement>(null);
@@ -57,22 +57,45 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        onClick={toggle}
-        className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-sdg-red"
-        title="Mitteilungen"
-        aria-label="Mitteilungen"
-      >
-        <span className="text-lg leading-none">🔔</span>
-        {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-sdg-red px-1 text-[10px] font-bold text-white">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        )}
-      </button>
+      {variant === "row" ? (
+        <button
+          onClick={toggle}
+          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium transition ${
+            open ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600 hover:bg-white/70 hover:text-neutral-900"
+          }`}
+        >
+          <svg className="h-[18px] w-[18px] text-neutral-400 group-hover:text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+          <span className="flex-1 text-left">Mitteilungen</span>
+          {unread > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-sdg-red px-1.5 text-[11px] font-bold text-white">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </button>
+      ) : (
+        <button
+          onClick={toggle}
+          className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-sdg-red"
+          title="Mitteilungen"
+          aria-label="Mitteilungen"
+        >
+          <span className="text-lg leading-none">🔔</span>
+          {unread > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-sdg-red px-1 text-[10px] font-bold text-white">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </button>
+      )}
 
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
+        <div
+          className={`absolute z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl ${
+            variant === "row" ? "bottom-full left-0 mb-2 lg:bottom-0 lg:left-full lg:mb-0 lg:ml-3" : "right-0 mt-2"
+          }`}
+        >
           <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-2">
             <span className="text-sm font-medium text-neutral-700">Mitteilungen</span>
             {list.length > 0 && (

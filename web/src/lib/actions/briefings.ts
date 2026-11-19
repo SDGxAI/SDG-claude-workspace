@@ -61,6 +61,7 @@ export interface BriefingInput {
   productInfo: string;
   /** „Was ist dir wichtig?“ – gewählte Punkte und/oder eigene Worte. */
   important?: string;
+  articleNumber?: string;
   ownText?: string;
   wantsAiText: boolean;
   files: BriefingFile[];
@@ -96,10 +97,14 @@ export async function submitBriefing(input: BriefingInput): Promise<{ ok: true; 
   if (input.kidsTransferLink?.trim() && !kidsLink) return { ok: false, error: "Der Transferlink ist keine gültige Adresse." };
   const goLive = /^\d{4}-\d{2}-\d{2}$/.test(input.goLive ?? "") ? input.goLive! : null;
 
-  const important = text(input.important, 1000);
-  const row = {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("briefings")
+    .insert({
       brand: input.brand,
       title,
+      article_number: text(input.articleNumber, 60),
+      important: text(input.important, 1000),
       go_live: goLive,
       product_info: productInfo,
       own_text: ownText,
@@ -109,26 +114,14 @@ export async function submitBriefing(input: BriefingInput): Promise<{ ok: true; 
       inspiration_urls: (input.inspirationUrls ?? []).map(cleanUrl).filter((u): u is string => !!u).slice(0, 5),
       inspiration_note: text(input.inspirationNote, 1000),
       created_by: me.id,
-  };
-  const supabase = await createClient();
-  let { data, error } = await supabase
-    .from("briefings")
-    .insert({ ...row, important })
+    })
     .select("id")
     .single();
-  // Spalte „important“ fehlt noch (ältere SQL-Datei) → Angabe in die Produktinfos.
-  if (error && important && /important/i.test(error.message)) {
-    ({ data, error } = await supabase
-      .from("briefings")
-      .insert({ ...row, product_info: `${productInfo}\n\nWas mir wichtig ist: ${important}` })
-      .select("id")
-      .single());
-  }
   if (error || !data) {
     return {
       ok: false,
       error: /relation|briefings/i.test(error?.message ?? "")
-        ? "Briefings sind noch nicht eingerichtet (SQL-Datei 0018 in Supabase ausführen)."
+        ? "Briefings sind noch nicht vollständig eingerichtet (SQL-Datei 0018 in Supabase ausführen)."
         : "Das Briefing konnte nicht gespeichert werden. Bitte erneut versuchen.",
     };
   }
@@ -256,6 +249,7 @@ export async function generateBriefingText(id: string): Promise<{ ok: true; text
     system: TEXT_SYSTEM,
     user:
       `Marke: ${b.brand}\nProdukt / Aktion: ${b.title}\n` +
+      (b.article_number ? `Artikelnummer: ${b.article_number}\n` : "") +
       (b.important ? `Was der Marke wichtig ist: ${b.important}\n` : "") +
       `\nProduktinfos:\n${b.product_info}\n` +
       (b.own_text ? `\nVorhandener Text der Marke (Inhalte übernehmen, sprachlich optimieren):\n${b.own_text}\n` : "") +

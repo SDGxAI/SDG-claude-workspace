@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 export interface AppProfile {
   id: string;
   email: string | null;
+  name: string | null;
   is_admin: boolean;
   must_change_password: boolean;
   avatar_url: string | null;
@@ -37,7 +38,7 @@ export const getCurrentProfile = cache(async (): Promise<AppProfile | null> => {
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, email, is_admin, must_change_password, avatar_url")
+    .select("id, email, name, is_admin, must_change_password, avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -46,6 +47,7 @@ export const getCurrentProfile = cache(async (): Promise<AppProfile | null> => {
     return {
       id: user.id,
       email: user.email ?? null,
+      name: null,
       is_admin: false,
       must_change_password: false,
       avatar_url: null,

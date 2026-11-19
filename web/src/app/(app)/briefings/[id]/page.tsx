@@ -53,6 +53,9 @@ export default async function BriefingPage({ params }: { params: Promise<{ id: s
           <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
         </div>
         <h1 className="mt-3 text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">{b.title}</h1>
+        {b.article_number && (
+          <p className="mt-2 inline-block rounded-full bg-white/80 px-3 py-1 font-mono text-sm text-neutral-800">Art.-Nr. {b.article_number}</p>
+        )}
         <p className="mt-2 text-sm text-neutral-700">
           Eingereicht am {date(b.created_at)}
           {author ? ` von ${author.name?.trim() || author.email}` : ""}
@@ -151,6 +154,7 @@ export default async function BriefingPage({ params }: { params: Promise<{ id: s
             status: b.status as BriefingStatus,
             productInfo: b.product_info,
             important: b.important,
+            articleNumber: b.article_number,
             ownText: b.own_text,
             inspirationUrls: b.inspiration_urls,
             inspirationNote: b.inspiration_note,

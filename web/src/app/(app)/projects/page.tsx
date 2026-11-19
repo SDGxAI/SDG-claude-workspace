@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { ProjectGrid } from "@/components/projects/ProjectGrid";
 import { PageContainer } from "@/components/PageContainer";
 
@@ -53,12 +53,13 @@ export default async function ProjectsPage() {
   );
   const greeting = hour >= 5 && hour < 11 ? "Guten Morgen" : hour >= 11 && hour < 18 ? "Hallo" : "Guten Abend";
   const openTotal = cards.reduce((n, c) => n + c.openComments, 0);
+  const firstName = (await getCurrentProfile())?.name?.trim().split(/\s+/)[0];
 
   return (
     <PageContainer>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-neutral-900">{greeting} 👋</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-900">{greeting}{firstName ? `, ${firstName}` : ""} 👋</h1>
           <p className="mt-1 text-neutral-500">
             {cards.length === 0
               ? "Schön, dass du da bist."

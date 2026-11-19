@@ -13,6 +13,7 @@ interface Briefing {
   status: BriefingStatus;
   productInfo: string;
   important: string | null;
+  articleNumber: string | null;
   ownText: string | null;
   inspirationUrls: string[];
   inspirationNote: string | null;
@@ -22,7 +23,7 @@ interface Briefing {
 /** Anleitung für Claude: daraus entsteht der erste Wurf der Landingpage. */
 function claudePrompt(b: Briefing): string {
   return [
-    `Erstelle eine moderne, einladende Landingpage (eine HTML-Datei) für die Marke ${b.brand}: „${b.title}“.`,
+    `Erstelle eine moderne, einladende Landingpage (eine HTML-Datei) für die Marke ${b.brand}: „${b.title}“${b.articleNumber ? ` (Artikelnummer ${b.articleNumber})` : ""}.`,
     "",
     "Produktinfos:",
     b.productInfo,
@@ -69,7 +70,7 @@ export function BriefingActions({ briefing, isAdmin, canDelete }: { briefing: Br
   }
 
   return (
-    <aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
+    <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
       {isAdmin && (
         <section className="rounded-3xl border border-white bg-white/90 p-6 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">Status</h2>

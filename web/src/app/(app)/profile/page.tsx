@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { PageContainer } from "@/components/PageContainer";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { AvatarUpload } from "@/components/AvatarUpload";
+import { NameEditor } from "@/components/admin/NameEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +19,23 @@ export default async function ProfilePage() {
       <div className="mx-auto max-w-xl">
         <h1 className="text-3xl font-bold tracking-tight text-neutral-900">Mein Profil</h1>
 
-        <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-6">
+        <section className="mt-6 rounded-3xl border border-white bg-white/90 p-6 shadow-sm">
           <h2 className="font-semibold text-neutral-900">Profilbild</h2>
           <p className="mb-4 mt-1 text-sm text-neutral-500">
-            Optional – wird oben in der Kopfzeile angezeigt.
+            Optional – wird links in der Seitenleiste angezeigt.
           </p>
           <AvatarUpload initialUrl={profile.avatar_url} />
         </section>
 
-        <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-6">
+        <section className="mt-6 rounded-3xl border border-white bg-white/90 p-6 shadow-sm">
           <h2 className="font-semibold text-neutral-900">Konto</h2>
           <dl className="mt-3 space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-neutral-500">Name (für die Begrüßung)</dt>
+              <dd>
+                <NameEditor userId={profile.id} currentName={profile.name} />
+              </dd>
+            </div>
             <div className="flex justify-between">
               <dt className="text-neutral-500">E-Mail-Adresse</dt>
               <dd className="text-neutral-900">{profile.email}</dd>

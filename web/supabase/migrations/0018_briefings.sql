@@ -10,6 +10,7 @@ create table if not exists briefings (
   id uuid primary key default gen_random_uuid(),
   brand text not null,
   title text not null,
+  article_number text,
   go_live date,
   product_info text not null,
   important text,
@@ -28,6 +29,7 @@ create table if not exists briefings (
 
 -- Für alle, die diese Datei schon vor dem Feld „Was ist dir wichtig?“ ausgeführt haben.
 alter table briefings add column if not exists important text;
+alter table briefings add column if not exists article_number text;
 
 create index if not exists briefings_created_idx on briefings (created_at desc);
 

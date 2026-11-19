@@ -206,20 +206,26 @@ export async function setUserRole(
   return { ok: true };
 }
 
-/** Setzt den Anzeigenamen einer Person (für die Anrede in Mails/App). */
+/** Setzt den Anzeigenamen (Admins für alle, jede:r für sich selbst). */
 export async function setUserName(
   userId: string,
   name: string,
 ): Promise<InviteResult> {
-  const guard = await requireAdmin();
-  if (!guard.ok) return guard;
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser();
+  if (user?.id !== userId) {
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard;
+  }
   const admin = createAdminClient();
   const { error } = await admin
     .from("profiles")
-    .update({ name: name.trim() || null })
+    .update({ name: name.trim().slice(0, 80) || null })
     .eq("id", userId);
   if (error) return { ok: false, error: "Name konnte nicht gespeichert werden." };
   revalidatePath("/admin/users");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 
