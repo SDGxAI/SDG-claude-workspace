@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
 import { listNotifications } from "@/lib/actions/notifications";
-import { AppHeader } from "@/components/AppHeader";
+import { AppSidebar } from "@/components/AppSidebar";
 import { PresencePinger } from "@/components/PresencePinger";
 
 /**
@@ -33,15 +33,16 @@ export default async function AppLayout({
   const notifications = await listNotifications(15);
 
   return (
-    <>
-      <AppHeader
+    <div className="flex min-h-screen flex-1 flex-col lg:flex-row">
+      <AppSidebar
+        name={profile.name}
         email={profile.email ?? ""}
         isAdmin={profile.is_admin}
         avatarUrl={profile.avatar_url}
         notifications={notifications}
       />
       <PresencePinger />
-      <main className="flex flex-1 flex-col">{children}</main>
-    </>
+      <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+    </div>
   );
 }

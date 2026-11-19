@@ -571,7 +571,7 @@ export function PageStudio(props: Props) {
   });
 
   return (
-    <div className="flex flex-col gap-4 px-4 lg:h-[max(560px,calc(100vh-11.5rem))] lg:flex-row">
+    <div className="flex flex-col gap-4 px-4 lg:h-[max(560px,calc(100vh-8rem))] lg:flex-row">
       <div className="flex h-[78vh] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm lg:h-auto lg:flex-1">
         {/* Werkzeugleiste */}
         <div className="relative flex flex-wrap items-center gap-1 border-b border-neutral-200 px-2 py-1.5">

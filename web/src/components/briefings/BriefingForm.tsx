@@ -61,6 +61,7 @@ function Field({ label, optional, children }: { label: string; optional?: boolea
 export function BriefingForm({ brands }: { brands: string[] }) {
   const [brand, setBrand] = useState("");
   const [title, setTitle] = useState("");
+  const [articleNumber, setArticleNumber] = useState("");
   const [goLive, setGoLive] = useState("");
   const [productInfo, setProductInfo] = useState("");
   const [priorities, setPriorities] = useState<string[]>([]);
@@ -129,6 +130,7 @@ export function BriefingForm({ brands }: { brands: string[] }) {
       title,
       goLive,
       productInfo,
+      articleNumber,
       important: [priorities.join(" · "), importantNote.trim()].filter(Boolean).join(" – "),
       ownText,
       wantsAiText,
@@ -191,15 +193,25 @@ export function BriefingForm({ brands }: { brands: string[] }) {
             <input type="date" value={goLive} onChange={(e) => setGoLive(e.target.value)} className={input} />
           </Field>
         </div>
-        <Field label="Produkt oder Aktion">
-          <input
-            required
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="z. B. BIG Bobby Car Kawaii"
-            className={input}
-          />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-[1fr_13rem]">
+          <Field label="Produkt oder Aktion">
+            <input
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="z. B. BIG Bobby Car Kawaii"
+              className={input}
+            />
+          </Field>
+          <Field label="Artikelnummer" optional>
+            <input
+              value={articleNumber}
+              onChange={(e) => setArticleNumber(e.target.value)}
+              placeholder="z. B. 800056100"
+              className={input}
+            />
+          </Field>
+        </div>
       </Step>
 
       <Step n={2} title="Dein Produkt" hint="Stichpunkte reichen völlig.">

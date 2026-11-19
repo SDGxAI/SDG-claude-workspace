@@ -301,6 +301,7 @@ export interface Database {
           id: string;
           brand: string;
           title: string;
+          article_number: string | null;
           go_live: string | null;
           product_info: string;
           important: string | null;
@@ -320,6 +321,7 @@ export interface Database {
           id?: string;
           brand: string;
           title: string;
+          article_number?: string | null;
           go_live?: string | null;
           product_info: string;
           important?: string | null;

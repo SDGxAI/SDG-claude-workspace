@@ -274,7 +274,7 @@ export function KiWorkspace({
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col lg:h-screen">
       {/* Kopfzeile */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-2">
         <div className="flex items-center gap-3">

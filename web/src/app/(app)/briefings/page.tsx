@@ -15,7 +15,7 @@ export default async function BriefingsPage() {
   // RLS: Admins sehen alle Briefings, alle anderen ihre eigenen.
   const { data, error } = await supabase
     .from("briefings")
-    .select("id, brand, title, status, files, go_live, created_at, created_by, wants_ai_text")
+    .select("id, brand, title, article_number, status, files, go_live, created_at, created_by, wants_ai_text")
     .order("created_at", { ascending: false });
   const rows = data ?? [];
 
@@ -79,6 +79,7 @@ export default async function BriefingsPage() {
                 <div className="flex flex-1 flex-col p-5">
                   <h3 className="text-lg font-semibold leading-snug text-neutral-900 group-hover:text-sdg-red">{b.title}</h3>
                   <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-neutral-500">
+                    {b.article_number && <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-mono">#{b.article_number}</span>}
                     {files.length > 0 && <span className="rounded-full bg-neutral-100 px-2 py-0.5">📸 {files.length}</span>}
                     {b.wants_ai_text && <span className="rounded-full bg-neutral-100 px-2 py-0.5">✨ Text per KI</span>}
                     {b.go_live && <span className="rounded-full bg-neutral-100 px-2 py-0.5">📅 {date(b.go_live)}</span>}
