@@ -20,6 +20,7 @@ const ICONS: Record<string, string> = {
   shop: "M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0",
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   menu: "M4 6h16M4 12h16M4 18h16",
+  speed: "M12 14l4-4M3.3 17a9 9 0 1 1 17.4 0",
   close: "M6 6l12 12M18 6 6 18",
   collapse: "M3 4h18v16H3zM9 4v16M16 10l-2 2 2 2",
   expand: "M3 4h18v16H3zM9 4v16M14 10l2 2-2 2",
@@ -128,6 +129,7 @@ export function AppSidebar({ name, email, isAdmin, avatarUrl, notifications }: P
           <nav className="space-y-1">
             {item("/admin/users", "Nutzer & Rechte", "users", compact)}
             {item("/admin/shopify", "Shopify", "shop", compact)}
+            {item("/admin/tempo", "Tempo-Check", "speed", compact)}
           </nav>
         </>
       )}
