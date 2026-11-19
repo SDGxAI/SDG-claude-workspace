@@ -18,8 +18,9 @@ function sanitizeFilename(name: string): string {
 
 /**
  * Export einer Seite als eigenständige Datei:
- * - format=html: eine .html-Datei, Bilder als Base64 eingebettet
- * - format=zip:  ZIP mit index.html + images/-Ordner (relative Pfade)
+ * - format=html: eine .html-Datei, Bilder eingebettet – für alle mit Zugang
+ *   zum Projekt (zum Anschauen im Browser)
+ * - format=zip:  ZIP mit index.html + images/-Ordner – nur für Admins
  */
 export async function GET(
   request: NextRequest,
@@ -29,7 +30,7 @@ export async function GET(
   const format = new URL(request.url).searchParams.get("format") === "zip" ? "zip" : "html";
 
   const access = await getProjectAccess(id);
-  if (!access || !access.canEdit) {
+  if (!access?.role || (format === "zip" && !access.isAdmin)) {
     return NextResponse.json({ error: "Kein Zugriff." }, { status: 403 });
   }
 
