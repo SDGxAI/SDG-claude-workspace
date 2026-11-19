@@ -98,10 +98,10 @@ export function AppSidebar({ name, email, isAdmin, avatarUrl, notifications }: P
 
   const panel = (compact: boolean) => (
     <div className="flex h-full flex-col">
-      <div className={`flex items-center pb-6 pt-1.5 ${compact ? "justify-center" : "gap-2 px-3"}`}>
+      <div className={`flex items-start pb-6 pt-1.5 ${compact ? "justify-center" : "gap-2 pl-3"}`}>
         {!compact && (
-          <Link href="/projects" className="flex min-w-0 flex-1 items-center gap-2">
-            <SdgLogo className="h-4 w-auto" />
+          <Link href="/projects" className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+            <SdgLogo className="h-4 w-auto max-w-full" />
             <span className="rounded-full bg-sdg-red-light px-2 py-0.5 text-[11px] font-semibold text-sdg-red">Sites</span>
           </Link>
         )}
