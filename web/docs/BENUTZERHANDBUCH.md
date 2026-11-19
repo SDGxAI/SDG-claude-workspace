@@ -60,6 +60,23 @@ sich die Seite ändert oder du zwischen Desktop und Mobil wechselst. Rechts
 siehst du alle Kommentare, kannst antworten und Kommentare als „erledigt"
 markieren. Ein Klick auf einen Kommentar springt zur Stelle.
 
+## Briefings (alle)
+
+Unter **Briefings** reicht eine Marke in wenigen Minuten ein, was sie für eine
+neue Seite braucht: Marke und Produkt, ein paar Stichpunkte zum Produkt,
+einen eigenen Text (oder „Bitte für uns schreiben" – dann erstellen wir einen
+SEO- und GEO-optimierten Text mit KI), Fotos und Videos sowie Links zu Seiten
+als Inspiration.
+
+**Wichtig:** Keine Fotos oder Videos hochladen, auf denen Kinder zu sehen
+sind. Solche Aufnahmen (und Dateien über 50 MB) bitte als Transferlink in das
+gelbe Feld eintragen.
+
+Admins bekommen bei jedem neuen Briefing eine Mitteilung und eine E-Mail. In
+der Detailansicht können sie den Status setzen, mit **Text erstellen** den
+KI-Text erzeugen und mit **Für Claude kopieren** alles als fertige Anleitung
+für den ersten Wurf in Claude übernehmen.
+
 ## Exportieren (Editor/Admin)
 
 Über **Exportieren** bekommst du die fertige Seite als Datei:

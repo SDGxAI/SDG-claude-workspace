@@ -18,6 +18,28 @@ export type PageVersionSource =
   | "ki"
   | "shopify";
 
+export type BriefingStatus = "neu" | "in_arbeit" | "erledigt";
+
+/** Eine hochgeladene Datei eines Briefings (privater Speicher „briefings“). */
+export interface BriefingFile {
+  path: string;
+  name: string;
+  type: string;
+  size: number;
+}
+
+/** Von der KI erstellter, SEO- und GEO-optimierter Seitentext. */
+export interface BriefingAiText {
+  meta_title: string;
+  meta_description: string;
+  h1: string;
+  intro: string;
+  sections: { heading: string; text: string }[];
+  faq: { question: string; answer: string }[];
+  keywords: string[];
+  missing: string[];
+}
+
 /** Woher die Seite eines Projekts stammt. */
 export type ProjectSource = "file" | "shopify";
 
@@ -272,6 +294,50 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["page_versions"]["Insert"]
         >;
+        Relationships: [];
+      };
+      briefings: {
+        Row: {
+          id: string;
+          brand: string;
+          title: string;
+          go_live: string | null;
+          product_info: string;
+          product_url: string | null;
+          keywords: string | null;
+          own_text: string | null;
+          wants_ai_text: boolean;
+          files: BriefingFile[];
+          kids_transfer_link: string | null;
+          inspiration_urls: string[];
+          inspiration_note: string | null;
+          status: BriefingStatus;
+          ai_text: BriefingAiText | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          brand: string;
+          title: string;
+          go_live?: string | null;
+          product_info: string;
+          product_url?: string | null;
+          keywords?: string | null;
+          own_text?: string | null;
+          wants_ai_text?: boolean;
+          files?: BriefingFile[];
+          kids_transfer_link?: string | null;
+          inspiration_urls?: string[];
+          inspiration_note?: string | null;
+          status?: BriefingStatus;
+          ai_text?: BriefingAiText | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["briefings"]["Insert"]>;
         Relationships: [];
       };
       notifications: {

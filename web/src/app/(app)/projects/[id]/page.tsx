@@ -19,6 +19,7 @@ import {
   type CommentThread,
 } from "@/components/comments/CommentablePreview";
 import { PageStudio } from "@/components/studio/PageStudio";
+import { brandGradient } from "@/lib/ui/brandColor";
 import { defaultModel, listModels } from "@/lib/ai/claude";
 import { loadPage } from "@/lib/page/store";
 import type { ContentState, DetectedElement } from "@/types/database";
@@ -138,11 +139,11 @@ export default async function ProjectDetailPage({
           <Link href="/projects" className="text-sm text-neutral-500 hover:text-sdg-red">
             ← Projekte
           </Link>
-          <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-            {project.title}
-          </h1>
-          <div className="mt-1 text-sm text-neutral-500">
-            {project.brand}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">{project.title}</h1>
+            <span className={`rounded-full bg-gradient-to-br px-3 py-1 text-xs font-semibold text-neutral-700 ${brandGradient(project.brand)}`}>
+              {project.brand}
+            </span>
           </div>
         </div>
 

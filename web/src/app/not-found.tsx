@@ -7,7 +7,7 @@ export default function NotFound() {
         <p className="text-sm font-semibold uppercase tracking-wide text-sdg-red">
           Nicht gefunden
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-neutral-900">
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-neutral-900">
           Diese Seite gibt es nicht
         </h1>
         <p className="mt-2 text-neutral-500">
