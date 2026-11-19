@@ -14,7 +14,9 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
+    <main className="relative flex flex-1 items-center justify-center overflow-hidden p-4">
+      <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-orange-200/50 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 bottom-10 h-80 w-80 rounded-full bg-rose-200/60 blur-3xl" />
       <LoginForm />
     </main>
   );

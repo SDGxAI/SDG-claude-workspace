@@ -47,28 +47,49 @@ export default async function ProjectsPage() {
     isShopify: shopifyIds.has(p.id),
   }));
 
+  const hour = new Date().toLocaleString("de-DE", { hour: "numeric", hour12: false, timeZone: "Europe/Berlin" });
+  const greeting = Number(hour) < 11 ? "Guten Morgen" : Number(hour) < 18 ? "Hallo" : "Guten Abend";
+  const openTotal = cards.reduce((n, c) => n + c.openComments, 0);
+
   return (
     <PageContainer>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-neutral-900">Projekte</h1>
-        <Link
-          href="/projects/new"
-          className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark"
-        >
-          + Neues Projekt
-        </Link>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-900">{greeting} 👋</h1>
+          <p className="mt-1 text-neutral-500">
+            {cards.length === 0
+              ? "Schön, dass du da bist."
+              : openTotal > 0
+                ? `${openTotal} offene${openTotal === 1 ? "r" : ""} Kommentar${openTotal === 1 ? "" : "e"} in deinen Projekten.`
+                : "Alles erledigt – keine offenen Kommentare."}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Link
+            href="/briefings/new"
+            className="rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            ✍️ Briefing einreichen
+          </Link>
+          <Link
+            href="/projects/new"
+            className="rounded-full bg-sdg-red px-4 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-sdg-red-dark"
+          >
+            + Neues Projekt
+          </Link>
+        </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-8">
         {(projects ?? []).length === 0 ? (
-          <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center">
-            <p className="text-neutral-600">
-              Noch keine Projekte. Lade eine HTML-Landingpage hoch, um zu
-              starten.
+          <div className="rounded-3xl border border-dashed border-neutral-300 bg-white/70 p-12 text-center">
+            <div className="text-4xl">🚀</div>
+            <p className="mt-3 text-neutral-600">
+              Noch keine Projekte. Lade eine Landingpage hoch oder reiche ein Briefing ein.
             </p>
             <Link
               href="/projects/new"
-              className="mt-4 inline-block rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark"
+              className="mt-5 inline-block rounded-full bg-sdg-red px-5 py-2.5 text-sm font-semibold text-white hover:bg-sdg-red-dark"
             >
               + Erstes Projekt anlegen
             </Link>

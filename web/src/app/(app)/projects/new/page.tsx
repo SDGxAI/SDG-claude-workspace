@@ -24,11 +24,11 @@ export default async function NewProjectPage() {
   return (
     <PageContainer>
       <div className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-semibold text-neutral-900">Neues Projekt</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-neutral-900">Neues Projekt</h1>
       <p className="mt-1 text-sm text-neutral-500">
         {me.is_admin
           ? "Lade eine fertige HTML-Landingpage hoch oder verbinde ein Vorschau-Theme aus Shopify."
-          : "Lade eine fertige HTML-Landingpage hoch. Die App erkennt automatisch die editierbaren Farben, Texte und Bilder."}
+          : "Lade eine fertige HTML-Landingpage hoch – danach kannst du sie direkt kommentieren und bearbeiten."}
       </p>
       <div className="mt-6">
         <NewProjectChooser

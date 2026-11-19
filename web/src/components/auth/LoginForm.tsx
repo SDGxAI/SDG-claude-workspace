@@ -45,17 +45,17 @@ function LoginFormInner() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 shadow-sm"
+      className="relative w-full max-w-sm rounded-3xl border border-white bg-white/90 p-8 shadow-xl backdrop-blur"
     >
       <div className="flex flex-col items-center text-center">
         <SdgLogo className="h-7 w-auto" />
-        <span className="mt-2 text-sm font-medium text-neutral-500">
+        <span className="mt-3 rounded-full bg-sdg-red-light px-2.5 py-0.5 text-xs font-semibold text-sdg-red">
           Sites
         </span>
       </div>
-      <h1 className="mt-6 text-xl font-semibold text-neutral-900">Anmelden</h1>
+      <h1 className="mt-6 text-2xl font-bold tracking-tight text-neutral-900">Willkommen 👋</h1>
       <p className="mt-1 text-sm text-neutral-500">
-        Nur für eingeladene Nutzer:innen.
+        Schön, dass du da bist. Melde dich mit deinem Zugang an.
       </p>
 
       {error && (
@@ -72,7 +72,7 @@ function LoginFormInner() {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20"
+          className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-neutral-900 outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20"
         />
       </label>
 
@@ -84,14 +84,14 @@ function LoginFormInner() {
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20"
+          className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-neutral-900 outline-none focus:border-sdg-red focus:ring-2 focus:ring-sdg-red/20"
         />
       </label>
 
       <button
         type="submit"
         disabled={loading}
-        className="mt-6 w-full rounded-lg bg-sdg-red px-4 py-2.5 font-medium text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
+        className="mt-6 w-full rounded-full bg-sdg-red px-4 py-3 font-semibold text-white transition-colors hover:bg-sdg-red-dark disabled:opacity-50"
       >
         {loading ? "Wird angemeldet …" : "Anmelden"}
       </button>

@@ -16,7 +16,7 @@ export default async function ProfilePage() {
   return (
     <PageContainer>
       <div className="mx-auto max-w-xl">
-        <h1 className="text-2xl font-semibold text-neutral-900">Mein Profil</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-neutral-900">Mein Profil</h1>
 
         <section className="mt-6 rounded-xl border border-neutral-200 bg-white p-6">
           <h2 className="font-semibold text-neutral-900">Profilbild</h2>

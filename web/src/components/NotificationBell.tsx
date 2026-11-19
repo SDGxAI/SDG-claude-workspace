@@ -72,7 +72,7 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
+        <div className="absolute right-0 z-30 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-2">
             <span className="text-sm font-medium text-neutral-700">Mitteilungen</span>
             {list.length > 0 && (
@@ -102,9 +102,9 @@ export function NotificationBell({ items }: { items: NotificationItem[] }) {
                 );
                 return (
                   <li key={n.id} className="group flex items-start gap-2 px-4 py-3 hover:bg-neutral-50">
-                    {n.projectId ? (
+                    {n.projectId || n.type.startsWith("briefing") ? (
                       <Link
-                        href={`/projects/${n.projectId}`}
+                        href={n.projectId ? `/projects/${n.projectId}` : "/briefings"}
                         onClick={() => setOpen(false)}
                         className="block min-w-0 flex-1"
                       >

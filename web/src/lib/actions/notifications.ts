@@ -7,6 +7,7 @@ import type { Database } from "@/types/database";
 
 export interface NotificationItem {
   id: string;
+  type: string;
   body: string;
   projectId: string | null;
   read: boolean;
@@ -53,13 +54,14 @@ export async function listNotifications(
 
   const { data } = await supabase
     .from("notifications")
-    .select("id, body, project_id, read, created_at")
+    .select("id, type, body, project_id, read, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(limit);
 
   return (data ?? []).map((n) => ({
     id: n.id,
+    type: n.type,
     body: n.body,
     projectId: n.project_id,
     read: n.read,

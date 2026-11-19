@@ -23,7 +23,7 @@ export default async function AdminShopifyPage({
 
   return (
     <PageContainer>
-      <h1 className="text-2xl font-semibold text-neutral-900">Shopify-Shops</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-neutral-900">Shopify-Shops</h1>
       <p className="mt-1 text-sm text-neutral-500">
         Verbinde Shopify-Shops, um Vorschau-Themes in Sites zu kommentieren und per KI direkt in
         Shopify zu ändern. Neue Projekte legst du danach unter „Neues Projekt“ → „Shopify-Theme“ an.
