@@ -77,10 +77,12 @@ export function RoleButton({
 
   const colors =
     initialRole === "admin"
-      ? "border-sdg-red bg-sdg-red-light text-sdg-red-dark"
+      ? "bg-sdg-red-light text-sdg-red-dark"
       : initialRole === "editor"
-        ? "border-neutral-800 bg-neutral-800 text-white"
-        : "border-neutral-300 bg-white text-neutral-700";
+        ? "bg-violet-50 text-violet-700"
+        : initialBrands.length === 0
+          ? "bg-neutral-100 text-neutral-500"
+          : "bg-sky-50 text-sky-700";
 
   return (
     <>
@@ -89,7 +91,7 @@ export function RoleButton({
         onClick={isSelf ? undefined : openModal}
         disabled={isSelf}
         title={isSelf ? "Deine eigene Rolle kannst du nicht ändern" : "Rolle ändern"}
-        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-sm font-medium transition-opacity ${colors} ${
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition ${colors} ${
           isSelf ? "cursor-default" : "hover:opacity-80"
         }`}
       >
@@ -99,15 +101,15 @@ export function RoleButton({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
           <div
-            className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between">
-              <h3 className="font-semibold text-neutral-900">Rolle festlegen</h3>
+              <h3 className="text-lg font-semibold text-neutral-900">Rolle festlegen</h3>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -124,10 +126,8 @@ export function RoleButton({
                   key={r}
                   type="button"
                   onClick={() => setRole(r)}
-                  className={`rounded-lg border px-2 py-2 text-sm font-medium transition-colors ${
-                    role === r
-                      ? "border-sdg-red bg-sdg-red text-white"
-                      : "border-neutral-300 text-neutral-700 hover:border-sdg-red hover:text-sdg-red"
+                  className={`rounded-2xl border-2 px-2 py-2.5 text-sm font-semibold transition ${
+                    role === r ? "border-sdg-red bg-sdg-red-light/50 text-neutral-900" : "border-neutral-200 text-neutral-700 hover:border-neutral-300"
                   }`}
                 >
                   {ROLE_LABEL[r]}
@@ -144,7 +144,7 @@ export function RoleButton({
 
             {role !== "admin" && (
               <div className="mt-4">
-                <label className="mb-1 block text-sm font-medium text-neutral-700">
+                <label className="mb-2 block text-sm font-medium text-neutral-700">
                   Berechtigt für Marken
                 </label>
                 <BrandCheckboxes
@@ -173,7 +173,7 @@ export function RoleButton({
                 type="button"
                 onClick={save}
                 disabled={isPending}
-                className="rounded-lg bg-sdg-red px-4 py-1.5 text-sm font-medium text-white hover:bg-sdg-red-dark disabled:opacity-50"
+                className="rounded-full bg-sdg-red px-5 py-2 text-sm font-semibold text-white hover:bg-sdg-red-dark disabled:opacity-50"
               >
                 {isPending ? "Speichert …" : "Speichern"}
               </button>
