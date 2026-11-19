@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import type { Database } from "@/types/database";
 
 export interface NotificationItem {
@@ -46,11 +47,11 @@ export async function createNotification(
 export async function listNotifications(
   limit = 20,
 ): Promise<NotificationItem[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Angemeldete Person aus dem Zwischenspeicher dieser Anfrage (keine
+  // zusätzliche Rückfrage beim Anmeldedienst).
+  const user = await getCurrentUser();
   if (!user) return [];
+  const supabase = await createClient();
 
   const { data } = await supabase
     .from("notifications")

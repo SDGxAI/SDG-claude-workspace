@@ -39,64 +39,59 @@ export default async function ProjectDetailPage({
   if (!access) redirect("/login");
 
   const supabase = await createClient();
-  // Projekt und (erste) Seite sind unabhängig und laufen parallel.
+  // Projekt und Seite (nur Kennung – der Inhalt kommt weiter unten) parallel.
   const [{ data: project }, { data: page }] = await Promise.all([
     supabase.from("projects").select("*").eq("id", id).single(),
-    supabase
-      .from("pages")
-      .select("id, template_html, content_state, detected_elements, updated_at")
-      .eq("project_id", id)
-      .order("created_at")
-      .limit(1)
-      .maybeSingle(),
+    supabase.from("pages").select("id, updated_at").eq("project_id", id).order("created_at").limit(1).maybeSingle(),
   ]);
   if (!project) notFound();
 
-  // Shopify-Projekt: Shopname/-adresse für Anzeige + Vorschau-Link (ohne Secrets).
   const isShopify = project.source === "shopify";
+  const useAi = !isShopify && access.canEdit;
   let shopInfo: { name: string; domain: string } | null = null;
-  if (isShopify && project.shopify_connection_id) {
-    const { data: conn } = await createAdminClient()
-      .from("shopify_connections")
-      .select("name, shop_domain")
-      .eq("id", project.shopify_connection_id)
-      .maybeSingle();
-    if (conn) shopInfo = { name: conn.name, domain: conn.shop_domain };
-  }
-
   let previewHtml =
     "<p style=\"font-family:sans-serif;padding:2rem\">Keine Seite vorhanden.</p>";
   let threads: CommentThread[] = [];
   let currentUserEmail = "";
   let versions: VersionMeta[] = [];
-  const useAi = !isShopify && access.canEdit;
-  const [models, aiModel] = useAi ? await Promise.all([listModels(), defaultModel()]) : [[], ""];
+  let models: { id: string; label: string }[] = [];
+  let aiModel = "";
+
+  // Seiteninhalt für die Anzeige (Shopify: Vorschau-Stand, sonst eine HTML-Datei).
+  const loadHtml = async (): Promise<string | null> => {
+    if (!isShopify) return (await loadPage(id))?.html ?? null;
+    const { data: row } = await supabase
+      .from("pages")
+      .select("template_html, content_state, detected_elements")
+      .eq("id", page!.id)
+      .single();
+    if (!row) return null;
+    const contentState = row.content_state as ContentState;
+    const images = await resolveImages(supabase, contentState.images);
+    return renderHtml(row.template_html, { ...contentState, images }, row.detected_elements as DetectedElement[]);
+  };
 
   if (page) {
-    if (isShopify) {
-      const contentState = page.content_state as ContentState;
-      const resolvedImages = await resolveImages(supabase, contentState.images);
-      previewHtml = renderHtml(
-        page.template_html,
-        { ...contentState, images: resolvedImages },
-        page.detected_elements as DetectedElement[],
-      );
-    } else {
-      // Eine HTML-Datei je Seite (stellt ältere Seiten beim Öffnen einmalig um).
-      previewHtml = (await loadPage(id))?.html ?? previewHtml;
-    }
-
-    const [{ data: comments }, { data: profiles }, currentProfile, versionList] =
-      await Promise.all([
-        supabase
-          .from("comments")
-          .select("*")
-          .eq("page_id", page.id)
-          .order("created_at", { ascending: true }),
-        supabase.from("profiles").select("id, email"),
-        getCurrentProfile(),
-        listVersions(page.id),
-      ]);
+    // Alles Übrige gleichzeitig laden – jede Wartezeit nur einmal.
+    const [conn, html, { data: comments }, { data: profiles }, currentProfile, versionList, ai] = await Promise.all([
+      isShopify && project.shopify_connection_id
+        ? createAdminClient()
+            .from("shopify_connections")
+            .select("name, shop_domain")
+            .eq("id", project.shopify_connection_id)
+            .maybeSingle()
+            .then((r) => r.data)
+        : Promise.resolve(null),
+      loadHtml(),
+      supabase.from("comments").select("*").eq("page_id", page.id).order("created_at", { ascending: true }),
+      supabase.from("profiles").select("id, email"),
+      getCurrentProfile(),
+      listVersions(page.id),
+      useAi ? Promise.all([listModels(), defaultModel()]) : Promise.resolve(null),
+    ]);
+    if (conn) shopInfo = { name: conn.name, domain: conn.shop_domain };
+    if (html) previewHtml = html;
+    if (ai) [models, aiModel] = ai;
     versions = versionList;
 
     currentUserEmail = currentProfile?.email ?? "";

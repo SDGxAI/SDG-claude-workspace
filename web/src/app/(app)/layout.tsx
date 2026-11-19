@@ -18,7 +18,8 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await getCurrentProfile();
+  // Profil und Mitteilungen gleichzeitig laden (spart eine Wartezeit je Klick).
+  const [profile, notifications] = await Promise.all([getCurrentProfile(), listNotifications(15)]);
 
   if (!profile) {
     redirect("/login");
@@ -29,8 +30,6 @@ export default async function AppLayout({
   if (profile.must_change_password) {
     redirect("/set-password");
   }
-
-  const notifications = await listNotifications(15);
 
   return (
     <div className="flex min-h-screen flex-1 flex-col lg:flex-row">
