@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { ProjectStatus } from "@/types/database";
 import { brandGradient } from "@/lib/ui/brandColor";
+import { PagePeek } from "@/components/projects/PagePeek";
 
 export interface ProjectCard {
   id: string;
@@ -99,16 +100,22 @@ export function ProjectGrid({ projects }: { projects: ProjectCard[] }) {
               href={`/projects/${project.id}`}
               className="group flex flex-col overflow-hidden rounded-3xl border border-white bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
             >
-              <div className={`relative flex h-24 items-end bg-gradient-to-br px-5 pb-3 ${brandGradient(project.brand)}`}>
-                <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-700 backdrop-blur">
-                  {project.brand}
-                </span>
-                {project.isShopify && (
-                  <span className="ml-2 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-green-700 backdrop-blur">
-                    🛍️ Shopify
-                  </span>
+              <div className="relative">
+                {project.isShopify ? (
+                  <div className={`aspect-[16/10] bg-gradient-to-br ${brandGradient(project.brand)}`} />
+                ) : (
+                  <PagePeek src={`/projects/${project.id}/thumb`} fallback={brandGradient(project.brand)} />
                 )}
-                <span className="absolute right-4 top-3 text-xl opacity-0 transition group-hover:opacity-100">→</span>
+                <div className="absolute left-4 top-4 flex gap-1.5">
+                  <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-700 shadow-sm backdrop-blur">
+                    {project.brand}
+                  </span>
+                  {project.isShopify && (
+                    <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-green-700 shadow-sm backdrop-blur">
+                      🛍️ Shopify
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex flex-1 flex-col p-5">
                 <h3 className="text-lg font-semibold leading-snug text-neutral-900 group-hover:text-sdg-red">

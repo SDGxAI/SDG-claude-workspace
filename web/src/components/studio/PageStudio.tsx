@@ -702,18 +702,48 @@ export function PageStudio(props: Props) {
           <div className="border-b border-sdg-red/20 bg-sdg-red-light px-3 py-1.5 text-xs text-sdg-red-dark">{HINT[mode]}</div>
         )}
 
-        {/* Die Seite */}
-        <div className="flex min-h-[420px] flex-1 justify-center overflow-hidden bg-neutral-100">
-          <iframe
-            key={rev}
-            ref={frame}
-            title="Seite"
-            srcDoc={srcDoc}
-            onLoad={onLoad}
-            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-            className="h-full bg-white transition-[width] duration-200"
-            style={{ width: mobile ? 390 : "100%", boxShadow: mobile ? "0 0 0 1px #e5e5e5" : undefined }}
-          />
+        {/* Die Seite – in der Mobil-Ansicht in einem Handy, in dem man scrollt.
+            Gleicher Aufbau in beiden Ansichten, damit die Seite beim
+            Umschalten nicht neu lädt. */}
+        <div
+          className={`flex min-h-[420px] flex-1 items-center justify-center overflow-hidden ${
+            mobile ? "bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 p-5" : "bg-neutral-100"
+          }`}
+        >
+          <div
+            className={
+              mobile
+                ? "flex h-full max-h-[880px] w-[414px] shrink-0 flex-col rounded-[3rem] bg-neutral-900 p-3 shadow-2xl ring-1 ring-black/10"
+                : "flex h-full w-full flex-col"
+            }
+          >
+            <div className={`flex min-h-0 flex-1 flex-col bg-white ${mobile ? "overflow-hidden rounded-[2.35rem]" : ""}`}>
+              {mobile && (
+                <div className="relative flex h-10 shrink-0 items-center justify-between px-7 text-[13px] font-semibold text-neutral-900">
+                  <span>9:41</span>
+                  <span className="absolute left-1/2 top-2.5 h-6 w-24 -translate-x-1/2 rounded-full bg-neutral-900" />
+                  <svg className="h-3 w-12" viewBox="0 0 48 12" fill="currentColor" aria-hidden>
+                    <rect x="0" y="7" width="3" height="5" rx="1" />
+                    <rect x="5" y="5" width="3" height="7" rx="1" />
+                    <rect x="10" y="2.5" width="3" height="9.5" rx="1" />
+                    <rect x="15" y="0" width="3" height="12" rx="1" />
+                    <rect x="24" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                    <rect x="26" y="3" width="15" height="6" rx="1.5" />
+                    <rect x="45" y="4" width="2" height="4" rx="1" />
+                  </svg>
+                </div>
+              )}
+              <iframe
+                key={rev}
+                ref={frame}
+                title="Seite"
+                srcDoc={srcDoc}
+                onLoad={onLoad}
+                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                className="min-h-0 w-full flex-1 bg-white"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
