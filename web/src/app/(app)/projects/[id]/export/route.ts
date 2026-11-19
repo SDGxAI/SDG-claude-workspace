@@ -2,34 +2,18 @@ import { NextResponse, type NextRequest } from "next/server";
 import JSZip from "jszip";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectAccess } from "@/lib/access";
-import { renderHtml } from "@/lib/html/render";
-import { IMAGE_BUCKET, isStorageRef, toStoragePath } from "@/lib/storage";
-import type { ContentState, DetectedElement } from "@/types/database";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { cleanHtml } from "@/lib/page/html";
+import { loadPage } from "@/lib/page/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EXT_BY_MIME: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/gif": "gif",
-  "image/webp": "webp",
-  "image/svg+xml": "svg",
-};
+/** Adressen von Bildern im Sites-Bilderspeicher. */
+const ASSET_URL_RE = /https?:\/\/[^"'()\s<>]+\/storage\/v1\/object\/public\/ki-assets\/[^"'()\s<>?#]+/g;
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^\w\-]+/g, "_").replace(/^_+|_+$/g, "") || "export";
-}
-
-function extFromPath(path: string): string {
-  const m = /\.([a-z0-9]+)$/i.exec(path);
-  return m ? m[1].toLowerCase() : "png";
-}
-
-interface ImageBytes {
-  bytes: Uint8Array;
-  mime: string;
-  ext: string;
 }
 
 /**
@@ -50,74 +34,39 @@ export async function GET(
   }
 
   const supabase = await createClient();
-  const { data: project } = await supabase
-    .from("projects")
-    .select("title")
-    .eq("id", id)
-    .single();
-  const { data: page } = await supabase
-    .from("pages")
-    .select("template_html, content_state, detected_elements")
-    .eq("project_id", id)
-    .order("created_at")
-    .limit(1)
-    .maybeSingle();
-
+  const [{ data: project }, page] = await Promise.all([
+    supabase.from("projects").select("title").eq("id", id).single(),
+    loadPage(id),
+  ]);
   if (!project || !page) {
     return NextResponse.json({ error: "Nicht gefunden." }, { status: 404 });
   }
-
-  const content = page.content_state as ContentState;
-  const detected = page.detected_elements as DetectedElement[];
   const baseName = sanitizeFilename(project.title);
+  const source = cleanHtml(page.html);
 
-  // Bildbytes für Storage-Referenzen und Data-URIs beschaffen.
-  async function getImageBytes(value: string): Promise<ImageBytes | null> {
-    if (isStorageRef(value)) {
-      const path = toStoragePath(value);
-      const { data } = await supabase.storage.from(IMAGE_BUCKET).download(path);
-      if (!data) return null;
-      const buf = new Uint8Array(await data.arrayBuffer());
-      const ext = extFromPath(path);
-      const mime = data.type || `image/${ext === "jpg" ? "jpeg" : ext}`;
-      return { bytes: buf, mime, ext };
-    }
-    const dataUri = /^data:([^;,]+)(;base64)?,([\s\S]*)$/.exec(value);
-    if (dataUri) {
-      const mime = dataUri[1];
-      const isBase64 = !!dataUri[2];
-      const raw = isBase64
-        ? Buffer.from(dataUri[3], "base64")
-        : Buffer.from(decodeURIComponent(dataUri[3]), "utf8");
-      return {
-        bytes: new Uint8Array(raw),
-        mime,
-        ext: EXT_BY_MIME[mime] ?? "png",
-      };
-    }
-    // Ausgelagerte Bilder aus dem Sites-Bilderspeicher wieder einbetten.
-    const kiAsset = /\/storage\/v1\/object\/public\/ki-assets\/([^?#]+)/.exec(value);
-    if (kiAsset) {
-      const path = decodeURIComponent(kiAsset[1]);
-      const { data } = await supabase.storage.from("ki-assets").download(path);
-      if (!data) return null;
-      const ext = extFromPath(path);
-      const mime = data.type || `image/${ext === "jpg" ? "jpeg" : ext}`;
-      return { bytes: new Uint8Array(await data.arrayBuffer()), mime, ext };
-    }
-    return null; // sonstige http(s)- oder relative Pfade unverändert lassen
-  }
+  // Bilder aus dem Sites-Bilderspeicher wieder in die Datei holen.
+  const admin = createAdminClient();
+  const urls = [...new Set(source.match(ASSET_URL_RE) ?? [])];
+  const images = new Map<string, { bytes: Uint8Array; mime: string; ext: string }>();
+  await Promise.all(
+    urls.map(async (url) => {
+      const path = decodeURIComponent(url.split("/ki-assets/")[1] ?? "");
+      const { data } = await admin.storage.from("ki-assets").download(path);
+      if (!data) return;
+      const ext = /\.([a-z0-9]+)$/i.exec(path)?.[1].toLowerCase() ?? "png";
+      images.set(url, {
+        bytes: new Uint8Array(await data.arrayBuffer()),
+        mime: data.type || `image/${ext === "jpg" ? "jpeg" : ext}`,
+        ext,
+      });
+    }),
+  );
 
   if (format === "html") {
-    const images: Record<string, string> = { ...content.images };
-    for (const [key, value] of Object.entries(content.images)) {
-      const img = await getImageBytes(value);
-      if (img) {
-        const b64 = Buffer.from(img.bytes).toString("base64");
-        images[key] = `data:${img.mime};base64,${b64}`;
-      }
-    }
-    const html = renderHtml(page.template_html, { ...content, images }, detected);
+    const html = source.replace(ASSET_URL_RE, (url) => {
+      const img = images.get(url);
+      return img ? `data:${img.mime};base64,${Buffer.from(img.bytes).toString("base64")}` : url;
+    });
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
@@ -128,22 +77,13 @@ export async function GET(
 
   // ZIP mit relativen Bildpfaden
   const zip = new JSZip();
-  const imagesFolder = zip.folder("images");
-  const images: Record<string, string> = { ...content.images };
-  let counter = 0;
-
-  for (const [key, value] of Object.entries(content.images)) {
-    const img = await getImageBytes(value);
-    if (img) {
-      counter += 1;
-      const filename = `bild-${counter}.${img.ext}`;
-      imagesFolder?.file(filename, img.bytes);
-      images[key] = `images/${filename}`;
-    }
+  const names = new Map<string, string>();
+  for (const [url, img] of images) {
+    const name = `images/bild-${names.size + 1}.${img.ext}`;
+    names.set(url, name);
+    zip.file(name, img.bytes);
   }
-
-  const html = renderHtml(page.template_html, { ...content, images }, detected);
-  zip.file("index.html", html);
+  zip.file("index.html", source.replace(ASSET_URL_RE, (url) => names.get(url) ?? url));
   const zipBytes = await zip.generateAsync({ type: "uint8array" });
 
   // Cast wegen TS-Typreibung zwischen Uint8Array<ArrayBufferLike> und

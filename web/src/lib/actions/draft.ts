@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProjectAccess } from "@/lib/access";
 import { renderHtml } from "@/lib/html/render";
-import { editHtmlWithAI, type Effort } from "@/lib/ai/editHtml";
+import type { Effort } from "@/lib/ai/claude";
 import { ingestHtmlIntoProject } from "@/lib/ingest/apply";
 import { createNotification } from "@/lib/actions/notifications";
 import {
@@ -231,10 +231,9 @@ export async function sendDraftInstruction(
           : res.summary,
     };
   } else {
-    edited = await editHtmlWithAI(draft.html, instruction, model, effort);
+    // HTML-Seiten werden direkt auf der Projektseite bearbeitet.
+    return { ok: false, error: "Diese Seite wird direkt auf der Projektseite bearbeitet." };
   }
-  if (!edited.ok) return { ok: false, error: edited.error };
-
   const now = new Date().toISOString();
   const userVisible =
     (freeText.trim() ? freeText.trim() : "") +
@@ -411,6 +410,5 @@ export async function commitDraft(
   await supabase.from("page_drafts").delete().eq("page_id", pageId);
 
   revalidatePath(`/projects/${projectId}`);
-  revalidatePath(`/projects/${projectId}/editor`);
   return { ok: true };
 }

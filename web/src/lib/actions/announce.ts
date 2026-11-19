@@ -1,6 +1,7 @@
 "use server";
 
 import { getProjectAccess } from "@/lib/access";
+import { askClaude } from "@/lib/ai/claude";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/actions/notifications";
@@ -89,59 +90,20 @@ export async function rewriteAnnouncementText(
   const access = await getProjectAccess(projectId);
   if (!access?.isAdmin) return { ok: false, error: "Nur Admins." };
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return {
-      ok: false,
-      error: "KI ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).",
-    };
-  }
-
-  const model =
-    process.env.ANTHROPIC_UMSETZEN_MODEL ||
-    process.env.ANTHROPIC_TRANSLATE_MODEL ||
-    "claude-haiku-4-5";
-
-  const system =
-    "Du formulierst kurze, freundliche INTERNE Benachrichtigungen für ein " +
-    "Landingpage-Feedback-Tool (SIMBA-DICKIE-GROUP). Aus den Stichpunkten des " +
-    "Nutzers machst du EINE knappe, klare Nachricht auf Deutsch (1–2 Sätze), " +
-    "höflich, ohne Anrede und ohne Grußformel (die kommen automatisch dazu). " +
-    "Kein Betreff, keine Aufzählung – nur der Fließtext. Antworte NUR mit dem Text.";
-
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 400,
-        system,
-        messages: [{ role: "user", content: raw }],
-      }),
-    });
-    if (!res.ok) {
-      if (res.status === 429)
-        return { ok: false, error: "Zu viele KI-Anfragen. Bitte kurz warten." };
-      return { ok: false, error: `KI-Fehler (${res.status}).` };
-    }
-    const json = (await res.json()) as {
-      content?: { type: string; text?: string }[];
-    };
-    const text = (json.content ?? [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text ?? "")
-      .join("")
-      .trim();
-    if (!text) return { ok: false, error: "Die KI hat keinen Text geliefert." };
-    return { ok: true, text };
-  } catch {
-    return { ok: false, error: "KI-Antwort konnte nicht verarbeitet werden." };
-  }
+  const res = await askClaude({
+    system:
+      "Du formulierst kurze, freundliche INTERNE Benachrichtigungen für ein " +
+      "Landingpage-Feedback-Tool (SIMBA-DICKIE-GROUP). Aus den Stichpunkten des " +
+      "Nutzers machst du EINE knappe, klare Nachricht auf Deutsch (1–2 Sätze), " +
+      "höflich, ohne Anrede und ohne Grußformel (die kommen automatisch dazu). " +
+      "Kein Betreff, keine Aufzählung – nur der Fließtext. Antworte NUR mit dem Text.",
+    user: raw,
+    maxTokens: 400,
+  });
+  if (!res.ok) return res;
+  const text = res.text.trim();
+  if (!text) return { ok: false, error: "Die KI hat keinen Text geliefert." };
+  return { ok: true, text };
 }
 
 export type AnnounceResult =

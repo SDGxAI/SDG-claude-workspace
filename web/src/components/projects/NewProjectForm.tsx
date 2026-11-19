@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createProject, type CreateProjectResult } from "@/lib/actions/projects";
+import { createProject } from "@/lib/actions/projects";
 
 export function NewProjectForm({ brands }: { brands: string[] }) {
   const router = useRouter();
@@ -13,9 +12,6 @@ export function NewProjectForm({ brands }: { brands: string[] }) {
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [report, setReport] = useState<
-    Extract<CreateProjectResult, { ok: true }> | null
-  >(null);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -47,77 +43,12 @@ export function NewProjectForm({ brands }: { brands: string[] }) {
     setLoading(true);
     const result = await createProject({ title, brand, html, filename: fileName });
     if (result.ok) {
-      setReport(result);
-      router.refresh();
+      router.push(`/projects/${result.projectId}`);
+      return;
     } else {
       setError(result.error);
     }
     setLoading(false);
-  }
-
-  if (report) {
-    return (
-      <div className="rounded-xl border border-neutral-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-neutral-900">
-          Import erfolgreich
-        </h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          Gefunden in „{title}“:
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
-          <div className="rounded-lg bg-neutral-50 p-4">
-            <div className="text-2xl font-semibold text-sdg-red">
-              {report.counts.colors}
-            </div>
-            <div className="text-xs text-neutral-500">Farben</div>
-          </div>
-          <div className="rounded-lg bg-neutral-50 p-4">
-            <div className="text-2xl font-semibold text-sdg-red">
-              {report.counts.texts}
-            </div>
-            <div className="text-xs text-neutral-500">Textfelder</div>
-          </div>
-          <div className="rounded-lg bg-neutral-50 p-4">
-            <div className="text-2xl font-semibold text-sdg-red">
-              {report.counts.images}
-            </div>
-            <div className="text-xs text-neutral-500">Bilder</div>
-          </div>
-          <div className="rounded-lg bg-neutral-50 p-4">
-            <div className="text-2xl font-semibold text-sdg-red">
-              {report.counts.links}
-            </div>
-            <div className="text-xs text-neutral-500">Links</div>
-          </div>
-        </div>
-
-        {report.warnings.length > 0 && (
-          <div className="mt-4 rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
-            <p className="font-medium">Hinweise zum Import:</p>
-            <ul className="mt-1 list-inside list-disc space-y-1">
-              {report.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="mt-6 flex gap-3">
-          <Link
-            href={`/projects/${report.projectId}/editor`}
-            className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark"
-          >
-            Zum Editor
-          </Link>
-          <Link
-            href="/projects"
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:border-sdg-red hover:text-sdg-red"
-          >
-            Zur Übersicht
-          </Link>
-        </div>
-      </div>
-    );
   }
 
   return (

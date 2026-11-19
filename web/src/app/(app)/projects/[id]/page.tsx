@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { slimDownPage } from "@/lib/images/externalize";
 import { getProjectAccess } from "@/lib/access";
 import { getCurrentProfile } from "@/lib/auth";
 import { listVersions, type VersionMeta } from "@/lib/actions/versions";
@@ -19,6 +18,9 @@ import {
   CommentablePreview,
   type CommentThread,
 } from "@/components/comments/CommentablePreview";
+import { PageStudio } from "@/components/studio/PageStudio";
+import { defaultModel, listModels } from "@/lib/ai/claude";
+import { loadPage } from "@/lib/page/store";
 import type { ContentState, DetectedElement } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -34,20 +36,6 @@ export default async function ProjectDetailPage({
 
   const access = await getProjectAccess(id);
   if (!access) redirect("/login");
-
-  // Seiten mit eingebetteten Bildern einmalig verschlanken (schneller,
-  // und der Editor bleibt unter der Größengrenze des Hostings).
-  {
-    const supabaseFirst = await createClient();
-    const { data: firstPage } = await supabaseFirst
-      .from("pages")
-      .select("id")
-      .eq("project_id", id)
-      .order("created_at")
-      .limit(1)
-      .maybeSingle();
-    if (firstPage) await slimDownPage(firstPage.id, id);
-  }
 
   const supabase = await createClient();
   // Projekt und (erste) Seite sind unabhängig und laufen parallel.
@@ -80,15 +68,22 @@ export default async function ProjectDetailPage({
   let threads: CommentThread[] = [];
   let currentUserEmail = "";
   let versions: VersionMeta[] = [];
+  const useAi = !isShopify && access.canEdit;
+  const [models, aiModel] = useAi ? await Promise.all([listModels(), defaultModel()]) : [[], ""];
 
   if (page) {
-    const contentState = page.content_state as ContentState;
-    const resolvedImages = await resolveImages(supabase, contentState.images);
-    previewHtml = renderHtml(
-      page.template_html,
-      { ...contentState, images: resolvedImages },
-      page.detected_elements as DetectedElement[],
-    );
+    if (isShopify) {
+      const contentState = page.content_state as ContentState;
+      const resolvedImages = await resolveImages(supabase, contentState.images);
+      previewHtml = renderHtml(
+        page.template_html,
+        { ...contentState, images: resolvedImages },
+        page.detected_elements as DetectedElement[],
+      );
+    } else {
+      // Eine HTML-Datei je Seite (stellt ältere Seiten beim Öffnen einmalig um).
+      previewHtml = (await loadPage(id))?.html ?? previewHtml;
+    }
 
     const [{ data: comments }, { data: profiles }, currentProfile, versionList] =
       await Promise.all([
@@ -121,6 +116,7 @@ export default async function ProjectDetailPage({
       body: c.body,
       xPct: Number(c.x_pct),
       yPct: Number(c.y_pct),
+      anchor: c.anchor ?? null,
       status: c.status,
       createdAt: c.created_at,
       authorEmail: emailById.get(c.author_id ?? "") ?? "Unbekannt",
@@ -156,20 +152,12 @@ export default async function ProjectDetailPage({
           {access.isAdmin && (
             <DeleteProjectButton projectId={id} title={project.title} />
           )}
-          {access.canEdit && page && (
+          {access.canEdit && page && isShopify && (
             <Link
               href={`/projects/${id}/ki`}
               className="rounded-lg border border-sdg-red px-4 py-2 text-sm font-medium text-sdg-red transition-colors hover:bg-sdg-red-light"
             >
               ✏️ Mit KI bearbeiten
-            </Link>
-          )}
-          {access.canEdit && !isShopify && (
-            <Link
-              href={`/projects/${id}/editor`}
-              className="rounded-lg bg-sdg-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sdg-red-dark"
-            >
-              Bearbeiten
             </Link>
           )}
         </div>
@@ -192,18 +180,22 @@ export default async function ProjectDetailPage({
         </div>
       )}
 
-      {access.canEdit && page && !isShopify && (
-        <div className="mx-auto max-w-6xl px-4">
-          <IngestPanel
-            projectId={id}
-            initialToken={project.ingest_token ?? null}
-          />
-        </div>
-      )}
-
       {/* Vorschau bleibt voll breit (große Fläche). */}
-      <div className="mt-6">
-        {page ? (
+      <div className="mt-4">
+        {page && !isShopify ? (
+          <PageStudio
+            projectId={id}
+            pageId={page.id}
+            html={previewHtml}
+            threads={threads}
+            versions={versions}
+            canComment={access.canComment}
+            canEdit={access.canEdit}
+            currentUserEmail={currentUserEmail}
+            models={models}
+            defaultModel={aiModel}
+          />
+        ) : page ? (
           <CommentablePreview
             previewHtml={previewHtml}
             pageId={page.id}
@@ -228,6 +220,12 @@ export default async function ProjectDetailPage({
           </p>
         )}
       </div>
+
+      {access.canEdit && page && !isShopify && (
+        <div className="mx-auto max-w-6xl px-4">
+          <IngestPanel projectId={id} initialToken={project.ingest_token ?? null} />
+        </div>
+      )}
     </div>
   );
 }

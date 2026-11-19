@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ingestHtmlIntoProject } from "@/lib/ingest/apply";
+import { cleanHtml } from "@/lib/page/html";
+import { loadPage } from "@/lib/page/store";
 
 // Braucht Node (cheerio, service_role) und darf nicht statisch werden.
 export const runtime = "nodejs";
@@ -14,6 +16,27 @@ function extractToken(req: NextRequest): string | null {
   }
   const header = req.headers.get("x-ingest-token");
   return header?.trim() || null;
+}
+
+/**
+ * Claude-Schnittstelle (lesen): liefert den AKTUELLEN Stand der Seite als
+ * HTML – inklusive aller Änderungen, die in Sites gemacht wurden. So arbeitet
+ * Claude immer auf dem neuesten Stand weiter statt auf einer alten Fassung.
+ */
+export async function GET(req: NextRequest) {
+  const token = extractToken(req);
+  if (!token) return new NextResponse("Kein Update-Schlüssel übergeben.", { status: 401 });
+  const { data: project } = await createAdminClient()
+    .from("projects")
+    .select("id")
+    .eq("ingest_token", token)
+    .maybeSingle();
+  if (!project) return new NextResponse("Ungültiger Update-Schlüssel.", { status: 401 });
+  const page = await loadPage(project.id);
+  if (!page) return new NextResponse("Dieses Projekt hat noch keine Seite.", { status: 404 });
+  return new NextResponse(cleanHtml(page.html), {
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+  });
 }
 
 /**

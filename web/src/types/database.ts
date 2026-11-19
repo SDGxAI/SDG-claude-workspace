@@ -38,12 +38,20 @@ export interface DetectedElement {
   default: string;
 }
 
+/** Stelle eines Kommentars: Element (Kennung) + Lage darin (Anteil 0–1). */
+export interface CommentAnchor {
+  sid: string;
+  dx: number;
+  dy: number;
+}
+
 /** In einer Version festgehaltener Kommentar (denormalisiert für die Anzeige). */
 export interface StoredComment {
   id: string;
   body: string;
   xPct: number;
   yPct: number;
+  anchor?: CommentAnchor | null;
   status: CommentStatus;
   createdAt: string;
   authorEmail: string;
@@ -357,6 +365,8 @@ export interface Database {
           created_at: string;
           /** Shopify: Seite im Shop, auf der kommentiert wurde (NULL = Hauptseite). */
           page_path?: string | null;
+          /** Element, an dem der Kommentar hängt (Migration 0017). */
+          anchor?: CommentAnchor | null;
         };
         Insert: {
           id?: string;
@@ -369,6 +379,7 @@ export interface Database {
           status?: CommentStatus;
           created_at?: string;
           page_path?: string | null;
+          anchor?: CommentAnchor | null;
         };
         Update: Partial<Database["public"]["Tables"]["comments"]["Insert"]>;
         Relationships: [];

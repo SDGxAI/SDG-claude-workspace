@@ -47,6 +47,7 @@ export interface CommentThread {
   }[];
   /** Shopify: Seite im Shop, auf der kommentiert wurde (leer = Hauptseite). */
   pagePath?: string | null;
+  anchor?: { sid: string; dx: number; dy: number } | null;
 }
 
 /** Shop-Pfade vergleichbar machen („/collections/x/“ = „/collections/x“). */

@@ -2,26 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { parseHtmlTemplate } from "@/lib/html/parse";
-import { externalizeInlineImages, hasLargeInlineImages } from "@/lib/images/externalize";
+import { prepareHtml } from "@/lib/page/store";
 import { SDG_BRANDS } from "@/lib/brands";
 import type { ProjectStatus } from "@/types/database";
 
 export type CreateProjectResult =
-  | {
-      ok: true;
-      projectId: string;
-      counts: { colors: number; texts: number; images: number; links: number };
-      warnings: string[];
-    }
+  | { ok: true; projectId: string }
   | { ok: false; error: string };
 
-/**
- * Legt ein neues Projekt aus einer hochgeladenen HTML-Datei an: parst die
- * Datei serverseitig (Farb-/Text-/Bild-Erkennung), speichert Projekt +
- * Seite und gibt den Import-Bericht zurück. Nur Admins dürfen Projekte
- * anlegen (RLS + zusätzliche Prüfung hier).
- */
+/** Legt ein neues Projekt aus einer hochgeladenen HTML-Datei an. */
 export async function createProject(input: {
   title: string;
   brand: string;
@@ -73,13 +62,6 @@ export async function createProject(input: {
     }
   }
 
-  let parsed;
-  try {
-    parsed = parseHtmlTemplate(input.html);
-  } catch {
-    return { ok: false, error: "Die HTML-Datei konnte nicht analysiert werden." };
-  }
-
   const { data: project, error: projectError } = await supabase
     .from("projects")
     .insert({
@@ -98,23 +80,15 @@ export async function createProject(input: {
     };
   }
 
-  // Eingebettete Bilder auslagern (hält die Seite klein und schnell).
-  if (hasLargeInlineImages(input.html)) {
-    const ext = await externalizeInlineImages(project.id, [input.html]);
-    if (ext.uploaded > 0) {
-      try {
-        parsed = parseHtmlTemplate(ext.replace(input.html));
-      } catch {
-        /* erste Analyse beibehalten */
-      }
-    }
+  let html = input.html;
+  try {
+    html = await prepareHtml(project.id, input.html);
+  } catch {
+    /* Aufbereitung holt das erste Öffnen nach */
   }
-
   const { error: pageError } = await supabase.from("pages").insert({
     project_id: project.id,
-    template_html: parsed.templateHtml,
-    detected_elements: parsed.detectedElements,
-    content_state: parsed.contentState,
+    template_html: html,
     original_filename: input.filename.slice(0, 200),
   });
 
@@ -128,12 +102,7 @@ export async function createProject(input: {
   }
 
   revalidatePath("/projects");
-  return {
-    ok: true,
-    projectId: project.id,
-    counts: parsed.counts,
-    warnings: parsed.warnings,
-  };
+  return { ok: true, projectId: project.id };
 }
 
 /** Ändert den Status eines Projekts (Entwurf/In Review/Live) - Admin-only. */

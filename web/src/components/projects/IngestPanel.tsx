@@ -29,14 +29,21 @@ export function IngestPanel({
   const endpoint = `${origin}/api/ingest`;
 
   const instruction = token
-    ? `Aktualisiere die SDG-Landingpage über die App-Schnittstelle: ` +
-      `Schicke das fertige, vollständige HTML per HTTP POST an ${endpoint} ` +
-      `mit dem Header „Authorization: Bearer ${token}" und dem JSON-Body ` +
-      `{"html": "<hier das komplette HTML>"}. Nutze genau diesen Schlüssel und diese Adresse.`
+    ? `Du arbeitest an einer SDG-Landingpage, die in der App „SDG Sites“ liegt. ` +
+      `WICHTIG – vor JEDER Änderung zuerst den aktuellen Stand holen: HTTP GET ${endpoint} ` +
+      `mit dem Header „Authorization: Bearer ${token}". Die Antwort ist das vollständige, aktuelle HTML ` +
+      `(inklusive aller Änderungen, die inzwischen direkt in SDG Sites gemacht wurden). ` +
+      `Arbeite immer auf genau dieser Datei weiter – nicht auf einer älteren Fassung aus diesem Chat. ` +
+      `Wenn du fertig bist: Schicke das vollständige HTML per HTTP POST an dieselbe Adresse, ` +
+      `mit demselben Header und dem JSON-Body {"html": "<hier das komplette HTML>"}. ` +
+      `Nutze genau diesen Schlüssel und diese Adresse.`
     : "";
 
   const curl = token
-    ? `curl -X POST ${endpoint} \\\n` +
+    ? `# Aktuellen Stand holen\n` +
+      `curl ${endpoint} -H "Authorization: Bearer ${token}" -o seite.html\n\n` +
+      `# Neue Fassung hochladen\n` +
+      `curl -X POST ${endpoint} \\\n` +
       `  -H "Authorization: Bearer ${token}" \\\n` +
       `  -H "Content-Type: application/json" \\\n` +
       `  -d '{"html": "<!doctype html> … "}'`
@@ -89,15 +96,16 @@ export function IngestPanel({
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-neutral-700 hover:text-sdg-red"
       >
-        <span>🔗 Automatisch aus Claude aktualisieren</span>
+        <span>🔗 Mit Claude verbinden (holen &amp; aktualisieren)</span>
         <span className="text-neutral-400">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
         <div className="border-t border-neutral-200 px-4 py-4 text-sm">
           <p className="mb-3 text-neutral-600">
-            Mit dem Update-Schlüssel kann ein verbundener Claude die fertige
-            Seite <strong>direkt in dieses Projekt schieben</strong> – ohne
+            Mit dem Update-Schlüssel holt sich Claude immer den{" "}
+            <strong>aktuellen Stand dieser Seite</strong> (mit allem, was hier
+            geändert wurde) und schiebt die fertige Seite direkt zurück – ohne
             Speichern und Hochladen. Jeder Import legt automatisch eine Version
             an. Behandle den Schlüssel wie ein Passwort.
           </p>
@@ -146,7 +154,7 @@ export function IngestPanel({
                 </div>
                 <textarea
                   readOnly
-                  rows={4}
+                  rows={6}
                   value={instruction}
                   onFocus={(e) => e.currentTarget.select()}
                   className="w-full resize-y rounded border border-neutral-200 bg-neutral-50 p-2 font-mono text-xs text-neutral-800"

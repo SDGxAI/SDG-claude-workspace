@@ -1,8 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { parseHtmlTemplate } from "@/lib/html/parse";
 import { archiveCurrentAsVersion } from "@/lib/actions/versions";
-import { externalizeInlineImages, hasLargeInlineImages } from "@/lib/images/externalize";
+import { EMPTY_STATE, prepareHtml } from "@/lib/page/store";
 import type { Database, PageVersionSource, ShopifyFileMap } from "@/types/database";
 
 export type IngestResult =
@@ -11,11 +10,11 @@ export type IngestResult =
 
 /**
  * Ersetzt die aktuelle Seite eines Projekts durch neues HTML: sichert den
- * bisherigen Stand als Version und schreibt danach die neu geparsten Inhalte.
+ * bisherigen Stand als Version und speichert danach die neue Seite. Elemente,
+ * die gleich geblieben sind, behalten ihre Kennung – Kommentare bleiben so an
+ * ihrer Stelle.
  *
- * Wird von der Claude-Schnittstelle (POST /api/ingest) genutzt und nutzt den
- * übergebenen Client (dort der Admin-/service_role-Client). Die eigentliche
- * Rechteprüfung passiert vor dem Aufruf (gültiger Update-Schlüssel).
+ * Die Rechteprüfung passiert vor dem Aufruf (z. B. gültiger Update-Schlüssel).
  */
 export async function ingestHtmlIntoProject(
   client: SupabaseClient<Database>,
@@ -33,24 +32,20 @@ export async function ingestHtmlIntoProject(
   if (!input.html.trim() || !/<[a-z][\s\S]*>/i.test(input.html)) {
     return { ok: false, error: "Kein gültiges HTML übergeben." };
   }
+  const { data: current } = await client
+    .from("pages")
+    .select("template_html")
+    .eq("id", input.pageId)
+    .maybeSingle();
 
-  // Eingebettete Bilder auslagern (hält die Seite klein und schnell).
-  let html = input.html;
-  if (hasLargeInlineImages(html)) {
-    const ext = await externalizeInlineImages(input.projectId, [html]);
-    html = ext.replace(html);
-  }
-
-  let parsed;
+  let html: string;
   try {
-    parsed = parseHtmlTemplate(html);
+    html = await prepareHtml(input.projectId, input.html, current?.template_html);
   } catch {
     return { ok: false, error: "Das HTML konnte nicht analysiert werden." };
   }
 
-  // Bisherigen Stand als Version sichern (nur wenn schon Inhalt da ist –
-  // ein Fehler hier darf den Import nicht verhindern).
-  let versionNo: number | null = null;
+  // Bisherigen Stand sichern (ein Fehler hier darf den Import nicht verhindern).
   const archived = await archiveCurrentAsVersion(
     input.pageId,
     input.source,
@@ -58,21 +53,17 @@ export async function ingestHtmlIntoProject(
     client,
     null,
   );
-  if (archived.ok) versionNo = archived.versionNo;
 
   const { error } = await client
     .from("pages")
     .update({
-      template_html: parsed.templateHtml,
-      detected_elements: parsed.detectedElements,
-      content_state: parsed.contentState,
+      template_html: html,
+      detected_elements: [],
+      content_state: EMPTY_STATE,
       original_filename: (input.filename ?? "claude-update.html").slice(0, 200),
       ...(input.shopifyFiles ? { shopify_files: input.shopifyFiles } : {}),
     })
     .eq("id", input.pageId);
-
-  if (error) {
-    return { ok: false, error: "Die Seite konnte nicht aktualisiert werden." };
-  }
-  return { ok: true, versionNo };
+  if (error) return { ok: false, error: "Die Seite konnte nicht aktualisiert werden." };
+  return { ok: true, versionNo: archived.ok ? archived.versionNo : null };
 }

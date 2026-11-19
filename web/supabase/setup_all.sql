@@ -831,3 +831,9 @@ alter table page_versions
 -- =====================================================================
 
 alter table comments add column if not exists page_path text;
+
+-- =====================================================================
+-- 0017_comment_anchor.sql  (Kommentare hängen am Element)
+-- =====================================================================
+
+alter table comments add column if not exists anchor jsonb;
