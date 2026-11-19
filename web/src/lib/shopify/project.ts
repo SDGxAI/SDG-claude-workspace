@@ -5,7 +5,7 @@ import { editShopifyThemeWithAI } from "@/lib/shopify/aiTheme";
 import { createShopImage, listThemeFiles, upsertThemeFiles } from "@/lib/shopify/themes";
 import { guessTemplateForPath } from "@/lib/shopify/paths";
 import { fetchThemePreviewHtml } from "@/lib/shopify/storefront";
-import type { Effort } from "@/lib/ai/editHtml";
+import type { Effort } from "@/lib/ai/claude";
 import type { ShopifyFileMap } from "@/types/database";
 
 export interface ShopifyProjectContext {

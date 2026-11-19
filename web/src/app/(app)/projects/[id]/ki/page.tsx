@@ -1,9 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { slimDownPage } from "@/lib/images/externalize";
 import { getProjectAccess } from "@/lib/access";
 import { getOrStartDraft } from "@/lib/actions/draft";
-import { listAnthropicModels } from "@/lib/ai/models";
+import { listModels } from "@/lib/ai/claude";
 import { KiWorkspace, type KiComment } from "@/components/ki/KiWorkspace";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { shopifyPreviewUrl } from "@/lib/shopify/paths";
@@ -31,6 +30,8 @@ export default async function KiPage({
     .eq("id", id)
     .single();
   if (!project) notFound();
+  // HTML-Seiten werden direkt auf der Projektseite bearbeitet.
+  if (project.source !== "shopify") redirect(`/projects/${id}`);
 
   const { data: page } = await supabase
     .from("pages")
@@ -41,8 +42,6 @@ export default async function KiPage({
     .maybeSingle();
   if (!page) notFound();
 
-  // Eingebettete Bilder einmalig auslagern (schnellere KI-Bearbeitung).
-  await slimDownPage(page.id, id);
   const draftRes = await getOrStartDraft(page.id, id);
   if (!draftRes.ok) {
     redirect(`/projects/${id}`);
@@ -67,7 +66,7 @@ export default async function KiPage({
     pagePath: c.page_path ?? null,
   }));
 
-  const models = await listAnthropicModels();
+  const models = await listModels();
 
   // Shopify-Projekt: Link zur echten Vorschau im Shop.
   let previewUrl: string | null = null;

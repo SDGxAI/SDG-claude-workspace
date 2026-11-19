@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProjectAccess } from "@/lib/access";
 import { SDG_BRANDS } from "@/lib/brands";
-import { parseHtmlTemplate } from "@/lib/html/parse";
 import { ingestHtmlIntoProject } from "@/lib/ingest/apply";
 import { loadConnection, type ShopifyConnection } from "@/lib/shopify/client";
 import { fetchShopName, listThemeFiles, listThemes } from "@/lib/shopify/themes";
@@ -247,13 +246,6 @@ export async function createShopifyProject(input: {
   const preview = await fetchThemePreviewHtml(conn, input.themeId, path);
   if (!preview.ok) return preview;
 
-  let parsed;
-  try {
-    parsed = parseHtmlTemplate(preview.html);
-  } catch {
-    return { ok: false, error: "Die Shop-Seite konnte nicht analysiert werden." };
-  }
-
   const supabase = await createClient();
   const { data: project, error: projectError } = await supabase
     .from("projects")
@@ -282,9 +274,7 @@ export async function createShopifyProject(input: {
 
   const { error: pageError } = await supabase.from("pages").insert({
     project_id: project.id,
-    template_html: parsed.templateHtml,
-    detected_elements: parsed.detectedElements,
-    content_state: parsed.contentState,
+    template_html: preview.html,
     original_filename: "shopify-vorschau.html",
   });
   if (pageError) {

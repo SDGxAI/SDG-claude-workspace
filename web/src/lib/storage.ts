@@ -13,10 +13,6 @@ export function isStorageRef(value: string): boolean {
   return value.startsWith(REF_PREFIX);
 }
 
-export function toStorageRef(path: string): string {
-  return `${REF_PREFIX}${path}`;
-}
-
 export function toStoragePath(ref: string): string {
   return ref.slice(REF_PREFIX.length);
 }

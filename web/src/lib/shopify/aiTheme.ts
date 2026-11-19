@@ -1,11 +1,6 @@
 import "server-only";
 import * as cheerio from "cheerio";
-import {
-  callClaude,
-  DEFAULT_AI_MODEL,
-  effortToBudget,
-  type Effort,
-} from "@/lib/ai/editHtml";
+import { askClaude, EFFORT, type Effort } from "@/lib/ai/claude";
 import type { Fail, ShopifyConnection } from "@/lib/shopify/client";
 import { listThemeFiles, readThemeFiles } from "@/lib/shopify/themes";
 import type { ShopifyFileMap } from "@/types/database";
@@ -215,14 +210,6 @@ export async function editShopifyThemeWithAI(input: {
   model?: string;
   effort?: Effort;
 }): Promise<ThemeEditResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return {
-      ok: false,
-      error:
-        "Die KI-Funktion ist noch nicht eingerichtet (KI-Schlüssel fehlt). Bitte im Hosting einen ANTHROPIC_API_KEY hinterlegen.",
-    };
-  }
 
   // 1) Relevante JSON-Dateien finden und laden.
   const listed = await listThemeFiles(input.conn, input.themeId, [
@@ -306,14 +293,13 @@ export async function editShopifyThemeWithAI(input: {
   }
 
   // 4) KI fragen.
-  const res = await callClaude(
-    apiKey,
-    SYSTEM_PROMPT,
-    context,
-    8000,
-    input.model?.trim() || DEFAULT_AI_MODEL,
-    effortToBudget(input.effort),
-  );
+  const res = await askClaude({
+    system: SYSTEM_PROMPT,
+    user: context,
+    maxTokens: 8000,
+    model: input.model,
+    effort: EFFORT[input.effort ?? "standard"],
+  });
   if (!res.ok) return res;
   if (res.truncated) {
     return { ok: false, error: "Die Änderung war zu umfangreich für einen Schritt. Bitte in kleinere Schritte aufteilen." };

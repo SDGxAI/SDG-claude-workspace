@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/actions/notifications";
 import { notifyAdminsOfComment } from "@/lib/commentAlerts";
-import type { CommentStatus } from "@/types/database";
+import type { CommentAnchor, CommentStatus } from "@/types/database";
 
 export type CommentActionResult = { ok: true } | { ok: false; error: string };
 
@@ -18,6 +18,8 @@ export async function addComment(input: {
   yPct: number;
   /** Shopify-Live-Ansicht: Seite im Shop (leer = Hauptseite des Projekts). */
   pagePath?: string | null;
+  /** Element, an dem der Kommentar hängt – so verrutscht er nicht. */
+  anchor?: CommentAnchor | null;
 }): Promise<CommentActionResult> {
   const body = input.body.trim();
   if (!body) return { ok: false, error: "Kommentar darf nicht leer sein." };
@@ -28,18 +30,26 @@ export async function addComment(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Nicht angemeldet." };
 
-  const { data: inserted, error } = await supabase
+  const row = {
+    page_id: input.pageId,
+    author_id: user.id,
+    body,
+    x_pct: clampPct(input.xPct),
+    y_pct: clampPct(input.yPct),
+    ...(input.pagePath ? { page_path: input.pagePath.slice(0, 500) } : {}),
+  };
+  const anchor = input.anchor
+    ? { sid: String(input.anchor.sid).slice(0, 40), dx: clamp01(input.anchor.dx), dy: clamp01(input.anchor.dy) }
+    : null;
+  let { data: inserted, error } = await supabase
     .from("comments")
-    .insert({
-      page_id: input.pageId,
-      author_id: user.id,
-      body,
-      x_pct: clampPct(input.xPct),
-      y_pct: clampPct(input.yPct),
-      ...(input.pagePath ? { page_path: input.pagePath.slice(0, 500) } : {}),
-    })
+    .insert({ ...row, ...(anchor ? { anchor } : {}) })
     .select("id")
     .single();
+  // Ohne die Spalte „anchor“ (SQL 0017 noch nicht ausgeführt) trotzdem speichern.
+  if (error && anchor) {
+    ({ data: inserted, error } = await supabase.from("comments").insert(row).select("id").single());
+  }
   if (error) {
     return {
       ok: false,
@@ -207,6 +217,10 @@ export async function deleteComment(
 
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
+}
+
+function clamp01(value: number): number {
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.5;
 }
 
 function clampPct(value: number): number {

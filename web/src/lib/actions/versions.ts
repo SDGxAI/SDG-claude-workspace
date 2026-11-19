@@ -38,7 +38,7 @@ async function buildCommentsSnapshot(
 ): Promise<StoredComment[]> {
   const { data: comments } = await client
     .from("comments")
-    .select("id, parent_id, author_id, body, x_pct, y_pct, status, created_at")
+    .select("*")
     .eq("page_id", pageId)
     .order("created_at", { ascending: true });
   if (!comments || comments.length === 0) return [];
@@ -72,6 +72,7 @@ async function buildCommentsSnapshot(
     body: c.body,
     xPct: Number(c.x_pct),
     yPct: Number(c.y_pct),
+    anchor: c.anchor ?? null,
     status: c.status,
     createdAt: c.created_at,
     authorEmail: emailOf(c.author_id),
@@ -351,6 +352,5 @@ export async function restoreVersion(
     return { ok: false, error: "Wiederherstellen fehlgeschlagen." };
   }
   revalidatePath(`/projects/${projectId}`);
-  revalidatePath(`/projects/${projectId}/editor`);
   return { ok: true };
 }

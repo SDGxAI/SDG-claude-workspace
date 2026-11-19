@@ -1,4 +1,4 @@
-# Kurzanleitung – SDG Landingpage-Editor
+# Kurzanleitung – SDG Sites
 
 Willkommen! Diese Anleitung erklärt in wenigen Schritten, wie du mit dem
 Editor arbeitest. Technisches Vorwissen ist nicht nötig.
@@ -26,30 +26,39 @@ zu öffnen.
 
 ## Bearbeiten (nur Editor/Admin)
 
-Klicke im Projekt auf **Bearbeiten**. Links siehst du:
+Alles passiert direkt auf der Projektseite – die Seite läuft in ihrem eigenen
+Fenster, rechts daneben stehen KI und Kommentare.
 
-- **Farben** – klicke auf das Farbfeld oder gib einen Farbwert ein; die
-  Vorschau rechts ändert sich sofort.
-- **Bilder** – klicke „Bild ersetzen" und wähle eine Datei von deinem
-  Rechner.
-- **Texte** – schreibe direkt in die Textfelder.
+- **Der erste Wurf** entsteht in Claude. Unter der Seite findest du „Mit
+  Claude verbinden": Damit holt sich Claude immer den aktuellen Stand der
+  Seite (inklusive aller Änderungen aus SDG Sites) und schiebt die neue
+  Fassung zurück.
+- **✏️ Bearbeiten** einschalten und dann
+  - auf einen **Text** klicken und einfach tippen (Enter speichert, Esc
+    verwirft),
+  - auf ein **Bild** klicken: „Bild ersetzen" und die **Ecken** wählen
+    (eckig bis rund). Bilder mit echten Menschen immer auf diesem Weg von
+    Hand einsetzen – nicht über die KI.
+- **✨ Mit KI ändern** (rechts oben): Schreibe, was sich ändern soll. Mit
+  „🎯 Stelle wählen" zeigst du der KI die Stelle – dann ist sie am
+  schnellsten. Jede KI-Änderung lässt sich mit „Zurücknehmen" rückgängig
+  machen.
+- **✨ Umsetzen** an einem Kommentar: Die KI setzt genau diesen Kommentar an
+  seiner Stelle um.
 
-Deine Änderungen werden **automatisch gespeichert** (oben links steht dann
-kurz „Gespeichert").
-
-**Rückgängig / Wiederholen:** mit den Pfeil-Buttons oben links oder den
-Tastenkürzeln Strg+Z bzw. Strg+Umschalt+Z.
-
-**Snapshots:** Mit „Snapshots" speicherst du einen benannten Stand (z. B.
-„Vor Farbanpassung") und kannst jederzeit dorthin zurückkehren.
+Änderungen werden **automatisch gespeichert** (oben rechts steht kurz
+„Gespeichert ✓"). Unter **🕘 Versionen** liegen die Sicherungen: vor jeder
+KI-Änderung, vor jedem Import aus Claude und einmal je Bearbeitungs-Sitzung.
+Dort kannst du ältere Stände ansehen und wiederherstellen.
 
 ## Feedback geben (Reviewer/Editor/Admin)
 
-Öffne ein Projekt (ohne Bearbeiten-Modus). Klicke auf **Kommentar
-hinzufügen** und dann auf die Stelle in der Vorschau, die du meinst – es
-erscheint ein nummerierter Pin, und du kannst deinen Kommentar schreiben.
-Rechts siehst du alle Kommentare, kannst antworten und Kommentare als
-„erledigt" markieren. Das funktioniert auch vom Handy aus.
+Klicke auf **💬 Kommentieren** und dann auf die Stelle der Seite, die du
+meinst – es erscheint ein nummerierter Pin, und du kannst deinen Kommentar
+schreiben. Der Pin hängt fest an diesem Element und bleibt dort, auch wenn
+sich die Seite ändert oder du zwischen Desktop und Mobil wechselst. Rechts
+siehst du alle Kommentare, kannst antworten und Kommentare als „erledigt"
+markieren. Ein Klick auf einen Kommentar springt zur Stelle.
 
 ## Exportieren (Editor/Admin)
 
