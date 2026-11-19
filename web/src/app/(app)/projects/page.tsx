@@ -47,8 +47,11 @@ export default async function ProjectsPage() {
     isShopify: shopifyIds.has(p.id),
   }));
 
-  const hour = new Date().toLocaleString("de-DE", { hour: "numeric", hour12: false, timeZone: "Europe/Berlin" });
-  const greeting = Number(hour) < 11 ? "Guten Morgen" : Number(hour) < 18 ? "Hallo" : "Guten Abend";
+  // Stunde in deutscher Zeit als reine Zahl (0–23).
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone: "Europe/Berlin" }).format(new Date()),
+  );
+  const greeting = hour >= 5 && hour < 11 ? "Guten Morgen" : hour >= 11 && hour < 18 ? "Hallo" : "Guten Abend";
   const openTotal = cards.reduce((n, c) => n + c.openComments, 0);
 
   return (
