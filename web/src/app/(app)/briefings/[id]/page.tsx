@@ -64,14 +64,11 @@ export default async function BriefingPage({ params }: { params: Promise<{ id: s
         <div className="space-y-5">
           <Card title="Produkt">
             <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-800">{b.product_info}</p>
-            <div className="mt-4 flex flex-wrap gap-2 text-sm">
-              {b.product_url && (
-                <a href={b.product_url} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-100 px-3 py-1.5 text-neutral-700 hover:text-sdg-red">
-                  🔗 Produktseite
-                </a>
-              )}
-              {b.keywords && <span className="rounded-full bg-neutral-100 px-3 py-1.5 text-neutral-700">🔍 {b.keywords}</span>}
-            </div>
+            {b.important && (
+              <p className="mt-4 rounded-2xl bg-sdg-red-light/60 px-4 py-3 text-sm text-neutral-800">
+                <strong>Was der Marke wichtig ist:</strong> {b.important}
+              </p>
+            )}
           </Card>
 
           <Card title="Text">
@@ -153,8 +150,7 @@ export default async function BriefingPage({ params }: { params: Promise<{ id: s
             title: b.title,
             status: b.status as BriefingStatus,
             productInfo: b.product_info,
-            productUrl: b.product_url,
-            keywords: b.keywords,
+            important: b.important,
             ownText: b.own_text,
             inspirationUrls: b.inspiration_urls,
             inspirationNote: b.inspiration_note,

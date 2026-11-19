@@ -16,6 +16,16 @@ interface Upload {
   stored?: BriefingFile;
 }
 
+/** Schnellauswahl für „Was ist dir wichtig?“. */
+const PRIORITIES = [
+  "Mehr Verkäufe",
+  "Marke bekannter machen",
+  "Große, emotionale Bilder",
+  "Viele Produktinfos",
+  "Saison- oder Aktionsseite",
+  "Gut auf dem Handy",
+];
+
 const input =
   "w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-[15px] text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-sdg-red focus:ring-4 focus:ring-sdg-red/10";
 
@@ -53,8 +63,8 @@ export function BriefingForm({ brands }: { brands: string[] }) {
   const [title, setTitle] = useState("");
   const [goLive, setGoLive] = useState("");
   const [productInfo, setProductInfo] = useState("");
-  const [productUrl, setProductUrl] = useState("");
-  const [keywords, setKeywords] = useState("");
+  const [priorities, setPriorities] = useState<string[]>([]);
+  const [importantNote, setImportantNote] = useState("");
   const [wantsAiText, setWantsAiText] = useState(true);
   const [ownText, setOwnText] = useState("");
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -82,7 +92,13 @@ export function BriefingForm({ brands }: { brands: string[] }) {
       const { error: upErr } = await createClient()
         .storage.from("briefings")
         .uploadToSignedUrl(prep.path, prep.token, u.file, { contentType: type });
-      if (upErr) throw new Error(`Upload fehlgeschlagen (${upErr.message}).`);
+      if (upErr) {
+        throw new Error(
+          /size|large|413/i.test(upErr.message)
+            ? "Zu groß für den Speicher – bitte per Transferlink schicken."
+            : `Upload fehlgeschlagen (${upErr.message}).`,
+        );
+      }
       patch(u.key, { state: "fertig", stored: { path: prep.path, name: u.file.name, type, size: u.file.size } });
     } catch (e) {
       patch(u.key, { state: "fehler", error: e instanceof Error ? e.message : "Upload fehlgeschlagen." });
@@ -113,8 +129,7 @@ export function BriefingForm({ brands }: { brands: string[] }) {
       title,
       goLive,
       productInfo,
-      productUrl,
-      keywords,
+      important: [priorities.join(" · "), importantNote.trim()].filter(Boolean).join(" – "),
       ownText,
       wantsAiText,
       files: uploads.flatMap((u) => (u.stored ? [u.stored] : [])),
@@ -198,18 +213,38 @@ export function BriefingForm({ brands }: { brands: string[] }) {
             className={`${input} resize-y`}
           />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Link zur Produktseite" optional>
-            <input value={productUrl} onChange={(e) => setProductUrl(e.target.value)} placeholder="https://…" className={input} />
-          </Field>
-          <Field label="Wichtige Suchbegriffe" optional>
-            <input
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              placeholder="z. B. Rutschauto ab 1 Jahr"
-              className={input}
-            />
-          </Field>
+        <div>
+          <span className="mb-1.5 flex items-center gap-2 text-sm font-medium text-neutral-700">
+            Was ist dir wichtig?
+            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-normal text-neutral-500">optional</span>
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {PRIORITIES.map((p) => {
+              const on = priorities.includes(p);
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setPriorities((list) => (on ? list.filter((x) => x !== p) : [...list, p]))}
+                  className={`rounded-full border px-3.5 py-2 text-sm transition ${
+                    on
+                      ? "border-sdg-red bg-sdg-red text-white shadow-sm"
+                      : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50"
+                  }`}
+                >
+                  {on ? "✓ " : ""}
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            value={importantNote}
+            onChange={(e) => setImportantNote(e.target.value)}
+            placeholder="Noch etwas? z. B. „Der Weihnachtsbezug soll klar rüberkommen“"
+            className={`${input} mt-3`}
+          />
         </div>
       </Step>
 

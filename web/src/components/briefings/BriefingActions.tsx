@@ -12,8 +12,7 @@ interface Briefing {
   title: string;
   status: BriefingStatus;
   productInfo: string;
-  productUrl: string | null;
-  keywords: string | null;
+  important: string | null;
   ownText: string | null;
   inspirationUrls: string[];
   inspirationNote: string | null;
@@ -27,7 +26,7 @@ function claudePrompt(b: Briefing): string {
     "",
     "Produktinfos:",
     b.productInfo,
-    b.productUrl ? `\nProduktseite: ${b.productUrl}` : "",
+    b.important ? `\nWas der Marke wichtig ist: ${b.important}` : "",
     b.aiText ? `\nVerwende diesen Text:\n\n${aiTextToPlain(b.aiText)}` : b.ownText ? `\nVerwende diesen Text:\n\n${b.ownText}` : "",
     b.inspirationUrls.length ? `\nInspiration: ${b.inspirationUrls.join(", ")}${b.inspirationNote ? ` – ${b.inspirationNote}` : ""}` : "",
     "",

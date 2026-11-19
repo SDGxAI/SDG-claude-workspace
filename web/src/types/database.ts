@@ -303,8 +303,7 @@ export interface Database {
           title: string;
           go_live: string | null;
           product_info: string;
-          product_url: string | null;
-          keywords: string | null;
+          important: string | null;
           own_text: string | null;
           wants_ai_text: boolean;
           files: BriefingFile[];
@@ -323,8 +322,7 @@ export interface Database {
           title: string;
           go_live?: string | null;
           product_info: string;
-          product_url?: string | null;
-          keywords?: string | null;
+          important?: string | null;
           own_text?: string | null;
           wants_ai_text?: boolean;
           files?: BriefingFile[];
