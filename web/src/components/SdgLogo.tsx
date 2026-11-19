@@ -17,3 +17,18 @@ export function SdgLogo({ className }: { className?: string }) {
     />
   );
 }
+
+/** Kleines SDG-Logo (S·D·G im roten Kasten) – für knappe Stellen. */
+export function SdgMark({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/sdg-logo-box.png"
+      alt="SDG"
+      width={1500}
+      height={514}
+      // Weißer Rand der Bilddatei verschmilzt mit dem hellen Hintergrund.
+      className={`mix-blend-multiply ${className ?? ""}`}
+    />
+  );
+}
