@@ -149,7 +149,7 @@ export default async function ProjectDetailPage({
 
         <div className="flex items-center gap-2">
           {access.isAdmin && <AnnounceButton projectId={id} />}
-          {access.canEdit && page && !isShopify && <ExportMenu projectId={id} />}
+          {page && !isShopify && <ExportMenu projectId={id} isAdmin={access.isAdmin} />}
           {access.isAdmin && (
             <DeleteProjectButton projectId={id} title={project.title} />
           )}

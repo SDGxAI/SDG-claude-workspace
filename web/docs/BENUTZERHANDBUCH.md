@@ -77,12 +77,13 @@ der Detailansicht können sie den Status setzen, mit **Text erstellen** den
 KI-Text erzeugen und mit **Für Claude kopieren** alles als fertige Anleitung
 für den ersten Wurf in Claude übernehmen.
 
-## Exportieren (Editor/Admin)
+## Exportieren
 
-Über **Exportieren** bekommst du die fertige Seite als Datei:
-
-- **Als HTML-Datei** – eine einzelne Datei mit allen Bildern darin
-- **Als ZIP-Archiv** – die HTML-Datei plus einen Ordner mit den Bildern
+- **Als HTML herunterladen** – alle, die das Projekt sehen dürfen (auch
+  Viewer): eine einzelne Datei mit allen Bildern darin, die sich per
+  Doppelklick im Browser öffnen lässt.
+- **Als ZIP-Archiv** – nur Admins: die HTML-Datei plus einen Ordner mit den
+  Bildern.
 
 ## Fragen?
 
