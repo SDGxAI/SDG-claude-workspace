@@ -4,6 +4,11 @@ import { listNotifications } from "@/lib/actions/notifications";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PresencePinger } from "@/components/PresencePinger";
 
+// Einheitliche Server-Einstellung für alle Seiten der App (Projektseite und
+// KI brauchen bis zu 60 s). So laufen die Seiten auf derselben warmen
+// Server-Instanz, die auch /api/health wach hält.
+export const maxDuration = 60;
+
 /**
  * Layout für alle eingeloggten Bereiche: prüft die Session und lädt das
  * Profil (E-Mail, Admin-Flag) für die Kopfzeile. Nicht eingeloggte

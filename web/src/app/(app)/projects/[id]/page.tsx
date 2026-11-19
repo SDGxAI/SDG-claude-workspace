@@ -20,7 +20,6 @@ import {
 } from "@/components/comments/CommentablePreview";
 import { PageStudio } from "@/components/studio/PageStudio";
 import { brandGradient } from "@/lib/ui/brandColor";
-import { defaultModel, listModels } from "@/lib/ai/claude";
 import { loadPage } from "@/lib/page/store";
 import type { ContentState, DetectedElement } from "@/types/database";
 
@@ -47,15 +46,12 @@ export default async function ProjectDetailPage({
   if (!project) notFound();
 
   const isShopify = project.source === "shopify";
-  const useAi = !isShopify && access.canEdit;
   let shopInfo: { name: string; domain: string } | null = null;
   let previewHtml =
     "<p style=\"font-family:sans-serif;padding:2rem\">Keine Seite vorhanden.</p>";
   let threads: CommentThread[] = [];
   let currentUserEmail = "";
   let versions: VersionMeta[] = [];
-  let models: { id: string; label: string }[] = [];
-  let aiModel = "";
 
   // Seiteninhalt für die Anzeige (Shopify: Vorschau-Stand, sonst eine HTML-Datei).
   const loadHtml = async (): Promise<string | null> => {
@@ -73,7 +69,7 @@ export default async function ProjectDetailPage({
 
   if (page) {
     // Alles Übrige gleichzeitig laden – jede Wartezeit nur einmal.
-    const [conn, html, { data: comments }, { data: profiles }, currentProfile, versionList, ai] = await Promise.all([
+    const [conn, html, { data: comments }, { data: profiles }, currentProfile, versionList] = await Promise.all([
       isShopify && project.shopify_connection_id
         ? createAdminClient()
             .from("shopify_connections")
@@ -87,11 +83,9 @@ export default async function ProjectDetailPage({
       supabase.from("profiles").select("id, email"),
       getCurrentProfile(),
       listVersions(page.id),
-      useAi ? Promise.all([listModels(), defaultModel()]) : Promise.resolve(null),
     ]);
     if (conn) shopInfo = { name: conn.name, domain: conn.shop_domain };
     if (html) previewHtml = html;
-    if (ai) [models, aiModel] = ai;
     versions = versionList;
 
     currentUserEmail = currentProfile?.email ?? "";
@@ -188,8 +182,6 @@ export default async function ProjectDetailPage({
             canComment={access.canComment}
             canEdit={access.canEdit}
             currentUserEmail={currentUserEmail}
-            models={models}
-            defaultModel={aiModel}
           />
         ) : page ? (
           <CommentablePreview
