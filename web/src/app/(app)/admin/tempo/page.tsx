@@ -24,7 +24,11 @@ export default async function TempoPage() {
   };
 
   const supabase = await createClient();
-  await time("Anmeldung prüfen (Supabase Auth)", () => supabase.auth.getUser());
+  await time("Anmeldung prüfen (schnelle Prüfung)", () => supabase.auth.getClaims(), (r) => {
+    const alg = r.data?.header?.alg ?? "?";
+    return alg.startsWith("HS") ? `${alg} – mit Rückfrage beim Anmeldedienst` : `${alg} – direkt geprüft`;
+  });
+  await time("Anmeldung prüfen (alte Methode, zum Vergleich)", () => supabase.auth.getUser());
   await time("Einfache Datenbank-Abfrage", () => supabase.from("profiles").select("id").limit(1));
   const { data: project } = await time(
     "Projektliste laden",

@@ -21,13 +21,25 @@ export interface AppProfile {
   avatar_url: string | null;
 }
 
-/** Eingeloggte Person (validiert via Supabase Auth) – 1 Roundtrip/Request. */
-export const getCurrentUser = cache(async () => {
+/**
+ * Eingeloggte Person – geprüfte Anmeldung aus dem Zugangs-Token. Bei
+ * Supabase-Projekten mit modernen Schlüsseln ohne Rückfrage beim
+ * Anmeldedienst (schneller), sonst mit Rückfrage wie bisher.
+ */
+export const getCurrentUser = cache(async (): Promise<{ id: string; email: string | null } | null> => {
   const supabase = await createClient();
+  try {
+    const { data } = await supabase.auth.getClaims();
+    const claims = data?.claims;
+    if (claims?.sub) return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
+  } catch {
+    /* Rückfall unten */
+  }
+  // Rückfall: Anmeldedienst direkt fragen (wie früher).
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user;
+  return user ? { id: user.id, email: user.email ?? null } : null;
 });
 
 /** Profil der eingeloggten Person – 1 Roundtrip/Request, überall wiederverwendbar. */
