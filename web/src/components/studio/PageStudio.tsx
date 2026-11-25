@@ -22,6 +22,7 @@ import {
 } from "@/lib/actions/versions";
 import { prepareImageForUpload } from "@/lib/images/prepareUpload";
 import { withBlankLinks } from "@/lib/html/previewLinks";
+import { formatBytes } from "@/lib/briefing";
 import type { Patch } from "@/lib/page/html";
 import type { CommentAnchor, PageVersionSource } from "@/types/database";
 import { StudioSidebar, type AiLogEntry, type Thread } from "./StudioSidebar";
@@ -683,6 +684,11 @@ export function PageStudio(props: Props) {
                       {v.authorEmail ? ` · ${v.authorEmail}` : ""}
                     </div>
                   </div>
+                  {v.sizeBytes ? (
+                    <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 font-mono text-[11px] text-neutral-500" title="Größe dieser Version">
+                      {formatBytes(v.sizeBytes)}
+                    </span>
+                  ) : null}
                   <button onClick={() => openVersion(v)} disabled={busy} className="text-xs font-medium text-sdg-red hover:underline">
                     Ansehen
                   </button>
