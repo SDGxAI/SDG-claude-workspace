@@ -6,6 +6,9 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "15mb",
     },
+    // MiniCMS-Export: Twig.js (Prüfung der Vorlage) und sharp (WebP → PNG/JPG)
+    // nicht bündeln, sondern direkt aus node_modules laden.
+    serverComponentsExternalPackages: ["twig", "sharp"],
   },
 };
 
