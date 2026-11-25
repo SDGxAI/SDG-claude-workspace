@@ -19,7 +19,11 @@ const GENERIC_FONTS = new Set([
   "unset", "revert", "-apple-system", "blinkmacsystemfont", "segoe ui", "roboto", "helvetica",
   "helvetica neue", "arial", "sans", "georgia", "times", "times new roman", "verdana", "tahoma",
   "trebuchet ms", "courier", "courier new", "menlo", "consolas", "monaco", "apple color emoji", "segoe ui emoji", "noto color emoji",
+  "ubuntu", "cantarell", "noto sans", "oxygen", "oxygen-sans", "fira sans", "droid sans", "liberation sans",
 ]);
+
+/** Schriften, die das MiniCMS selbst bereitstellt (/d2s_managed/, z. B. im Kawaii-Projekt). */
+const MINICMS_FONTS = new Set(["quicksand"]);
 
 export function prefixClass(token: string, name: string): string {
   return name.startsWith(`${token}__`) || name === token ? name : `${token}__${name}`;
@@ -193,10 +197,10 @@ export function transformCss(
     }
     if (prop === "font-family" || prop === "font") {
       const families = prop === "font" ? value.split(/\d(?:px|rem|em|%)?(?:\/[\d.]+\w*)?\s+/).pop() ?? "" : value;
-      for (const f of families.split(",")) {
-        const name = f.trim().replace(/^['"]|['"]$/g, "");
-        if (name && !name.startsWith("var(") && !GENERIC_FONTS.has(name.toLowerCase())) fonts.add(name);
-      }
+      // nur die Hauptschrift zählt – der Rest der Liste sind Ersatzschriften
+      const name = (families.split(",")[0] ?? "").trim().replace(/^['"]|['"]$/g, "");
+      if (name && !name.startsWith("var(") && !GENERIC_FONTS.has(name.toLowerCase()) && !MINICMS_FONTS.has(name.toLowerCase()))
+        fonts.add(name);
     }
     decl.value = value;
   });
