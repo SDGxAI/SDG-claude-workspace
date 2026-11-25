@@ -21,6 +21,7 @@ const ICONS: Record<string, string> = {
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   menu: "M4 6h16M4 12h16M4 18h16",
   speed: "M12 14l4-4M3.3 17a9 9 0 1 1 17.4 0",
+  storage: "M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3",
   close: "M6 6l12 12M18 6 6 18",
   collapse: "M3 4h18v16H3zM9 4v16M16 10l-2 2 2 2",
   expand: "M3 4h18v16H3zM9 4v16M14 10l2 2-2 2",
@@ -129,6 +130,7 @@ export function AppSidebar({ name, email, isAdmin, avatarUrl, notifications }: P
           <nav className="space-y-1">
             {item("/admin/users", "Nutzer & Rechte", "users", compact)}
             {item("/admin/shopify", "Shopify", "shop", compact)}
+            {item("/admin/speicher", "Speicher", "storage", compact)}
             {item("/admin/tempo", "Tempo-Check", "speed", compact)}
           </nav>
         </>

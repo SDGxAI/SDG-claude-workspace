@@ -7,6 +7,7 @@ import { renderHtml } from "@/lib/html/render";
 import { resolveImages } from "@/lib/storage";
 import { getProjectAccess } from "@/lib/access";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { prunableVersions } from "@/lib/page/retention";
 import {
   externalizeInlineImages,
   hasLargeInlineImages,
@@ -93,6 +94,24 @@ export interface VersionMeta {
   source: PageVersionSource;
   createdAt: string;
   authorEmail: string | null;
+  /** Größe der Version in Bytes (nach SQL 0019, sonst null). */
+  sizeBytes: number | null;
+}
+
+/** Alte automatische Versionen einer Seite löschen (läuft beim Sichern mit). */
+async function pruneOldVersions(pageId: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("page_versions")
+      .select("id, source, created_at")
+      .eq("page_id", pageId)
+      .order("version_no", { ascending: false });
+    const ids = prunableVersions(data ?? []);
+    if (ids.length) await admin.from("page_versions").delete().in("id", ids);
+  } catch {
+    /* Aufräumen ist Beiwerk – nie blockierend. */
+  }
 }
 
 // Deckt sowohl den Session-Client (SSR) als auch den Admin-Client
@@ -151,6 +170,7 @@ export async function archiveCurrentAsVersion(
   if (error) {
     return { ok: false, error: "Version konnte nicht gespeichert werden." };
   }
+  await pruneOldVersions(pageId);
   return { ok: true, versionNo };
 }
 
@@ -181,13 +201,22 @@ export async function saveVersion(
 /** Liste der Versionen einer Seite (neueste zuerst), nur Metadaten. */
 export async function listVersions(pageId: string): Promise<VersionMeta[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("page_versions")
-    .select("id, version_no, label, source, created_at, created_by")
-    .eq("page_id", pageId)
-    .order("version_no", { ascending: false });
+  const base = "id, version_no, label, source, created_at, created_by";
+  const query = (cols: string) =>
+    supabase.from("page_versions").select(cols).eq("page_id", pageId).order("version_no", { ascending: false });
+  // Mit Größe (SQL 0019); fehlt die Spalte noch, ohne.
+  let { data, error } = await query(`${base}, size_bytes`);
+  if (error) ({ data, error } = await query(base));
 
-  const rows = data ?? [];
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    version_no: number;
+    label: string | null;
+    source: string;
+    created_at: string;
+    created_by: string | null;
+    size_bytes?: number | null;
+  }[];
   const authorIds = [
     ...new Set(rows.map((r) => r.created_by).filter((v): v is string => !!v)),
   ];
@@ -207,6 +236,7 @@ export async function listVersions(pageId: string): Promise<VersionMeta[]> {
     source: r.source as PageVersionSource,
     createdAt: r.created_at,
     authorEmail: r.created_by ? emailById.get(r.created_by) ?? null : null,
+    sizeBytes: typeof r.size_bytes === "number" ? r.size_bytes : null,
   }));
 }
 

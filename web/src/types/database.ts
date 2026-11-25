@@ -276,6 +276,8 @@ export interface Database {
           created_by: string | null;
           created_at: string;
           shopify_files?: ShopifyFileMap | null;
+          /** Größe in Bytes, von der Datenbank berechnet (SQL 0019). */
+          size_bytes?: number | null;
         };
         Insert: {
           id?: string;

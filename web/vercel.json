@@ -1,5 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["lhr1"],
-  "fluid": true
+  "regions": [
+    "lhr1"
+  ],
+  "fluid": true,
+  "git": {
+    "deploymentEnabled": {
+      "claude/sdg-landing-page-app-7mnnco": false
+    }
+  }
 }
