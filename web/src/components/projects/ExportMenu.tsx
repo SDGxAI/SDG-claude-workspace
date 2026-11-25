@@ -27,7 +27,7 @@ export function ExportMenu({ projectId, isAdmin }: { projectId: string; isAdmin:
         ⬇ Exportieren ▾
       </button>
       {open && (
-        <div className="absolute right-0 z-10 mt-2 w-64 rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl">
+        <div className="absolute right-0 z-10 mt-2 w-72 rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl">
           <a href={html} className="block rounded-xl px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50">
             <span className="font-medium">Als HTML-Datei</span>
             <span className="block text-xs text-neutral-400">Eine Datei, Bilder eingebettet – für alle</span>
@@ -35,6 +35,10 @@ export function ExportMenu({ projectId, isAdmin }: { projectId: string; isAdmin:
           <a href={`/projects/${projectId}/export?format=zip`} className="block rounded-xl px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50">
             <span className="font-medium">Als ZIP-Archiv</span>
             <span className="block text-xs text-neutral-400">HTML + Bilder-Ordner – nur für Admins</span>
+          </a>
+          <a href={`/projects/${projectId}/export?format=twig`} className="block rounded-xl px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50">
+            <span className="font-medium">Für die Agentur (Twig)</span>
+            <span className="block text-xs text-neutral-400">.twig-Vorlage + Bilder, CSS, JS als eigene Dateien – fürs MiniCMS</span>
           </a>
         </div>
       )}

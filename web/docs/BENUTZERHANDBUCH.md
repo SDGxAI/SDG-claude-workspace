@@ -84,6 +84,10 @@ für den ersten Wurf in Claude übernehmen.
   Doppelklick im Browser öffnen lässt.
 - **Als ZIP-Archiv** – nur Admins: die HTML-Datei plus einen Ordner mit den
   Bildern.
+- **Für die Agentur (Twig)** – nur Admins: ein ZIP fürs MiniCMS der Agentur
+  mit einer `.twig`-Vorlage und einem `assets`-Ordner (Bilder, CSS, JavaScript
+  als eigene Dateien, geladen über `{{ asset('…') }}`). Kann so direkt an die
+  Agentur gehen.
 
 ## Fragen?
 
