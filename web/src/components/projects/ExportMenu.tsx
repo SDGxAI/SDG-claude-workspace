@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { MiniCmsExport } from "@/components/projects/MiniCmsExport";
 
 const button =
   "inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50";
 
 /**
  * Seite herunterladen: als HTML-Datei für alle (zum Anschauen im Browser),
- * zusätzlich als ZIP-Archiv nur für Admins.
+ * zusätzlich als ZIP-Archiv und im MiniCMS-Format für die Agentur – nur Admins.
  */
 export function ExportMenu({ projectId, isAdmin }: { projectId: string; isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
+  const [miniCms, setMiniCms] = useState(false);
   const html = `/projects/${projectId}/export?format=html`;
 
   if (!isAdmin) {
@@ -36,12 +38,20 @@ export function ExportMenu({ projectId, isAdmin }: { projectId: string; isAdmin:
             <span className="font-medium">Als ZIP-Archiv</span>
             <span className="block text-xs text-neutral-400">HTML + Bilder-Ordner – nur für Admins</span>
           </a>
-          <a href={`/projects/${projectId}/export?format=twig`} className="block rounded-xl px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50">
-            <span className="font-medium">Für die Agentur (Twig)</span>
-            <span className="block text-xs text-neutral-400">.twig-Vorlage + Bilder, CSS, JS als eigene Dateien – fürs MiniCMS</span>
-          </a>
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setOpen(false);
+              setMiniCms(true);
+            }}
+            className="block w-full rounded-xl px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50"
+          >
+            <span className="font-medium">Für die Agentur (MiniCMS)</span>
+            <span className="block text-xs text-neutral-400">Fertiges Projekt im MiniCMS-Format, DE/EN/FR, mit Prüfung</span>
+          </button>
         </div>
       )}
+      {miniCms && <MiniCmsExport projectId={projectId} onClose={() => setMiniCms(false)} />}
     </div>
   );
 }
