@@ -46,8 +46,8 @@ export function ExportMenu({ projectId, isAdmin }: { projectId: string; isAdmin:
             }}
             className="block w-full rounded-xl px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50"
           >
-            <span className="font-medium">Für die Agentur (MiniCMS)</span>
-            <span className="block text-xs text-neutral-400">Fertiges Projekt im MiniCMS-Format, DE/EN/FR, mit Prüfung</span>
+            <span className="font-medium">MiniCMS-Entwurf</span>
+            <span className="block text-xs text-neutral-400">Vorstufe fürs MiniCMS mit Prüfung – nicht direkt an die Agentur</span>
           </button>
         </div>
       )}
