@@ -74,9 +74,9 @@ export function MiniCmsExport({ projectId, onClose }: { projectId: string; onClo
       <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-neutral-100 px-6 py-5">
           <div>
-            <h2 className="text-lg font-bold text-neutral-900">Export für die Agentur (MiniCMS)</h2>
+            <h2 className="text-lg font-bold text-neutral-900">MiniCMS-Entwurf</h2>
             <p className="mt-0.5 text-sm text-neutral-500">
-              Ordner mit content.twig, CSS, JS, Texten in DE/EN/FR und Bildern – so, wie die Agentur es braucht.
+              Automatisch umgebaute Vorstufe mit Texten in DE/EN/FR. Für die Agentur wird daraus noch ein sauberes Quellprojekt (Twig, SCSS, JS) gebaut.
             </p>
           </div>
           <button onClick={onClose} aria-label="Schließen" className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700">
@@ -113,13 +113,13 @@ export function MiniCmsExport({ projectId, onClose }: { projectId: string; onClo
               >
                 <p className="font-semibold">
                   {errors
-                    ? `Noch nicht an die Agentur schicken – ${errors} ${errors === 1 ? "Punkt muss" : "Punkte müssen"} vorher erledigt werden.`
+                    ? `${errors} ${errors === 1 ? "Punkt muss" : "Punkte müssen"} noch erledigt werden.`
                     : warnings
-                      ? "Fertig – bitte die gelben Punkte kurz prüfen, dann kann es an die Agentur."
-                      : "Fertig und geprüft – bereit für die Agentur."}
+                      ? "Entwurf fertig – bitte die gelben Punkte prüfen."
+                      : "Entwurf fertig und geprüft."}
                 </p>
                 <p className="mt-1 opacity-80">
-                  Nach der Abnahme durch die D2S kann nichts mehr geändert werden. Deshalb nur fertige Seiten schicken.
+                  Nicht direkt an die Agentur schicken: Sie braucht echte Quelldateien (Twig mit Daten und Schleifen, SCSS, sauberes JS). Die baut Claude aus diesem Entwurf als eigenes MiniCMS-Projekt.
                 </p>
               </div>
 
